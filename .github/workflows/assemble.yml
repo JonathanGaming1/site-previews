@@ -9,10 +9,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cat _import/1.part _import/2.part _import/3.part > _import/test.html
-      - run: |
+      - name: Assemble template
+        run: |
+          sed -i 's/btn Fg/btnFg/' _import/3.part
+          sed -i 's|^    var rb = doc.getElementById("rateBig");|    txt(doc.getElementById("rateBig"), "");\n    var rb = doc.getElementById("rateBig");|' _import/3.part
+          cat _import/1.part _import/2.part _import/3.part > ultra-obsidian-template.html
+      - name: Clean up and commit
+        run: |
+          rm -rf _import
+          rm -f .github/workflows/assemble.yml
           git config user.name site-previews-bot
           git config user.email bot@users.noreply.github.com
           git add -A
-          git commit -m '[skip ci] assemble result'
+          git commit -m '[skip ci] assemble ultra-obsidian-template.html'
           git push
