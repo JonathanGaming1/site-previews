@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#f4efe6">
+<meta name="description" content="אתר תדמית מקצועי לעסק">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="he_IL">
+<meta property="og:site_name" content="אתר תדמית">
+<meta property="og:title" content="אתר תדמית מקצועי לעסק">
+<meta property="og:description" content="אתר תדמית מקצועי לעסק">
+<meta property="og:image" content="">
+<title>אתר תדמית מקצועי לעסק</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700;900&family=Assistant:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ATELIER — editorial luxury, single file, zero build.
+   Every colour, string and image comes from siteData below.
+   ============================================================ */
+:root{
+  --paper:#f4efe6;
+  --paper-2:#efe8db;
+  --paper-3:#e8dfcf;
+  --ink:#141110;
+  --ink-2:#2b2521;
+  --ink-soft:#4b423a;
+  --muted:#7d7166;
+  --line:rgba(20,17,14,.13);
+  --line-strong:rgba(20,17,14,.3);
+
+  /* accent is injected from siteData.accentColor */
+  --accent:#b08d3f;
+  --accent-color:#b08d3f;
+  --accent-rgb:176,141,63;
+  --accent-ink:#8a6a24;
+  --accent-soft:rgba(176,141,63,.12);
+  --accent-line:rgba(176,141,63,.4);
+  --on-accent:#fdfaf4;
+
+  --font-display:"Frank Ruhl Libre","Heebo",Georgia,serif;
+  --font-sans:"Assistant","Heebo",system-ui,-apple-system,"Segoe UI",sans-serif;
+
+  --pad:clamp(18px,4.2vw,46px);
+  --sec-y:clamp(58px,8.5vw,118px);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+@supports (color:color-mix(in oklab,#000,#fff)){
+  :root{
+    --accent-ink:color-mix(in oklab,var(--accent) 58%,#141110);
+    --accent-soft:color-mix(in oklab,var(--accent) 14%,#f4efe6);
+    --accent-line:color-mix(in oklab,var(--accent) 46%,#f4efe6);
+  }
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--font-sans);font-size:16px;line-height:1.68;
+  font-weight:400;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(1100px 640px at 88% -8%,rgba(var(--accent-rgb),.13),transparent 62%),
+    radial-gradient(760px 520px at -6% 26%,rgba(var(--accent-rgb),.07),transparent 60%);
+}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+h1,h2,h3,h4,p,ul,ol,figure,blockquote{margin:0}
+ul,ol{list-style:none;padding:0}
+::selection{background:rgba(var(--accent-rgb),.26);color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent-ink);outline-offset:3px}
+.wrap{width:100%;max-width:1200px;margin-inline:auto;padding-inline:var(--pad);position:relative;z-index:1}
+.display{font-family:var(--font-display);font-weight:500;line-height:1.06;letter-spacing:-.018em}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+/* ---------------- top bar ---------------- */
+.topbar{
+  position:sticky;top:0;z-index:60;
+  background:rgba(244,239,230,.86);
+  -webkit-backdrop-filter:blur(16px) saturate(120%);
+  backdrop-filter:blur(16px) saturate(120%);
+  border-bottom:1px solid var(--line);
+}
+.topbar-in{display:flex;align-items:center;gap:14px;min-height:74px}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.mark{
+  position:relative;display:grid;place-items:center;flex:0 0 auto;
+  width:36px;height:36px;border-radius:4px;
+  border:1px solid var(--line-strong);background:var(--paper-2);
+  font-family:var(--font-display);font-size:1.08rem;font-weight:700;color:var(--accent-ink);
+}
+.mark::after{content:"";position:absolute;inset:3px;border:1px solid var(--accent-line);border-radius:2px}
+.brand-name{
+  font-family:var(--font-display);font-weight:700;font-size:1.16rem;
+  letter-spacing:.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw;
+}
+.nav{display:none;gap:clamp(14px,2vw,30px);margin-inline-start:auto}
+@media (min-width:920px){.nav{display:flex}}
+.nav a{
+  position:relative;font-size:.83rem;font-weight:500;letter-spacing:.05em;
+  color:var(--ink-soft);padding-block:8px;transition:color .25s;
+}
+.nav a::after{
+  content:"";position:absolute;bottom:2px;inset-inline-start:0;height:1px;width:0;
+  background:var(--accent);transition:width .4s var(--ease);
+}
+.nav a:hover{color:var(--ink)}
+.nav a:hover::after{width:100%}
+.topbar-tel{
+  display:inline-flex;align-items:center;gap:8px;margin-inline-start:auto;
+  border:1px solid var(--line-strong);border-radius:999px;
+  padding:9px 16px;font-size:.85rem;font-weight:600;letter-spacing:.02em;
+  transition:background .3s,border-color .3s,color .3s;
+}
+@media (min-width:920px){.topbar-tel{margin-inline-start:clamp(10px,2vw,26px)}}
+.topbar-tel:hover{background:var(--ink);border-color:var(--ink);color:var(--paper)}
+.topbar-tel svg{width:15px;height:15px;flex:0 0 auto}
+@media (max-width:560px){.topbar-tel span{display:none}.topbar-tel{padding:10px;border-radius:50%}}
+
+/* ---------------- hero ---------------- */
+.hero{padding-top:clamp(30px,5vw,66px);padding-bottom:0;position:relative;z-index:1}
+.hero-wrap{
+  display:grid;gap:clamp(28px,4vw,56px);align-items:end;
+  grid-template-columns:1fr;
+}
+@media (min-width:900px){
+  .hero-wrap{grid-template-columns:1.06fr .94fr;gap:clamp(30px,4.4vw,70px)}
+}
+.kicker{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:.79rem;font-weight:600;letter-spacing:.13em;color:var(--accent-ink);
+  text-transform:uppercase;
+}
+.kicker::before{content:"";width:26px;height:1px;background:var(--accent);display:block}
+.hero-h1{
+  font-size:clamp(2.35rem,6.4vw,4.35rem);
+  margin-top:clamp(14px,2vw,22px);font-weight:500;
+  text-wrap:balance;
+}
+.hero-h1 em{
+  font-style:normal;display:inline;position:relative;color:var(--accent-ink);
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+}
+.hero-h1 em::after{
+  content:"";position:absolute;inset-inline:-2px;bottom:.06em;height:.34em;
+  background:rgba(var(--accent-rgb),.16);z-index:-1;border-radius:2px;
+}
+.hero-sub{
+  margin-top:clamp(16px,2.2vw,24px);max-width:44ch;
+  font-size:clamp(1rem,1.4vw,1.1rem);color:var(--ink-soft);font-weight:300;line-height:1.78;
+}
+.hero-actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:clamp(24px,3vw,34px)}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  border-radius:3px;padding:15px 26px;font-size:.94rem;font-weight:600;letter-spacing:.01em;
+  border:1px solid transparent;transition:transform .35s var(--ease),background .3s,color .3s,border-color .3s;
+  will-change:transform;
+}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.btn-primary:hover{background:var(--ink-2);transform:translateY(-2px)}
+.btn-ghost{color:var(--ink);border-color:transparent;padding-inline:4px;border-bottom:1px solid var(--line-strong);border-radius:0}
+.btn-ghost:hover{border-color:var(--accent);color:var(--accent-ink)}
+.btn-accent{background:var(--accent);color:var(--on-accent)}
+.btn-accent:hover{filter:brightness(.94);transform:translateY(-2px)}
+.btn-outline{border-color:rgba(244,239,230,.34);color:var(--paper)}
+.btn-outline:hover{background:rgba(244,239,230,.1);border-color:rgba(244,239,230,.6)}
+.hero-meta{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;
+  margin-top:clamp(24px,3vw,36px);padding-top:18px;border-top:1px solid var(--line);
+}
+.chip{
+  display:inline-flex;align-items:center;gap:7px;
+  background:var(--accent-soft);border:1px solid var(--accent-line);
+  color:var(--accent-ink);font-size:.82rem;font-weight:600;
+  padding:5px 12px;border-radius:999px;line-height:1.5;
+}
+.chip i{font-style:normal;color:var(--accent);font-size:.9rem;line-height:1}
+.chip b{font-weight:600}
+.meta-item{display:inline-flex;align-items:baseline;gap:7px;font-size:.85rem;color:var(--ink-soft)}
+.meta-k{font-size:.72rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase}
+.hero-fig{position:relative;margin:0}
+.hero-frame{
+  position:relative;overflow:hidden;border-radius:4px;
+  background:linear-gradient(150deg,var(--paper-3),var(--paper-2) 60%,var(--paper));
+  aspect-ratio:4/5;
+}
+@media (min-width:900px){.hero-frame{aspect-ratio:4/4.9}}
+.hero-frame::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(20,17,14,.09);
+  background:linear-gradient(180deg,transparent 52%,rgba(20,17,14,.42));
+}
+.hero-frame img{width:100%;height:100%;object-fit:cover;transition:transform 1.4s var(--ease),opacity .4s}
+.hero-frame:hover img{transform:scale(1.035)}
+.hero-frame img.is-broken{opacity:0}
+.hero-tag{
+  position:absolute;bottom:16px;inset-inline-start:16px;z-index:2;
+  background:rgba(244,239,230,.94);color:var(--ink);
+  font-size:.75rem;font-weight:600;letter-spacing:.06em;
+  padding:7px 13px;border-radius:2px;border:1px solid rgba(20,17,14,.08);
+}
+.fig-note{
+  display:block;margin-top:12px;font-family:var(--font-display);
+  font-size:.9rem;letter-spacing:.02em;color:var(--muted);
+}
+.hero-fig::before{
+  content:"";position:absolute;top:-12px;inset-inline-end:-12px;
+  width:56%;height:56%;border-top:1px solid var(--accent-line);border-inline-end:1px solid var(--accent-line);
+  border-start-end-radius:4px;pointer-events:none;
+}
+@media (max-width:899px){.hero-fig::before{display:none}}
+
+/* ticker */
+.ticker{
+  margin-top:clamp(38px,5vw,64px);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  overflow:hidden;position:relative;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+}
+.ticker-track{display:flex;width:max-content;animation:slide 42s linear infinite}
+.ticker:hover .ticker-track{animation-play-state:paused}
+.ticker-set{display:flex;align-items:center;gap:34px;padding:15px 17px;flex:0 0 auto}
+.ticker-set span{
+  font-family:var(--font-display);font-size:.98rem;letter-spacing:.03em;color:var(--ink-soft);white-space:nowrap;
+}
+.ticker-set i{
+  width:5px;height:5px;border-radius:50%;background:var(--accent-line);display:block;flex:0 0 auto;
+}
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.ticker-track{animation:none}}
+
+/* ---------------- sections ---------------- */
+.sec{padding-block:var(--sec-y);position:relative;z-index:1}
+.sec + .sec{padding-top:0}
+.sec-head{display:grid;gap:10px 34px;align-items:baseline;grid-template-columns:1fr;margin-bottom:clamp(26px,4vw,48px)}
+@media (min-width:860px){
+  .sec-head{grid-template-columns:auto minmax(0,1fr) minmax(0,.92fr)}
+}
+.sec-n{
+  font-family:var(--font-display);font-size:.86rem;color:var(--accent-ink);
+  letter-spacing:.12em;padding-top:.5em;
+}
+.sec-head h2{font-size:clamp(1.72rem,3.6vw,2.62rem);font-weight:500;max-width:22ch;text-wrap:balance}
+.sec-intro{
+  font-size:clamp(.95rem,1.25vw,1.04rem);color:var(--muted);font-weight:300;
+  line-height:1.8;max-width:52ch;
+}
+@media (min-width:860px){.sec-intro{padding-top:.35em}}
+
+/* about */
+.about-grid{display:grid;gap:clamp(26px,4vw,54px);grid-template-columns:1fr;border-top:1px solid var(--line);padding-top:clamp(24px,3.4vw,40px)}
+@media (min-width:900px){.about-grid{grid-template-columns:minmax(0,1.42fr) minmax(0,.58fr)}}
+.lead{
+  font-family:var(--font-display);font-weight:400;
+  font-size:clamp(1.14rem,1.95vw,1.5rem);line-height:1.62;letter-spacing:-.006em;color:var(--ink-2);
+}
+.lead::first-letter{
+  float:inline-start;font-size:3.1em;line-height:.82;padding-inline-end:.09em;padding-top:.06em;color:var(--accent-ink);
+}
+.fact-card{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--line-strong)}
+.fact{
+  display:flex;align-items:baseline;justify-content:space-between;gap:14px;
+  padding-block:12px;border-bottom:1px solid var(--line);
+}
+.fact-k{font-size:.74rem;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;flex:0 0 auto}
+.fact-v{font-size:.9rem;font-weight:500;text-align:end;color:var(--ink)}
+a.fact-v:hover{color:var(--accent-ink);text-decoration:underline;text-underline-offset:3px}
+
+/* services */
+.svc-list{border-top:1px solid var(--line-strong)}
+.svc{
+  display:grid;gap:4px 22px;align-items:baseline;
+  grid-template-columns:auto 1fr auto;
+  grid-template-areas:"num title arrow" "num desc arrow";
+  padding-block:clamp(18px,2.4vw,26px);
+  border-bottom:1px solid var(--line);
+  position:relative;transition:background .4s var(--ease);
+}
+.svc::before{
+  content:"";position:absolute;inset:0;background:var(--accent-soft);
+  opacity:0;transition:opacity .4s var(--ease);pointer-events:none;
+}
+.svc:hover::before{opacity:1}
+.svc-n{
+  grid-area:num;font-family:var(--font-display);font-size:.86rem;color:var(--accent-ink);
+  letter-spacing:.08em;padding-top:.45em;min-width:2.4em;
+}
+.svc-t{grid-area:title;font-family:var(--font-display);font-weight:500;font-size:clamp(1.08rem,1.9vw,1.34rem);letter-spacing:-.005em}
+.svc-d{grid-area:desc;font-size:.94rem;color:var(--muted);font-weight:300;line-height:1.75;max-width:64ch}
+.svc-a{
+  grid-area:arrow;color:var(--accent-ink);font-size:1.05rem;opacity:.5;
+  transition:transform .45s var(--ease),opacity .3s;padding-inline-start:8px;
+}
+.svc:hover .svc-a{transform:translateX(-6px);opacity:1}
+@media (min-width:820px){
+  .svc{grid-template-columns:auto minmax(0,.86fr) minmax(0,1fr) auto;grid-template-areas:"num title desc arrow";gap:4px 30px}
+}
+
+/* plates / work */
+.plates{display:grid;gap:clamp(22px,3.4vw,38px);grid-template-columns:1fr}
+@media (min-width:820px){.plates{grid-template-columns:repeat(3,1fr);align-items:start}}
+.plate{margin:0}
+@media (min-width:820px){
+  .plate:nth-child(2){margin-top:clamp(20px,3.4vw,44px)}
+  .plate:nth-child(3){margin-top:clamp(8px,1.6vw,18px)}
+}
+.plate-frame{
+  position:relative;overflow:hidden;border-radius:3px;
+  background:linear-gradient(160deg,var(--paper-3),var(--paper-2));
+  aspect-ratio:4/5;
+}
+.plate:nth-child(2) .plate-frame{aspect-ratio:4/5.4}
+.plate-frame::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(20,17,14,.08);
+}
+.plate-frame img{width:100%;height:100%;object-fit:cover;transition:transform 1.2s var(--ease),opacity .4s}
+.plate:hover .plate-frame img{transform:scale(1.05)}
+.plate-frame img.is-broken{opacity:0}
+.plate-cap{display:flex;gap:12px;padding-top:13px}
+.plate-i{
+  font-family:var(--font-display);font-size:.78rem;color:var(--accent-ink);letter-spacing:.1em;padding-top:.35em;flex:0 0 auto;
+}
+.plate-t{font-family:var(--font-display);font-weight:500;font-size:1.06rem;line-height:1.35}
+.plate-d{font-size:.87rem;color:var(--muted);font-weight:300;line-height:1.65;margin-top:4px}
+
+/* process */
+.steps{display:grid;gap:clamp(20px,3vw,34px);grid-template-columns:1fr;border-top:1px solid var(--line-strong);padding-top:clamp(22px,3vw,34px)}
+@media (min-width:820px){.steps{grid-template-columns:repeat(3,1fr)}}
+.step{position:relative;padding-top:26px}
+.step::before{
+  content:"";position:absolute;top:0;inset-inline-start:0;width:34px;height:1px;background:var(--accent);
+}
+.step-n{
+  font-family:var(--font-display);font-size:clamp(1.9rem,3.4vw,2.5rem);line-height:1;
+  color:var(--accent-line);letter-spacing:-.02em;display:block;margin-bottom:12px;
+}
+.step-t{font-family:var(--font-display);font-weight:500;font-size:1.12rem;margin-bottom:7px}
+.step-d{font-size:.91rem;color:var(--muted);font-weight:300;line-height:1.75}
+
+/* faq */
+.narrow{max-width:840px}
+.acc{border-top:1px solid var(--line-strong)}
+.acc-item{border-bottom:1px solid var(--line)}
+.acc-btn{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:20px;width:100%;
+  text-align:start;padding-block:clamp(16px,2vw,22px);
+  font-family:var(--font-display);font-size:clamp(1rem,1.7vw,1.14rem);font-weight:500;
+  transition:color .25s;
+}
+.acc-btn:hover{color:var(--accent-ink)}
+.acc-ic{
+  position:relative;flex:0 0 auto;width:20px;height:20px;margin-top:3px;
+  border:1px solid var(--line-strong);border-radius:50%;transition:transform .4s var(--ease),background .3s,border-color .3s;
+}
+.acc-ic::before,.acc-ic::after{
+  content:"";position:absolute;top:50%;left:50%;background:var(--ink);
+  transform:translate(-50%,-50%);transition:opacity .3s,background .3s;
+}
+.acc-ic::before{width:8px;height:1px}
+.acc-ic::after{width:1px;height:8px}
+.acc-item.open .acc-ic{transform:rotate(90deg);background:var(--accent-soft);border-color:var(--accent-line)}
+.acc-item.open .acc-ic::after{opacity:0}
+.acc-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .42s var(--ease)}
+.acc-item.open .acc-body{grid-template-rows:1fr}
+.acc-body > div{overflow:hidden}
+.acc-body p{
+  font-size:.93rem;color:var(--muted);font-weight:300;line-height:1.85;
+  padding-bottom:20px;max-width:66ch;
+}
+
+/* contact */
+.contact{
+  position:relative;z-index:1;background:var(--ink);color:var(--paper);
+  margin-top:clamp(34px,5vw,70px);
+  padding-block:clamp(50px,7vw,96px);
+  overflow:hidden;
+}
+.contact::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(720px 380px at 84% 0%,rgba(var(--accent-rgb),.26),transparent 66%),
+    radial-gradient(560px 340px at 6% 100%,rgba(var(--accent-rgb),.14),transparent 70%);
+}
+.contact-wrap{display:grid;gap:clamp(20px,3vw,34px);max-width:900px}
+.contact .kicker{color:var(--accent)}
+.contact .kicker::before{background:var(--accent)}
+.contact-h{
+  font-size:clamp(2rem,5vw,3.25rem);font-weight:500;color:var(--paper);
+  letter-spacing:-.02em;text-wrap:balance;
+}
+.contact-p{font-size:clamp(.98rem,1.4vw,1.08rem);font-weight:300;line-height:1.8;color:rgba(244,239,230,.76);max-width:54ch}
+.contact-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
+.contact-meta{
+  display:flex;flex-wrap:wrap;gap:8px 22px;padding-top:22px;
+  border-top:1px solid rgba(244,239,230,.16);
+  font-size:.85rem;color:rgba(244,239,230,.62);
+}
+.contact-meta a:hover{color:var(--paper);text-decoration:underline;text-underline-offset:3px}
+.contact-meta .dot{width:4px;height:4px;border-radius:50%;background:rgba(244,239,230,.3);align-self:center}
+
+/* footer */
+.foot{padding-block:clamp(28px,4vw,44px);position:relative;z-index:1}
+.foot-in{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;border-top:1px solid var(--line);padding-top:26px}
+.foot-brand{display:flex;align-items:center;gap:10px}
+.foot-name{font-family:var(--font-display);font-size:.98rem;font-weight:500}
+.foot-meta{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.82rem;color:var(--muted)}
+.foot-note{font-size:.78rem;color:var(--muted)}
+.preview-badge{
+  display:inline-block;border:1px solid var(--accent-line);color:var(--accent-ink);
+  background:var(--accent-soft);border-radius:999px;padding:3px 10px;font-size:.72rem;letter-spacing:.04em;
+}
+
+/* floating + mobile dock */
+.float-wa{
+  position:fixed;z-index:70;bottom:22px;inset-inline-end:22px;
+  display:none;align-items:center;gap:9px;
+  background:var(--ink);color:var(--paper);
+  padding:12px 18px;border-radius:999px;font-size:.86rem;font-weight:600;
+  box-shadow:0 14px 34px -12px rgba(20,17,14,.55);
+  border:1px solid rgba(244,239,230,.14);
+  transition:transform .35s var(--ease),box-shadow .35s;
+}
+.float-wa:hover{transform:translateY(-3px);box-shadow:0 20px 40px -14px rgba(20,17,14,.6)}
+.float-wa svg{width:18px;height:18px}
+@media (min-width:760px){.float-wa{display:inline-flex}}
+.dock{position:fixed;inset-inline:0;bottom:0;z-index:70;display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-strong);border-top:1px solid var(--line-strong)}
+.dock a{
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--paper);padding:14px 8px;font-size:.86rem;font-weight:600;
+  padding-bottom:calc(14px + env(safe-area-inset-bottom));
+}
+.dock a + a{background:var(--ink);color:var(--paper)}
+.dock svg{width:16px;height:16px}
+@media (min-width:760px){.dock{display:none}}
+body{padding-bottom:0}
+@media (max-width:759px){body.has-dock{padding-bottom:56px}}
+
+/* reveal */
+.anim .reveal{opacity:0;transform:translateY(20px);transition:opacity .85s var(--ease),transform .85s var(--ease)}
+.anim .reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){
+  .anim .reveal{opacity:1;transform:none;transition:none}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#top" aria-label="לדף הבית">
+      <span class="mark" data-t="logoText">א</span>
+      <span class="brand-name" data-t="businessName">שם העסק</span>
+    </a>
+    <nav class="nav" aria-label="ניווט ראשי">
+      <a href="#about">אודות</a>
+      <a href="#services">שירותים</a>
+      <a href="#work">עבודות</a>
+      <a href="#process">תהליך</a>
+      <a href="#faq">שאלות</a>
+    </nav>
+    <a class="topbar-tel" id="topTel" href="#contact" aria-label="התקשרו אלינו">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg>
+      <span data-t="phone">התקשרו</span>
+    </a>
+  </div>
+</header>
+
+<main id="top">
+  <!-- ================= HERO ================= -->
+  <section class="hero" aria-label="פתיחה">
+    <div class="wrap hero-wrap">
+      <div class="hero-copy reveal">
+        <p class="kicker"><span data-t="kicker">שירותי פרימיום</span></p>
+        <h1 class="display hero-h1">
+          <span data-t="headline">פתרונות מותאמים אישית</span>
+          <em data-t="futureHeadlineAccent">בעבודת יד</em>
+        </h1>
+        <p class="hero-sub" data-t="subheadline">מבחר שירותים איכותיים, תכנון מדויק וליווי אישי מקצה לקצה.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" id="heroCta" href="#contact">
+            <span data-t="ctaText">קבלו הצעת מחיר</span>
+            <span aria-hidden="true">←</span>
+          </a>
+          <a class="btn btn-ghost" href="#work">לעבודות נבחרות</a>
+        </div>
+        <div class="hero-meta">
+          <span class="chip" id="ratingChip" hidden><i aria-hidden="true">★</i><b></b></span>
+          <span class="meta-item"><span class="meta-k">תחום</span><span data-t="category">תחום העסק</span></span>
+          <span class="meta-item"><span class="meta-k">אזור</span><span data-t="city">אזור פעילות</span></span>
+        </div>
+      </div>
+      <figure class="hero-fig reveal">
+        <div class="hero-frame">
+          <img id="heroImg" alt="" width="900" height="1120" fetchpriority="high" decoding="async" src="">
+          <figcaption class="hero-tag"><span data-t="futureVisualLabel">גלריית עבודות</span></figcaption>
+        </div>
+        <span class="fig-note">01 <span aria-hidden="true">—</span> <span data-t="businessName">שם העסק</span></span>
+      </figure>
+    </div>
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track" id="tickerTrack"></div>
+    </div>
+  </section>
+
+  <!-- ================= ABOUT ================= -->
+  <section class="sec" id="about">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="sec-n">01</span>
+        <h2 class="display" data-t="aboutTitle">אודות</h2>
+      </div>
+      <div class="about-grid">
+        <p class="lead reveal" data-t="about">אנחנו משלבים מקצועיות, תשומת לב לפרטים ושקיפות מלאה, כדי שכל לקוח יקבל פתרון שמתאים בדיוק לצרכים שלו.</p>
+        <aside class="fact-card reveal" aria-label="פרטי קשר">
+          <div class="fact"><span class="fact-k">כתובת</span><a class="fact-v" id="factAddr" href="#contact" data-t="fullAddress">ישראל</a></div>
+          <div class="fact"><span class="fact-k">טלפון</span><a class="fact-v" id="factTel" href="#contact" data-t="phone">—</a></div>
+          <div class="fact"><span class="fact-k">תחום</span><span class="fact-v" data-t="category">—</span></div>
+          <div class="fact"><span class="fact-k">אזור</span><span class="fact-v" data-t="city">—</span></div>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SERVICES ================= -->
+  <section class="sec" id="services">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="sec-n">02</span>
+        <h2 class="display" data-t="servicesTitle">השירותים שלנו</h2>
+        <p class="sec-intro" data-t="servicesIntro">מגוון שירותים מקיפים, מותאמים לכל שלב בפרויקט.</p>
+      </div>
+      <ol class="svc-list reveal" id="svcList"></ol>
+    </div>
+  </section>
+
+  <!-- ================= WORK ================= -->
+  <section class="sec" id="work">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="sec-n">03</span>
+        <h2 class="display" data-t="workTitle">עבודות נבחרות</h2>
+        <p class="sec-intro" data-t="workIntro">הצצה למספר פרויקטים שביצענו, המדגימים את המגוון והאיכות של העבודה.</p>
+      </div>
+      <div class="plates" id="plateList"></div>
+    </div>
+  </section>
+
+  <!-- ================= PROCESS ================= -->
+  <section class="sec" id="process">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="sec-n">04</span>
+        <h2 class="display" data-t="processTitle">אופן העבודה</h2>
+      </div>
+      <ol class="steps reveal" id="stepList"></ol>
+    </div>
+  </section>
+
+  <!-- ================= FAQ ================= -->
+  <section class="sec" id="faq">
+    <div class="wrap narrow">
+      <div class="sec-head reveal">
+        <span class="sec-n">05</span>
+        <h2 class="display">שאלות נפוצות</h2>
+      </div>
+      <div class="acc reveal" id="accList"></div>
+    </div>
+  </section>
+
+  <!-- ================= CONTACT ================= -->
+  <section class="contact" id="contact">
+    <div class="wrap contact-wrap">
+      <p class="kicker"><span data-t="contactTitle">צור קשר</span></p>
+      <h2 class="display contact-h" data-t="ctaText">קבלו הצעת מחיר ללא התחייבות</h2>
+      <p class="contact-p" data-t="contactText">נשמח לשמוע מכם, להבין את הצרכים ולהציע את הפתרון המתאים ביותר.</p>
+      <div class="contact-actions">
+        <a class="btn btn-accent" id="waBtn" href="#" rel="noopener">
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.6 2 2.2 6.4 2.2 11.84c0 1.74.46 3.44 1.32 4.94L2 22l5.32-1.4a9.86 9.86 0 0 0 4.72 1.2h.01c5.44 0 9.84-4.4 9.84-9.84C21.88 6.4 17.48 2 12.04 2Zm5.76 14.02c-.24.68-1.4 1.3-1.94 1.34-.54.06-1.02.08-1.76-.16-.74-.24-2.5-.94-3.86-2.72-1.4-1.84-1.6-3.1-1.6-3.66 0-.56.42-1.28.72-1.56.24-.24.5-.32.72-.32l.5.01c.16 0 .38-.06.58.44l.8 1.94c.08.18.12.38.02.58l-.32.5-.24.28c-.08.1-.18.2-.08.4.1.2.46.82 1 1.34.68.64 1.32.9 1.54 1 .2.1.34.08.46-.04l.6-.7c.14-.2.3-.14.5-.06l1.9.88c.28.14.46.2.52.3.06.12.06.7-.18 1.36Z"/></svg>
+          <span>וואטסאפ</span>
+        </a>
+        <a class="btn btn-outline" id="telBtn" href="#">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg>
+          <span data-t="phone">התקשרו</span>
+        </a>
+      </div>
+      <div class="contact-meta">
+        <a id="contactAddr" href="#" rel="noopener" data-t="fullAddress">ישראל</a>
+        <span class="dot" aria-hidden="true"></span>
+        <span data-t="category">תחום</span>
+        <span class="dot" aria-hidden="true"></span>
+        <span data-t="city">אזור</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="foot-brand">
+      <span class="mark" aria-hidden="true" data-t="logoText">א</span>
+      <span class="foot-name" data-t="businessName">שם העסק</span>
+    </div>
+    <div class="foot-meta">
+      <span data-t="category">תחום</span>
+      <span data-t="city">אזור</span>
+      <a id="footTel" href="#contact" data-t="phone">—</a>
+    </div>
+    <div class="foot-note">
+      <span id="footYear">©</span>
+      <span id="previewNote" class="preview-badge" hidden>סקיצת הדגמה</span>
+    </div>
+  </div>
+</footer>
+
+<a class="float-wa" id="floatWa" href="#" rel="noopener" aria-label="שליחת הודעת וואטסאפ">
+  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.6 2 2.2 6.4 2.2 11.84c0 1.74.46 3.44 1.32 4.94L2 22l5.32-1.4a9.86 9.86 0 0 0 4.72 1.2h.01c5.44 0 9.84-4.4 9.84-9.84C21.88 6.4 17.48 2 12.04 2Zm5.76 14.02c-.24.68-1.4 1.3-1.94 1.34-.54.06-1.02.08-1.76-.16-.74-.24-2.5-.94-3.86-2.72-1.4-1.84-1.6-3.1-1.6-3.66 0-.56.42-1.28.72-1.56.24-.24.5-.32.72-.32l.5.01c.16 0 .38-.06.58.44l.8 1.94c.08.18.12.38.02.58l-.32.5-.24.28c-.08.1-.18.2-.08.4.1.2.46.82 1 1.34.68.64 1.32.9 1.54 1.2.2.1.34.08.46-.04l.6-.7c.14-.2.3-.14.5-.06l1.9.88c.28.14.46.2.52.3.06.12.06.7-.18 1.36Z"/></svg>
+  <span>וואטסאפ</span>
+</a>
+
+<div class="dock" id="dock">
+  <a id="dockTel" href="#contact">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg>
+    התקשרו
+  </a>
+  <a id="dockWa" href="#" rel="noopener">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.6 2 2.2 6.4 2.2 11.84c0 1.74.46 3.44 1.32 4.94L2 22l5.32-1.4a9.86 9.86 0 0 0 4.72 1.2h.01c5.44 0 9.84-4.4 9.84-9.84C21.88 6.4 17.48 2 12.04 2Zm5.76 14.02c-.24.68-1.4 1.3-1.94 1.34-.54.06-1.02.08-1.76-.16-.74-.24-2.5-.94-3.86-2.72-1.4-1.84-1.6-3.1-1.6-3.66 0-.56.42-1.28.72-1.56.24-.24.5-.32.72-.32l.5.01c.16 0 .38-.06.58.44l.8 1.94c.08.18.12.38.02.58l-.32.5-.24.28c-.08.1-.18.2-.08.4.1.2.46.82 1 1.34.68.64 1.32.9 1.54 1.2.2.1.34.08.46-.04l.6-.7c.14-.2.3-.14.5-.06l1.9.88c.28.14.46.2.52.3.06.12.06.7-.18 1.36Z"/></svg>
+    וואטסאפ
+  </a>
+</div>
+
+<script>
+/* ------------------------------------------------------------------
+   DATA + RENDER
+   siteData is injected by the n8n build step (token replaced below).
+   Everything renders synchronously at parse time — well before the
+   admin editor indexes the DOM 150ms after DOMContentLoaded.
+   ------------------------------------------------------------------ */
+(function () {
+  "use strict";
+
+  var siteData = __SITE_DATA_JSON__;
+  var D = siteData && typeof siteData === "object" ? siteData : {};
+
+  function str() {
+    for (var i = 0; i < arguments.length; i++) {
+      var v = arguments[i];
+      if (typeof v === "string" && v.trim()) return v.trim();
+      if (typeof v === "number" && isFinite(v)) return String(v);
+    }
+    return "";
+  }
+  function digits(v) { return String(v || "").replace(/[^0-9]/g, ""); }
+  function intlDigits(v) {
+    var d = digits(v);
+    if (!d) return "";
+    if (d.charAt(0) === "0") d = "972" + d.slice(1);
+    return d;
+  }
+  function telHref(v) {
+    var raw = String(v || "").replace(/[^0-9+]/g, "");
+    return raw ? "tel:" + raw : "";
+  }
+  function waHref(v) { var d = intlDigits(v); return d ? "https://wa.me/" + d : ""; }
+  function safeUrl(u) {
+    var s = str(u);
+    return /^(https?:\/\/|tel:|mailto:|\/)/i.test(s) ? s : "";
+  }
+  function hexRgb(hex) {
+    var m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(str(hex));
+    if (!m) return null;
+    var h = m[1];
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+  }
+  function relLum(c) {
+    var a = [c[0], c[1], c[2]].map(function (v) {
+      var s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+  }
+  function contrast(a, b) {
+    var la = relLum(a), lb = relLum(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+  function arr(v) { return Array.isArray(v) ? v.filter(function (x) { return x && (typeof x === "object" || typeof x === "string"); }) : []; }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function img(src, alt) {
+    var im = document.createElement("img");
+    im.alt = alt || "";
+    im.loading = "lazy";
+    im.decoding = "async";
+    im.addEventListener("error", function () { im.classList.add("is-broken"); });
+    im.src = src;
+    return im;
+  }
+
+  /* ---------- brand + copy ---------- */
+  var biz = str(D.businessName, D.name, D.logoText, "העסק שלכם");
+  var category = str(D.category, "שירותי פרימיום");
+  var city = str(D.city, "ישראל");
+  var address = str(D.fullAddress, D.address, city);
+  var phone = str(D.phone);
+  var T = {
+    businessName: biz,
+    logoText: (str(D.logoText, biz).match(/[\u0590-\u05FFA-Za-z0-9]/) || ["א"])[0],
+    category: category,
+    city: city,
+    fullAddress: address,
+    phone: phone || "צרו קשר",
+    kicker: str(D.kicker, category + " ב" + city),
+    headline: str(D.headline, "פתרונות מותאמים אישית"),
+    futureHeadlineAccent: str(D.futureHeadlineAccent, "בעבודת יד"),
+    futureVisualLabel: str(D.futureVisualLabel, "גלריית עבודות"),
+    subheadline: str(D.subheadline, "מבחר שירותים איכותיים, תכנון מדויק וליווי אישי מקצה לקצה."),
+    aboutTitle: str(D.aboutTitle, "אודות " + biz),
+    about: str(D.about, "אנחנו משלבים מקצועיות, תשומת לב לפרטים ושקיפות מלאה, כדי שכל לקוח יקבל פתרון שמתאים בדיוק לצרכים שלו."),
+    servicesTitle: str(D.servicesTitle, "השירותים שלנו"),
+    servicesIntro: str(D.servicesIntro, "מגוון שירותים מקיפים, מותאמים לכל שלב בפרויקט."),
+    workTitle: str(D.workTitle, "עבודות נבחרות"),
+    workIntro: str(D.workIntro, "הצצה למספר פרויקטים שביצענו, המדגימים את המגוון והאיכות של העבודה."),
+    processTitle: str(D.processTitle, "אופן העבודה"),
+    contactTitle: str(D.contactTitle, "צור קשר"),
+    contactText: str(D.contactText, "נשמח לשמוע מכם, להבין את הצרכים ולהציע את הפתרון המתאים ביותר."),
+    ctaText: str(D.ctaText, "קבלו הצעת מחיר ללא התחייבות")
+  };
+  var nodes = document.querySelectorAll("[data-t]");
+  for (var i = 0; i < nodes.length; i++) {
+    var key = nodes[i].getAttribute("data-t");
+    if (T[key]) nodes[i].textContent = T[key];
+  }
+
+  /* ---------- accent ---------- */
+  var accent = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(str(D.accentColor)) ? str(D.accentColor) : "#b08d3f";
+  var rgb = hexRgb(accent);
+  var root = document.documentElement;
+  root.style.setProperty("--accent", accent);
+  root.style.setProperty("--accent-color", accent);
+  if (rgb) {
+    root.style.setProperty("--accent-rgb", rgb.join(", "));
+    /* keep label text readable on top of any injected accent colour */
+    var ink = [20, 17, 16], paper = [253, 250, 244];
+    root.style.setProperty("--on-accent", contrast(rgb, ink) >= contrast(rgb, paper) ? "#141110" : "#fdfaf4");
+  }
+
+  /* ---------- links ---------- */
+  var tel = safeUrl(str(D.phoneHref, D.phoneLink)) || telHref(phone);
+  var wa = safeUrl(str(D.whatsappUrl, D.whatsapp, D.waUrl)) || waHref(phone);
+  var mapUrl = address ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address) : "";
+
+  function link(id, href, hideIfMissing) {
+    var n = document.getElementById(id);
+    if (!n) return;
+    if (href) { n.setAttribute("href", href); n.setAttribute("target", href.indexOf("http") === 0 ? "_blank" : "_self"); }
+    if (!href && hideIfMissing) n.style.display = "none";
+  }
+  link("topTel", tel, false);
+  link("factTel", tel, false);
+  link("footTel", tel, false);
+  link("telBtn", tel, false);
+  link("dockTel", tel, false);
+  link("waBtn", wa, false);
+  link("floatWa", wa, true);
+  link("dockWa", wa, false);
+  link("contactAddr", mapUrl, false);
+  link("factAddr", mapUrl, false);
+  link("heroCta", wa || "#contact", false);
+
+  var waLabel = document.querySelector("#waBtn span");
+  if (waLabel) waLabel.textContent = phone ? "וואטסאפ " + phone : "וואטסאפ";
+
+  /* ---------- rating ---------- */
+  var chip = document.getElementById("ratingChip");
+  var rr = parseFloat(str(D.rating));
+  var rc = str(D.ratingCount);
+  var ri = str(D.ratingInfo);
+  var ratingText = "";
+  if (isFinite(rr) && rr > 0) {
+    ratingText = (Math.round(rr * 10) / 10).toFixed(1).replace(/\.0$/, "");
+    if (rc) ratingText += " · " + rc + " ביקורות";
+  } else if (ri && !/לא זמין|לא נמצא|אין מידע|unavailable/i.test(ri)) {
+    ratingText = ri;
+  }
+  if (chip) {
+    if (ratingText) {
+      chip.hidden = false;
+      var b = chip.querySelector("b");
+      if (b) b.textContent = ratingText;
+    } else {
+      chip.parentNode && chip.parentNode.removeChild(chip);
+    }
+  }
+
+  /* ---------- services ---------- */
+  var services = arr(D.services);
+  if (!services.length) {
+    services = [
+      { title: "ייעוץ והתאמה", description: "פגישת ייעוץ, אפיון הצרכים והצגת האפשרויות המתאימות ביותר." },
+      { title: "תכנון וביצוע", description: "עבודה מדויקת לפי סטנדרטים מקצועיים, בלוחות זמנים מוסכמים." },
+      { title: "שירות לאחר מסירה", description: "ליווי, תחזוקה ושדרוגים כדי שהתוצאה תישמר לאורך זמן." }
+    ];
+  }
+  var svcList = document.getElementById("svcList");
+  services.slice(0, 6).forEach(function (s, idx) {
+    var li = el("li", "svc");
+    li.appendChild(el("span", "svc-n", ("0" + (idx + 1)).slice(-2)));
+    li.appendChild(el("h3", "svc-t", str(s.title, s.name, "שירות")));
+    li.appendChild(el("p", "svc-d", str(s.description, s.desc, s.text, "")));
+    var a = el("span", "svc-a", "←");
+    a.setAttribute("aria-hidden", "true");
+    li.appendChild(a);
+    svcList.appendChild(li);
+  });
+
+  /* ---------- gallery ---------- */
+  var gallery = arr(D.galleryImages);
+  if (!gallery.length && arr(D.images).length) {
+    gallery = D.images.map(function (u) { return { url: u }; });
+  }
+  if (!gallery.length) {
+    gallery = [
+      { url: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1400&q=85" },
+      { url: "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1400&q=85" },
+      { url: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1400&q=85" }
+    ];
+  }
+  var gTitles = arr(D.galleryTitles);
+  var gDescs = arr(D.galleryDescriptions);
+  var plateList = document.getElementById("plateList");
+  gallery.slice(0, 3).forEach(function (g, idx) {
+    var src = safeUrl(typeof g === "string" ? g : str(g.url, g.image, g.src, g.href));
+    var title = str(typeof g === "object" ? g.title : "", gTitles[idx], "פרויקט " + ("0" + (idx + 1)).slice(-2));
+    var desc = str(typeof g === "object" ? g.description : "", gDescs[idx], "");
+    var fig = el("figure", "plate reveal");
+    var frame = el("div", "plate-frame");
+    if (src) frame.appendChild(img(src, title));
+    fig.appendChild(frame);
+    var cap = el("figcaption", "plate-cap");
+    cap.appendChild(el("span", "plate-i", ("0" + (idx + 1)).slice(-2)));
+    var capBody = el("div", "");
+    capBody.appendChild(el("h3", "plate-t", title));
+    if (desc) capBody.appendChild(el("p", "plate-d", desc));
+    cap.appendChild(capBody);
+    fig.appendChild(cap);
+    plateList.appendChild(fig);
+  });
+
+  /* ---------- hero image ---------- */
+  var heroSrc = safeUrl(str(D.heroImage, D.heroImageUrl, D.heroImg)) ||
+    safeUrl(str(gallery[0] && (gallery[0].url || gallery[0].image))) ||
+    safeUrl(str(D.images && D.images[0]));
+  var heroImg = document.getElementById("heroImg");
+  if (heroImg) {
+    if (heroSrc) {
+      heroImg.addEventListener("error", function () { heroImg.classList.add("is-broken"); });
+      heroImg.src = heroSrc;
+      heroImg.alt = biz + " — " + T.futureVisualLabel;
+    } else {
+      heroImg.style.display = "none";
+    }
+  }
+
+  /* ---------- process ---------- */
+  var steps = arr(D.processSteps);
+  if (!steps.length) {
+    steps = [
+      { title: "שיחת היכרות", description: "מבינים את הצורך, את המקום ואת לוחות הזמנים." },
+      { title: "תכנון והצעה", description: "מגבשים פתרון מדויק ומציגים הצעה מסודרת." },
+      { title: "ביצוע ומסירה", description: "מבצעים בקפידה, בודקים איכות ומוסרים ללקוח." }
+    ];
+  }
+  var stepList = document.getElementById("stepList");
+  steps.slice(0, 4).forEach(function (s, idx) {
+    var li = el("li", "step");
+    li.appendChild(el("span", "step-n", "0" + (idx + 1)));
+    li.appendChild(el("h3", "step-t", str(s.title, s.name, "שלב")));
+    li.appendChild(el("p", "step-d", str(s.description, s.desc, s.text, "")));
+    stepList.appendChild(li);
+  });
+
+  /* ---------- faq ---------- */
+  var faqs = arr(D.faqs);
+  if (!faqs.length) {
+    faqs = [
+      { question: "איך מתחילים?", answer: "משאירים פרטים או שולחים הודעה בוואטסאפ, ואנחנו חוזרים אליכם לשיחה קצרה." },
+      { question: "מה כולל השירות?", answer: "ייעוץ, תכנון, ביצוע וליווי לאחר המסירה — בהתאם לצרכים שלכם." }
+    ];
+  }
+  var accList = document.getElementById("accList");
+  faqs.slice(0, 8).forEach(function (f, idx) {
+    var q = str(f.question, f.q, f.title, "שאלה");
+    var a = str(f.answer, f.a, f.description, "");
+    var item = el("div", "acc-item" + (idx === 0 ? " open" : ""));
+    var btn = el("button", "acc-btn");
+    btn.type = "button";
+    btn.setAttribute("aria-expanded", idx === 0 ? "true" : "false");
+    btn.appendChild(el("span", "", q));
+    var ic = el("span", "acc-ic");
+    ic.setAttribute("aria-hidden", "true");
+    btn.appendChild(ic);
+    var body = el("div", "acc-body");
+    var inner = el("div", "");
+    inner.appendChild(el("p", "", a));
+    body.appendChild(inner);
+    btn.addEventListener("click", function () {
+      var open = item.classList.toggle("open");
+      btn.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    item.appendChild(btn);
+    item.appendChild(body);
+    accList.appendChild(item);
+  });
+
+  /* ---------- ticker ---------- */
+  var tickerBits = [biz, category, city, "שירות מקצועי", "ליווי אישי", "עבודות נבחרות", "הצעת מחיר ללא התחייבות"];
+  var track = document.getElementById("tickerTrack");
+  if (track) {
+    var setA = el("div", "ticker-set");
+    tickerBits.forEach(function (t) {
+      setA.appendChild(el("span", "", t));
+      setA.appendChild(el("i"));
+    });
+    track.appendChild(setA);
+    track.appendChild(setA.cloneNode(true));
+  }
+
+  /* ---------- head meta + schema ---------- */
+  var seoTitle = str(D.seoTitle, biz + " | " + category + (city ? " · " + city : ""));
+  var seoDesc = str(D.seoDescription, T.subheadline, T.about).slice(0, 300);
+  document.title = seoTitle;
+  function meta(sel, attr, val) {
+    var n = document.querySelector(sel);
+    if (n && val) n.setAttribute(attr, val);
+  }
+  meta('meta[name="description"]', "content", seoDesc);
+  meta('meta[property="og:title"]', "content", seoTitle);
+  meta('meta[property="og:description"]', "content", seoDesc);
+  meta('meta[property="og:site_name"]', "content", biz);
+  if (heroSrc) meta('meta[property="og:image"]', "content", heroSrc);
+
+  try {
+    var ld = {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      name: biz,
+      description: seoDesc,
+      areaServed: city,
+      address: { "@type": "PostalAddress", streetAddress: address, addressLocality: city },
+      url: location.href
+    };
+    if (phone) ld.telephone = phone;
+    if (typeof D.rating === "number" && D.rating > 0) {
+      ld.aggregateRating = { "@type": "AggregateRating", ratingValue: D.rating, reviewCount: Number(D.ratingCount) || 1 };
+    }
+    var s = document.createElement("script");
+    s.type = "application/ld+json";
+    s.textContent = JSON.stringify(ld);
+    document.head.appendChild(s);
+  } catch (e) {}
+
+  /* ---------- footer year + preview flag ---------- */
+  var yr = document.getElementById("footYear");
+  if (yr) yr.textContent = "© " + new Date().getFullYear();
+  if (D.isPreview) {
+    var pn = document.getElementById("previewNote");
+    if (pn) pn.hidden = false;
+  }
+  if (document.getElementById("dock")) document.body.classList.add("has-dock");
+
+  /* ---------- soft scroll reveal (progressive) ---------- */
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduce && "IntersectionObserver" in window) {
+    root.classList.add("anim");
+    var io = new IntersectionObserver(function (entries) {
+      for (var j = 0; j < entries.length; j++) {
+        if (entries[j].isIntersecting) {
+          entries[j].target.classList.add("in");
+          io.unobserve(entries[j].target);
+        }
+      }
+    }, { rootMargin: "0px 0px -6% 0px", threshold: 0.06 });
+    var rv = document.querySelectorAll(".reveal");
+    for (var k = 0; k < rv.length; k++) io.observe(rv[k]);
+    setTimeout(function () {
+      var left = document.querySelectorAll(".reveal:not(.in)");
+      for (var m = 0; m < left.length; m++) left[m].classList.add("in");
+    }, 1500);
+  }
+})();
+</script>
+</body>
+</html>
