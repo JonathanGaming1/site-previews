@@ -5,6 +5,14 @@ import { motion } from "framer-motion";
 import { ArrowLeft, BadgeCheck, Clock, MapPin, Phone, Zap } from "lucide-react";
 import { useSite } from "@/components/SiteProvider";
 import { ServiceIcon } from "@/components/ServiceIcon";
+import {
+  AvailabilityBadge,
+  BeforeAfterShowcase,
+  ProcessTimeline,
+  QuoteEstimator,
+  VipCallbackDrawer,
+  resolvePalette,
+} from "@/templates/features";
 import { FaqAccordion, MobileActionBar, Stars, WhatsAppFab, fadeUp } from "@/templates/shared";
 
 /**
@@ -57,7 +65,8 @@ export function ModernCleanTemplate() {
           transition={{ duration: 0.7, ease: "easeOut" }}
           className="relative mx-auto max-w-4xl px-6 text-center"
         >
-          <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-4 py-1.5 text-xs font-semibold text-gray-600">
+          <AvailabilityBadge accent={accent} palette={resolvePalette(null, "light")} />
+          <span className="mt-4 mb-5 inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-4 py-1.5 text-xs font-semibold text-gray-600">
             <Zap className="h-3.5 w-3.5" style={{ color: accent }} aria-hidden="true" />
             {b.category}
           </span>
@@ -142,6 +151,21 @@ export function ModernCleanTemplate() {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      {/* ---------- Live quote estimator ---------- */}
+      <section className="mx-auto max-w-4xl px-6 py-16">
+        <QuoteEstimator accent={accent} palette={resolvePalette(null, "light")} />
+      </section>
+
+      {/* ---------- Before / After showcase ---------- */}
+      <section className="mx-auto max-w-5xl px-6 pb-16">
+        <BeforeAfterShowcase accent={accent} palette={resolvePalette(null, "light")} />
+      </section>
+
+      {/* ---------- Process timeline ---------- */}
+      <section className="mx-auto max-w-4xl px-6 py-16">
+        <ProcessTimeline accent={accent} palette={resolvePalette(null, "light")} />
       </section>
 
       {/* ---------- Benefits strip ---------- */}
@@ -242,6 +266,7 @@ export function ModernCleanTemplate() {
       </section>
 
       <WhatsAppFab accentColor={accent} />
+      <VipCallbackDrawer accent={accent} palette={resolvePalette(null, "light")} />
       <MobileActionBar accentColor={accent} variant="light" />
     </div>
   );

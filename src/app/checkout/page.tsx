@@ -4,14 +4,16 @@ import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  Award,
   Check,
   CheckCircle2,
+  Clock,
   Crown,
   FileText,
   Infinity as InfinityIcon,
   Landmark,
   Lock,
-  Sparkles,
+  Shield,
   Wrench,
   X,
   Zap,
@@ -187,7 +189,7 @@ export default function CheckoutPage() {
           className="text-center"
         >
           <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-400/30 bg-amber-400/10 px-4 py-1.5 text-xs font-semibold text-amber-300">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+            <Award className="h-3.5 w-3.5" aria-hidden="true" />
             הזמנת אתר פרימיום • סוכנות עיצוב אוטומטית
           </span>
           <h1 className="text-4xl font-extrabold tracking-tight text-white md:text-5xl">
@@ -441,7 +443,7 @@ export default function CheckoutPage() {
                   className="mt-6 rounded-2xl border border-emerald-400/40 bg-emerald-400/10 p-5 text-center text-emerald-300"
                   role="status"
                 >
-                  🎉 ההזמנה התקבלה! צוות ההקמה שלנו יבוא עליכם ליצירת קשר בוואטסאפ תוך דקות.
+                  ההזמנה התקבלה! צוות ההקמה שלנו יבוא אליכם ליצירת קשר בוואטסאפ תוך דקות.
                 </motion.div>
               )}
             </motion.section>

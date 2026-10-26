@@ -6,10 +6,19 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { SiteData, TemplateId, ThemeConfig } from "@/types/site";
 import siteDataJson from "@/data/siteData.json";
+
+const GITHUB_RAW_BASE =
+  "https://raw.githubusercontent.com/JonathanGaming1/site-previews/main/public/sites";
+const ADMIN_KEY = "yam2026";
+
+export const REPO_OWNER = "JonathanGaming1";
+export const REPO_NAME = "site-previews";
+export const SITES_DIR = "public/sites";
 
 export interface EditableProps {
   contentEditable?: boolean;
@@ -21,21 +30,25 @@ export interface EditableProps {
 interface SiteContextValue {
   data: SiteData;
   initialData: SiteData;
+  /** Business slug resolved from the URL; null while loading / unknown */
+  slug: string | null;
+  remoteLoaded: boolean;
   adminKey: string | null;
   isAdmin: boolean;
   mounted: boolean;
+  /** Replace the whole data object in React state (used by AI edit / recall). */
+  replaceData: (next: SiteData) => void;
   /** Returns props that enable click-to-edit (contentEditable) for admin users. */
   editsFor: (path: string) => EditableProps;
   /** Update a nested value at a JSON path like "hero.headline" or "services.0.title". */
   updateValue: (path: string, value: string | number) => void;
   setTemplate: (id: TemplateId) => void;
   setTheme: (theme: Partial<ThemeConfig>) => void;
-  recallOriginal: () => void;
 }
 
 const SiteContext = createContext<SiteContextValue | null>(null);
 
-function clone<T>(value: T): T {
+export function clone<T>(value: T): T {
   return typeof structuredClone === "function"
     ? structuredClone(value)
     : (JSON.parse(JSON.stringify(value)) as T);
@@ -76,15 +89,18 @@ export function useSite(): SiteContextValue {
   return ctx;
 }
 
-interface SiteProviderProps {
-  children: React.ReactNode;
+function stripMarkdownFences(text: string): string {
+  return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/, "").trim();
 }
 
-export function SiteProvider({ children }: SiteProviderProps) {
-  const [data, setData] = useState<SiteData>(() => clone(siteDataJson as SiteData));
-  const initialData = useMemo(() => clone(siteDataJson as SiteData), []);
+export function SiteProvider({ children }: { children: React.ReactNode }) {
+  const [data, setData] = useState<SiteData>(() => clone(siteDataJson as unknown as SiteData));
+  const initialData = useMemo(() => clone(siteDataJson as unknown as SiteData), []);
   const [adminKey, setAdminKey] = useState<string | null>(null);
+  const [slug, setSlug] = useState<string | null>(null);
+  const [remoteLoaded, setRemoteLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const fetchedSlugRef = useRef<string | null>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -93,7 +109,65 @@ export function SiteProvider({ children }: SiteProviderProps) {
     setMounted(true);
   }, []);
 
-  const isAdmin = mounted && adminKey !== null;
+  // Resolve the business slug from /p/{slug} or ?site={slug} and
+  // dynamically load that business's JSON so each business has a
+  // permanent unique URL and admin edits appear instantly on refresh.
+  useEffect(() => {
+    if (!mounted) return;
+
+    let slug: string | null = null;
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get("site");
+    if (fromQuery && fromQuery.trim()) {
+      slug = fromQuery.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+    } else {
+      const match = window.location.pathname.match(/^\/p\/([a-zA-Z0-9_-]+)/);
+      if (match) slug = match[1];
+    }
+
+    if (!slug) return;
+    setSlug(slug);
+
+    const isSameSlug = fetchedSlugRef.current === slug;
+    fetchedSlugRef.current = slug;
+    if (isSameSlug) return;
+
+    const load = async () => {
+      // 1) Raw GitHub — always the freshest saved content (cache-busted)
+      // 2) Same-origin /sites/{slug}.json — Cloudflare Pages fallback
+      // 3) Bundled default data — graceful offline fallback
+      try {
+        const res = await fetch(`${GITHUB_RAW_BASE}/${slug}.json?t=${Date.now()}`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const remote = (await res.json()) as SiteData;
+          setData({ ...clone(remote), slug });
+          setRemoteLoaded(true);
+          return;
+        }
+      } catch {
+        /* fall through */
+      }
+      try {
+        const res = await fetch(`/sites/${slug}.json`, { cache: "no-store" });
+        if (res.ok) {
+          const remote = (await res.json()) as SiteData;
+          setData({ ...clone(remote), slug });
+          setRemoteLoaded(true);
+          return;
+        }
+      } catch {
+        /* fall through */
+      }
+      // Unknown business: fall back to bundled default data, tagged with the slug.
+      setData((prev) => ({ ...clone(prev), slug }));
+      setRemoteLoaded(true);
+    };
+    void load();
+  }, [mounted]);
+
+  const isAdmin = mounted && adminKey === ADMIN_KEY;
 
   const updateValue = useCallback((path: string, value: string | number) => {
     setData((prev) => {
@@ -101,6 +175,10 @@ export function SiteProvider({ children }: SiteProviderProps) {
       setByPath(next as unknown as Record<string, unknown>, path, value);
       return next;
     });
+  }, []);
+
+  const replaceData = useCallback((next: SiteData) => {
+    setData(clone(next));
   }, []);
 
   const editsFor = useCallback(
@@ -128,29 +206,35 @@ export function SiteProvider({ children }: SiteProviderProps) {
     setData((prev) => ({ ...prev, theme: { ...prev.theme, ...theme } }));
   }, []);
 
-  const recallOriginal = useCallback(() => {
-    setData((prev) => {
-      const backup = (siteDataJson as SiteData).initialBackup;
-      // Fetch the freshest known-good original: prefer a restored backup, else the file's snapshot.
-      if (backup) return clone(backup);
-      return clone(prev);
-    });
-  }, []);
-
   const value = useMemo<SiteContextValue>(
     () => ({
       data,
       initialData,
+      slug,
+      remoteLoaded,
       adminKey,
       isAdmin,
       mounted,
+      replaceData,
       editsFor,
       updateValue,
       setTemplate,
       setTheme,
-      recallOriginal,
     }),
-    [data, initialData, adminKey, isAdmin, mounted, editsFor, updateValue, setTemplate, setTheme, recallOriginal],
+    [
+      data,
+      initialData,
+      slug,
+      remoteLoaded,
+      adminKey,
+      isAdmin,
+      mounted,
+      replaceData,
+      editsFor,
+      updateValue,
+      setTemplate,
+      setTheme,
+    ],
   );
 
   return <SiteContext.Provider value={value}>{children}</SiteContext.Provider>;

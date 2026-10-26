@@ -92,7 +92,7 @@ export function WhatsAppFab({ accentColor }: { accentColor: string }) {
   const { data } = useSite();
   return (
     <motion.a
-      href={`https://wa.me/${data.businessInfo.whatsapp}?text=${encodeURIComponent("היי, אשמח לקבל פרטים נוספים 😊")}`}
+      href={`https://wa.me/${data.businessInfo.whatsapp}?text=${encodeURIComponent("היי, אשמח לקבל פרטים נוספים")}`}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="צרו קשר בוואטסאפ"

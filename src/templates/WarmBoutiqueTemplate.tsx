@@ -5,6 +5,14 @@ import { motion } from "framer-motion";
 import { BadgeCheck, Clock, Heart, MapPin, Phone } from "lucide-react";
 import { useSite } from "@/components/SiteProvider";
 import { ServiceIcon } from "@/components/ServiceIcon";
+import {
+  AvailabilityBadge,
+  BeforeAfterShowcase,
+  ProcessTimeline,
+  QuoteEstimator,
+  VipCallbackDrawer,
+  resolvePalette,
+} from "@/templates/features";
 import { FaqAccordion, MobileActionBar, Stars, WhatsAppFab, fadeUp } from "@/templates/shared";
 
 /**
@@ -45,6 +53,9 @@ export function WarmBoutiqueTemplate() {
           className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-6 pb-20 pt-10 md:grid-cols-2 md:pt-16"
         >
           <div className="text-center md:text-right">
+            <div className="mb-5 flex justify-center md:justify-start">
+              <AvailabilityBadge accent={accent} palette={resolvePalette(null, "warm")} />
+            </div>
             <p
               className="mb-5 text-sm font-semibold tracking-[0.3em]"
               style={{ color: accent }}
@@ -147,6 +158,21 @@ export function WarmBoutiqueTemplate() {
             </motion.div>
           ))}
         </div>
+      </section>
+
+      {/* ---------- Live quote estimator ---------- */}
+      <section className="mx-auto max-w-4xl px-6 py-16">
+        <QuoteEstimator accent={accent} palette={resolvePalette(null, "warm")} />
+      </section>
+
+      {/* ---------- Before / After showcase ---------- */}
+      <section className="mx-auto max-w-5xl px-6 pb-16">
+        <BeforeAfterShowcase accent={accent} palette={resolvePalette(null, "warm")} />
+      </section>
+
+      {/* ---------- Process timeline ---------- */}
+      <section className="mx-auto max-w-4xl px-6 py-16">
+        <ProcessTimeline accent={accent} palette={resolvePalette(null, "warm")} />
       </section>
 
       {/* ---------- Benefits: editorial numbered list ---------- */}
@@ -254,6 +280,7 @@ export function WarmBoutiqueTemplate() {
       </section>
 
       <WhatsAppFab accentColor={accent} />
+      <VipCallbackDrawer accent={accent} palette={resolvePalette(null, "warm")} />
       <MobileActionBar accentColor={accent} variant="warm" />
     </div>
   );

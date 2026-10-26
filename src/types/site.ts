@@ -48,11 +48,33 @@ export interface FaqItem {
   answer: string;
 }
 
+export interface ProjectItem {
+  title: string;
+  description: string;
+  beforeImage: string;
+  afterImage: string;
+}
+
+export interface TimelineStep {
+  title: string;
+  description: string;
+}
+
+/** A saved restore point created by the in-site admin editor */
+export interface Checkpoint {
+  id: string;
+  label: string;
+  timestamp: string;
+  data: Record<string, unknown>;
+}
+
 export interface SiteData {
+  /** Unique business slug — the site lives permanently at /p/{slug} */
+  slug: string;
   businessId: string;
   templateId: TemplateId;
   isDemo: boolean;
-  /** n8n webhook used for manual saves, AI edits and Recall */
+  /** Legacy n8n webhook (kept for backward compatibility, unused by the direct-API editor) */
   n8nEditWebhookUrl: string;
   /** URL of the agency checkout funnel (default "/checkout") */
   checkoutUrl: string;
@@ -65,6 +87,11 @@ export interface SiteData {
   benefits: BenefitItem[];
   reviews: ReviewItem[];
   faq: FaqItem[];
-  /** Full snapshot of the originally generated siteData, used by the Recall button */
+  /** Optional interactive showcase content, with template-side fallbacks */
+  projects?: ProjectItem[];
+  processTimeline?: TimelineStep[];
+  /** Full snapshot of the originally generated siteData, used by Recall */
   initialBackup?: SiteData;
+  /** Timestamped restore points saved by the admin editor */
+  checkpoints?: Checkpoint[];
 }

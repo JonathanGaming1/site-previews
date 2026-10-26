@@ -6,8 +6,8 @@
   "checkoutUrl": "/checkout",
   "trackingWebhookUrl": "https://n8n.example.com/webhook/site-view-tracking",
   "theme": {
-    "primaryColor": "#0b0b0f",
-    "accentColor": "#d4af37"
+    "primaryColor": "#090807",
+    "accentColor": "#c59b27"
   },
   "businessInfo": {
     "name": "אופק הנדימן",
@@ -25,7 +25,7 @@
     "headline": "נגרות יוקרתית שמקרבת את הבית שתמיד רצית",
     "subheadline": "עיצוב, ייצור והתקנה של ריהוט מעץ מלא בהתאמה אישית — בסטנדרט של מותג יוקרה, בשירות אישי של בעל מלאכה אמיתי.",
     "ctaText": "ליצירת קשר עכשיו",
-    "backgroundImage": "/hero-luxury.jpg"
+    "backgroundImage": "/hero-luxury.svg"
   },
   "services": [
     {
@@ -104,13 +104,14 @@
   ],
   "initialBackup": {
     "businessId": "demo-business-001",
-    "templateId": "luxury-dark",    "isDemo": true,
+    "templateId": "luxury-dark",
+    "isDemo": true,
     "n8nEditWebhookUrl": "https://n8n.example.com/webhook/site-edit",
     "checkoutUrl": "/checkout",
     "trackingWebhookUrl": "https://n8n.example.com/webhook/site-view-tracking",
     "theme": {
-      "primaryColor": "#0b0b0f",
-      "accentColor": "#d4af37"
+      "primaryColor": "#090807",
+      "accentColor": "#c59b27"
     },
     "businessInfo": {
       "name": "אופק הנדימן",
@@ -128,7 +129,7 @@
       "headline": "נגרות יוקרתית שמקרבת את הבית שתמיד רצית",
       "subheadline": "עיצוב, ייצור והתקנה של ריהוט מעץ מלא בהתאמה אישית — בסטנדרט של מותג יוקרה, בשירות אישי של בעל מלאכה אמיתי.",
       "ctaText": "ליצירת קשר עכשיו",
-      "backgroundImage": "/hero-luxury.jpg"
+      "backgroundImage": "/hero-luxury.svg"
     },
     "services": [
       {
@@ -204,6 +205,73 @@
         "question": "האם עליי לפרק את הריהוט הישן לפני?",
         "answer": "לא. אנחנו מסירים את הריהוט הישן עבורכם — כולל פירוק וניקוי סופי לפני ההתקנה."
       }
-    ]
-  }
+    ],
+    "projects": [
+      {
+        "title": "מטבח שהפך ללהיט הבית",
+        "description": "מטבח סטנדרט הפך למטבח יוקרתי עם אחסון שקוף ופאנלים עם ידיות ברונזה מותאמות.",
+        "beforeImage": "/before-1.svg",
+        "afterImage": "/after-1.svg"
+      },
+      {
+        "title": "ספרית קיר שלמות",
+        "description": "פינת ספרים רגילה הפכה לספריית קיר שלמה עם תאורה חמימה. שנבנתה למידות הקיר.",
+        "beforeImage": "/before-2.svg",
+        "afterImage": "/after-2.svg"
+      }
+    ],
+    "processTimeline": [
+      {
+        "title": "שיחת היכרות",
+        "description": "שיחה קצרה שבה אנחנו מקשיבים לחזון שלך — בקצב שלך ובלי התחייבות."
+      },
+      {
+        "title": "מדידה ותכנון",
+        "description": "מדידה מקצועית בבית שלך, שרטוט תלת-ממד מדויק והצעת מחיר שקופה."
+      },
+      {
+        "title": "ייצור בסטודיו",
+        "description": "עבודת עץ בהתאמה אישית בסטודיו שלנו, עם עדכוני התקדמות שוטפים בוואטסאפ."
+      },
+      {
+        "title": "התקנה וליווי",
+        "description": "התקנה נקייה ומסודרת, קבלה מלאה מבוססת, ואחריות של 5 שנים מאותו יום."
+      }
+    ],
+    "checkpoints": []
+  },
+  "slug": "default",
+  "projects": [
+    {
+      "title": "מטבח שהפך ללהיט הבית",
+      "description": "מטבח סטנדרט הפך למטבח יוקרתי עם אחסון שקוף ופאנלים עם ידיות ברונזה מותאמות.",
+      "beforeImage": "/before-1.svg",
+      "afterImage": "/after-1.svg"
+    },
+    {
+      "title": "ספרית קיר שלמות",
+      "description": "פינת ספרים רגילה הפכה לספריית קיר שלמה עם תאורה חמימה. שנבנתה למידות הקיר.",
+      "beforeImage": "/before-2.svg",
+      "afterImage": "/after-2.svg"
+    }
+  ],
+  "processTimeline": [
+    {
+      "title": "שיחת היכרות",
+      "description": "שיחה קצרה שבה אנחנו מקשיבים לחזון שלך — בקצב שלך ובלי התחייבות."
+    },
+    {
+      "title": "מדידה ותכנון",
+      "description": "מדידה מקצועית בבית שלך, שרטוט תלת-ממד מדויק והצעת מחיר שקופה."
+    },
+    {
+      "title": "ייצור בסטודיו",
+      "description": "עבודת עץ בהתאמה אישית בסטודיו שלנו, עם עדכוני התקדמות שוטפים בוואטסאפ."
+    },
+    {
+      "title": "התקנה וליווי",
+      "description": "התקנה נקייה ומסודרת, קבלה מלאה מבוססת, ואחריות של 5 שנים מאותו יום."
+    }
+  ],
+  "checkpoints": []
 }
