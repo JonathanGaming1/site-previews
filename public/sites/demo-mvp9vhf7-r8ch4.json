@@ -1,7 +1,7 @@
 {
   "businessId": "demo-mvp9vhf7-r8ch4",
   "slug": "demo-mvp9vhf7-r8ch4",
-  "templateId": "luxury-dark",
+  "templateId": "apple-spatial",
   "isDemo": true,
   "n8nEditWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
   "trackingWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",

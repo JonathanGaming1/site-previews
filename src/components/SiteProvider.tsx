@@ -10,6 +10,7 @@ import React, {
   useState,
 } from "react";
 import type { SiteData, TemplateId, ThemeConfig } from "@/types/site";
+import { LEGACY_TEMPLATE_FALLBACK } from "@/types/site";
 import siteDataJson from "@/data/siteData.json";
 
 const GITHUB_RAW_BASE =
@@ -83,6 +84,27 @@ export function getByPath(obj: Record<string, unknown>, path: string): unknown {
     );
 }
 
+export function normalizeTemplate(id: unknown): TemplateId {
+  if (id && typeof id === "string") {
+    if (LEGACY_TEMPLATE_FALLBACK[id]) return LEGACY_TEMPLATE_FALLBACK[id];
+    if (
+      ["apple-spatial", "whisky-obsidian", "cyber-quantum", "atelier-boutique"].includes(id)
+    ) {
+      return id as TemplateId;
+    }
+  }
+  return "apple-spatial";
+}
+
+/** Fill a (possibly partial / legacy) remote JSON into a valid SiteData. */
+function hydrateSite(remote: Partial<SiteData>, slug: string | null): SiteData {
+  const base = clone(siteDataJson as unknown as SiteData);
+  const merged = { ...base, ...clone(remote) } as SiteData;
+  merged.templateId = normalizeTemplate(remote.templateId ?? base.templateId);
+  if (slug) merged.slug = slug;
+  return merged;
+}
+
 export function useSite(): SiteContextValue {
   const ctx = useContext(SiteContext);
   if (!ctx) throw new Error("useSite must be used within SiteProvider");
@@ -141,8 +163,8 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
           cache: "no-store",
         });
         if (res.ok) {
-          const remote = (await res.json()) as SiteData;
-          setData({ ...clone(remote), slug });
+          const remote = (await res.json()) as Partial<SiteData>;
+          setData(hydrateSite(remote, slug));
           setRemoteLoaded(true);
           return;
         }
@@ -152,8 +174,8 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
       try {
         const res = await fetch(`/sites/${slug}.json`, { cache: "no-store" });
         if (res.ok) {
-          const remote = (await res.json()) as SiteData;
-          setData({ ...clone(remote), slug });
+          const remote = (await res.json()) as Partial<SiteData>;
+          setData(hydrateSite(remote, slug));
           setRemoteLoaded(true);
           return;
         }

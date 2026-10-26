@@ -1,6 +1,6 @@
 {
   "businessId": "biz-mvp5oi3c",
-  "templateId": "warm-boutique",
+  "templateId": "apple-spatial",
   "isDemo": true,
   "n8nEditWebhookUrl": "http://localhost:5678/webhook/site-editor",
   "checkoutUrl": "/checkout",
@@ -38,7 +38,7 @@
       "title": "שיפוץ מטבח",
       "description": "עיצוב מודרני, ארונות מותאמים ואבזור איכותי.",
       "price": "החל מ-3,500 ש\"ח",
-      "iconName": "Sparkles"
+      "iconName": "Compass"
     },
     {
       "title": "שיפוץ חדרי אמבטיה",
@@ -142,7 +142,7 @@
         "title": "שיפוץ מטבח",
         "description": "עיצוב מודרני, ארונות מותאמים ואבזור איכותי.",
         "price": "החל מ-3,500 ש\"ח",
-        "iconName": "Sparkles"
+        "iconName": "Compass"
       },
       {
         "title": "שיפוץ חדרי אמבטיה",

@@ -1,20 +1,23 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { ShieldAlert, ShoppingBag } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { ShieldAlert } from "lucide-react";
 import { useSite } from "@/components/SiteProvider";
 
 /**
- * Anti-F12 demo protection + un-removable watermark.
+ * Demo experience guard.
  * Active only when siteData.isDemo === true and the visitor has no secret ?key=.
- * A watchdog (MutationObserver + 400ms interval) verifies the watermark is
- * present, inside the viewport and visually intact; tampering blurs & locks
- * the entire page.
+ * - Renders a single sleek, Apple-style frosted-glass bottom dock bar.
+ * - Blocks context menu / selection / F12 / devtools shortcuts.
+ * - A tamper watchdog (MutationObserver + interval) verifies the dock is
+ *   present, in the viewport and visually intact; tampering blurs the page.
+ * NOTE: the giant diagonal watermark overlays were removed on purpose —
+ * they ruined the luxury look. This compact dock is the only demo marker.
  */
 export function SecurityGuard() {
-  const { data, isAdmin, mounted } = useSite();
+  const { data, isAdmin, mounted, slug } = useSite();
   const [locked, setLocked] = useState(false);
-  const watermarkRef = useRef<HTMLDivElement | null>(null);
+  const [dockRef, setDockRef] = useState<HTMLDivElement | null>(null);
   const active = mounted && data.isDemo && !isAdmin;
 
   // Event blocking: context menu, selection and F12 / devtools shortcuts
@@ -48,14 +51,14 @@ export function SecurityGuard() {
     };
   }, [active]);
 
-  // Tamper Watchdog
+  // Tamper Watchdog — protects only the demo dock bar.
   useEffect(() => {
     if (!active) return;
 
     let fired = false;
     const check = () => {
       if (fired) return;
-      const el = watermarkRef.current;
+      const el = dockRef;
       if (!el || !document.body.contains(el)) {
         fired = true;
       } else {
@@ -64,15 +67,13 @@ export function SecurityGuard() {
         const inViewport =
           rect.left < window.innerWidth &&
           rect.right > 0 &&
-          rect.top < window.innerHeight &&
           rect.bottom > 0 &&
-          rect.width > 0 &&
           rect.height > 0;
         const visuallyIntact =
-          parseFloat(style.opacity) > 0.8 &&
+          parseFloat(style.opacity) > 0.5 &&
           style.display !== "none" &&
           style.visibility !== "hidden" &&
-          parseFloat(style.width || "0") > 0;
+          rect.height > 15;
         if (!inViewport || !visuallyIntact) fired = true;
       }
       if (fired) {
@@ -92,55 +93,46 @@ export function SecurityGuard() {
       document.documentElement.style.filter = "";
       document.documentElement.style.pointerEvents = "";
     };
-  }, [active]);
+  }, [active, dockRef]);
 
   if (!active) return null;
+
+  const checkoutHref = `/checkout?site=${encodeURIComponent(slug ?? data.slug ?? "default")}`;
 
   return (
     <>
       {locked && <LockOverlay />}
 
-      {/* Diagonal full-screen watermark */}
+      {/* Compact Apple-style frosted glass demo dock */}
       <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-[99998] overflow-hidden"
-        style={{ userSelect: "none" }}
+        ref={setDockRef}
+        id="demo-guard-dock"
+        className="fixed inset-x-0 bottom-3 z-[99999] flex justify-center px-4"
       >
-        {Array.from({ length: 5 }).map((_, i) => (
-          <span
-            key={i}
-            className="absolute whitespace-nowrap rotate-[-38deg] text-[4vw] font-bold opacity-[0.04]"
-            style={{
-              top: `${12 + i * 22}%`,
-              right: i % 2 === 0 ? "-8%" : "12%",
-              color: "#ffffff",
-              textShadow: "0 0 1px rgba(0,0,0,0.35)",
-            }}
-          >
-            אתר הדגמה • {data.businessInfo.name}
-          </span>
-        ))}
-      </div>
-
-      {/* Persistent bottom watermark bar */}
-      <div
-        ref={watermarkRef}
-        id="demo-watermark"
-        className="fixed inset-x-0 bottom-0 z-[99999] flex flex-col items-center justify-center gap-2 px-4 py-3 text-center shadow-[0_-8px_30px_rgba(0,0,0,0.45)] sm:flex-row sm:gap-4"
-        style={{ background: "linear-gradient(90deg,#111318,#1c1f26,#111318)" }}
-      >
-        <ShieldAlert className="h-5 w-5 shrink-0 text-amber-400" aria-hidden="true" />
-        <p className="text-sm font-medium text-gray-100 sm:text-base">
-          הדגמה חיה עבור{" "}
-          <span className="font-bold text-amber-300">{data.businessInfo.name}</span> •
-          לרכישת האתר והסרת סימן המים לחצו כאן
-        </p>
         <a
-          href={data.checkoutUrl}
-          className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-5 py-2 text-sm font-bold text-gray-950 shadow-lg shadow-amber-500/30 transition hover:bg-amber-300 active:scale-95"
+          href={checkoutHref}
+          className="group flex w-full max-w-2xl items-center justify-center gap-2 rounded-full border px-5 py-2.5 text-center text-[13px] font-medium leading-snug backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.35)] transition-transform duration-300 hover:scale-[1.02] sm:text-sm"
+          style={{
+            background: "rgba(12,12,15,0.55)",
+            borderColor: "rgba(255,255,255,0.16)",
+            color: "rgba(255,255,255,0.88)",
+            WebkitBackdropFilter: "blur(20px saturate(180%))",
+            backdropFilter: "blur(20px saturate(180%))",
+          }}
         >
-          <ShoppingBag className="h-4 w-4" aria-hidden="true" />
-          רכשו את האתר עכשיו
+          <ShieldAlert
+            className="h-3.5 w-3.5 shrink-0 opacity-70"
+            style={{ color: "rgba(255,255,255,0.7)" }}
+            aria-hidden="true"
+          />
+          <span>
+            הדגמה חיה עבור{" "}
+            <span className="font-semibold text-white">{data.businessInfo.name}</span>
+            {" • "}
+            <span className="font-semibold text-white underline decoration-white/30 underline-offset-4 transition group-hover:decoration-white/60">
+              להפעלת האתר המלא לחצו כאן
+            </span>
+          </span>
         </a>
       </div>
     </>
@@ -154,12 +146,10 @@ function LockOverlay() {
       style={{ pointerEvents: "auto" }}
       role="alert"
     >
-      <span className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-red-500/40 bg-red-500/10">
-        <ShieldAlert className="h-10 w-10 text-red-400" aria-hidden="true" />
+      <span className="flex h-16 w-16 items-center justify-center rounded-full border border-white/15 bg-white/5">
+        <ShieldAlert className="h-8 w-8 text-white/70" aria-hidden="true" />
       </span>
-      <h1 className="text-2xl font-bold text-white sm:text-3xl">
-        האתר נחסם זמנית
-      </h1>
+      <h1 className="text-2xl font-bold text-white sm:text-3xl">האתר נחסם זמנית</h1>
       <p className="max-w-xl text-lg leading-relaxed text-gray-300">
         מערכת האבטחה זיהתה ניסיון לעקוף את מצב ההדגמה. לצפייה באתר יש לרענן את
         העמוד.

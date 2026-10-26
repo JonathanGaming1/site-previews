@@ -1,7 +1,7 @@
 {
   "businessId": "demo-mvp73imx-60wt3",
   "slug": "demo-mvp73imx-60wt3",
-  "templateId": "luxury-dark",
+  "templateId": "apple-spatial",
   "isDemo": true,
   "n8nEditWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
   "trackingWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",

@@ -1,6 +1,6 @@
 {
   "businessId": "demo-business-001",
-  "templateId": "luxury-dark",
+  "templateId": "apple-spatial",
   "isDemo": true,
   "n8nEditWebhookUrl": "https://n8n.example.com/webhook/site-edit",
   "checkoutUrl": "/checkout",

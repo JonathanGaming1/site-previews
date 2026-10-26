@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import {
   Check,
   Clock,
+  Key,
   Layers,
   Loader2,
   Lock,
@@ -14,13 +15,11 @@ import {
 import { motion } from "framer-motion";
 import { clone, useSite } from "@/components/SiteProvider";
 import { saveSiteJson } from "@/lib/github";
-import type { Checkpoint, SiteData } from "@/types/site";
-
-const TEMPLATE_OPTIONS: { id: SiteData["templateId"]; label: string }[] = [
-  { id: "luxury-dark", label: "Dry Aged / Obsidian" },
-  { id: "modern-clean", label: "Modern Clean" },
-  { id: "warm-boutique", label: "Warm Boutique" },
-];
+import {
+  TEMPLATE_OPTIONS,
+  type Checkpoint,
+  type SiteData,
+} from "@/types/site";
 
 const GITHUB_TOKEN_KEY = "admin_gh_token";
 const GROQ_KEY_KEY = "admin_groq_key";
@@ -243,7 +242,7 @@ export function AdminToolbar() {
 
         {/* Color pickers */}
         <span className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1.5">
-          <Sliders className="h-4 w-4 text-brass" style={{ color: "#d9a441" }} aria-hidden="true" />
+          <Sliders className="h-4 w-4" style={{ color: "#d9a441" }} aria-hidden="true" />
           <label className="flex items-center gap-1" title="צבע ראשי">
             <input
               type="color"
@@ -300,13 +299,16 @@ export function AdminToolbar() {
           </span>
         </button>
 
-        {/* Connection settings */}
+        {/* Connection settings — 🔑 הגדרות API (GitHub token + Groq key, saved in localStorage) */}
         <button
           onClick={() => setSettingsOpen(true)}
-          title="הגדרות חיבור (GitHub + Groq)"
+          title="הגדרות API (GitHub + Groq)"
           className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-semibold text-gray-200 transition hover:bg-white/10"
         >
-          הגדרות חיבור
+          <span className="inline-flex items-center gap-1.5">
+            <Key className="h-4 w-4 text-amber-300" aria-hidden="true" />
+            הגדרות API
+          </span>
         </button>
 
         <span className="mr-auto flex items-center gap-2 text-xs text-gray-400">
@@ -537,7 +539,7 @@ function SettingsModal({
         <div className="mb-5 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg font-bold text-white">
             <Lock className="h-5 w-5 text-amber-300" aria-hidden="true" />
-            הגדרות חיבור
+            הגדרות API
           </h2>
           <button
             onClick={onClose}

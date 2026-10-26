@@ -1,4 +1,22 @@
-export type TemplateId = "luxury-dark" | "modern-clean" | "warm-boutique";
+export type TemplateId =
+  | "apple-spatial"
+  | "whisky-obsidian"
+  | "cyber-quantum"
+  | "atelier-boutique";
+
+/** Legacy template ids that may still exist in older business JSONs. */
+export const LEGACY_TEMPLATE_FALLBACK: Record<string, TemplateId> = {
+  "luxury-dark": "whisky-obsidian",
+  "modern-clean": "apple-spatial",
+  "warm-boutique": "atelier-boutique",
+};
+
+export const TEMPLATE_OPTIONS: { id: TemplateId; label: string }[] = [
+  { id: "apple-spatial", label: "Apple Spatial — זכוכית מרחבית" },
+  { id: "whisky-obsidian", label: "Whisky Obsidian — עמבר אובסידיאן" },
+  { id: "cyber-quantum", label: "Cyber Quantum — מרחב עתידני" },
+  { id: "atelier-boutique", label: "Atelier Boutique — טרוורטין ארכיטקטוני" },
+];
 
 export interface ThemeConfig {
   primaryColor: string;
