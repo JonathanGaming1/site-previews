@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useRef, useState, useCallback } from "react";
+import React, { useCallback, useRef } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { MoveHorizontal } from "lucide-react";
 import type { LuxTheme } from "@/lib/luxtheme";
 
@@ -15,11 +16,11 @@ interface BeforeAfterSliderProps {
 }
 
 /**
- * Interactive Before / After Split Comparison Slider.
- * A draggable metallic handle sweeps a clip that compares standard market
- * work (left/before) against our bespoke standard (right/after). Works with
- * mouse, touch and keyboard arrows. If no images exist for a business, it
- * degrades into an elegant labeled split without any broken imagery.
+ * Interactive Before / After Split Comparison Slider — performance rewrite.
+ * The drag position is written straight to DOM styles through refs during
+ * pointer movement (zero React re-renders on pointermove); React state is
+ * touched only for keyboard arrow steps. Works with mouse, touch and
+ * keyboard. Without images it degrades into an elegant labeled split.
  */
 export function BeforeAfterSlider({
   theme,
@@ -30,48 +31,80 @@ export function BeforeAfterSlider({
   caption = "גררו את הידית המתכתית וראו את ההפרש בעיניים",
   handleColor,
 }: BeforeAfterSliderProps) {
-  const [pos, setPos] = useState(50);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const afterRef = useRef<HTMLDivElement | null>(null);
+  const splitRef = useRef<HTMLDivElement | null>(null);
   const dragging = useRef(false);
+  const frame = useRef<number | null>(null);
+  const pendingX = useRef<number | null>(null);
   const accent = handleColor ?? theme.accent;
 
-  const moveFromClientX = useCallback((clientX: number) => {
-    const rect = wrapRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const pct = ((clientX - rect.left) / rect.width) * 100;
-    setPos(Math.min(94, Math.max(6, pct)));
+  const flush = useCallback(() => {
+    frame.current = null;
+    const wrap = wrapRef.current;
+    const x = pendingX.current;
+    if (!wrap || x === null) return;
+    pendingX.current = null;
+    const rect = wrap.getBoundingClientRect();
+    const pct = Math.min(94, Math.max(6, ((x - rect.left) / rect.width) * 100));
+    if (afterRef.current) {
+      afterRef.current.style.clipPath = `inset(0 0 0 ${pct}%)`;
+    }
+    if (splitRef.current) {
+      splitRef.current.style.left = `${pct}%`;
+    }
+    wrap.setAttribute("aria-valuenow", String(Math.round(pct)));
   }, []);
 
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  const schedule = useCallback((clientX: number) => {
+    pendingX.current = clientX;
+    if (frame.current === null) {
+      frame.current = requestAnimationFrame(flush);
+    }
+  }, [flush]);
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     dragging.current = true;
-    (e.currentTarget as HTMLDivElement).setPointerCapture?.(e.pointerId);
-    moveFromClientX(e.clientX);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    schedule(e.clientX);
   };
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (dragging.current) moveFromClientX(e.clientX);
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragging.current) schedule(e.clientX);
   };
   const onPointerUp = () => {
     dragging.current = false;
   };
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "ArrowLeft") setPos((v) => Math.max(6, v - 4));
-    if (e.key === "ArrowRight") setPos((v) => Math.min(94, v + 4));
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    const current =
+      ((splitRef.current?.offsetLeft ?? rect.width / 2) / rect.width) * 100;
+    let target = current;
+    if (e.key === "ArrowLeft") target = Math.max(6, current - 4);
+    if (e.key === "ArrowRight") target = Math.min(94, current + 4);
+    if (target !== current) {
+      e.preventDefault();
+      schedule(rect.left + (target / 100) * rect.width);
+    }
   };
 
   const handleInk = theme.dark ? "#14100a" : "#fdf9f3";
 
   return (
     <div className="w-full">
-      <p className="mb-2 text-center text-sm" style={{ color: theme.muted }}>
-        {caption}
-      </p>
+      {caption && (
+        <p className="mb-2 text-center text-sm" style={{ color: theme.muted }}>
+          {caption}
+        </p>
+      )}
 
       <div
         ref={wrapRef}
         role="slider"
         tabIndex={0}
-        aria-valuenow={Math.round(pos)}
+        aria-valuenow={50}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-label="השוואת לפני ואחרי"
@@ -80,13 +113,10 @@ export function BeforeAfterSlider({
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
         onKeyDown={onKeyDown}
-        className="relative h-[300px] w-full cursor-ew-resize select-none overflow-hidden rounded-[2rem] outline-none focus-visible:ring-2 md:h-[440px]"
+        className="relative h-[300px] w-full cursor-ew-resize select-none overflow-hidden outline-none focus-visible:ring-2 md:h-[440px]"
         style={{
-          border: `2px solid ${theme.border}`,
+          border: `1px solid ${theme.border}`,
           background: theme.surface,
-          boxShadow: theme.dark
-            ? "0 30px 60px rgba(0,0,0,0.45)"
-            : "0 30px 60px rgba(15,18,26,0.14)",
         }}
       >
         {/* BEFORE layer */}
@@ -107,16 +137,17 @@ export function BeforeAfterSlider({
                 : "linear-gradient(135deg, #e7e2d8, #d9d2c4)",
             }}
           >
-            <span className="text-center text-lg font-semibold" style={{ color: theme.muted }}>
+            <span className="text-center text-lg font-light" style={{ color: theme.muted }}>
               {beforeLabel}
             </span>
           </div>
         )}
 
-        {/* AFTER layer (clipped from split to right edge) */}
+        {/* AFTER layer (clipped from split to the far edge) */}
         <div
+          ref={afterRef}
           className="pointer-events-none absolute inset-0"
-          style={{ clipPath: `inset(0 0 0 ${pos}%)` }}
+          style={{ clipPath: "inset(0 0 0 50%)" }}
           dir="ltr"
         >
           {afterImage ? (
@@ -130,7 +161,7 @@ export function BeforeAfterSlider({
           ) : (
             <div className="absolute inset-0 flex items-center justify-center p-10">
               <span
-                className="text-center text-lg font-bold"
+                className="text-center text-lg font-normal"
                 style={{ color: theme.dark ? "#efe7d8" : "#2a2118" }}
               >
                 {afterLabel}
@@ -139,24 +170,26 @@ export function BeforeAfterSlider({
           )}
         </div>
 
-        {/* Split line/metallic handle */}
+        {/* Split line / handle — repositioned by ref during drag */}
         <div
+          ref={splitRef}
           className="pointer-events-none absolute inset-y-0 z-20"
-          style={{ left: `${pos}%`, width: 2 }}
+          style={{ left: "50%", width: 2 }}
           dir="ltr"
         >
           <span
             className="absolute inset-y-0 left-1/2 w-[2px] -translate-x-1/2"
             style={{
-              background: `linear-gradient(180deg, transparent, ${accent} 12%, #fff8 50%, ${accent} 88%, transparent)`,
-              boxShadow: `0 0 14px ${accent}88`,
+              background:
+                `linear-gradient(180deg, transparent, ${accent} 12%, rgba(255,255,255,0.55) 50%, ${accent} 88%, transparent)`,
             }}
           />
           <span
             className="absolute top-1/2 flex h-12 w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full"
             style={{
-              background: `linear-gradient(145deg, ${lightenOrDarken(handleColor ?? theme.accent, 0.35)}, ${handleColor ?? theme.accent}, ${lightenOrDarken(handleColor ?? theme.accent, -0.25)})`,
-              boxShadow: `0 6px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 4px rgba(0,0,0,0.3)`,
+              background: `linear-gradient(145deg, ${lightenOrDarken(accent, 0.35)}, ${accent}, ${lightenOrDarken(accent, -0.25)})`,
+              boxShadow:
+                "0 6px 20px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.5), inset 0 -2px 4px rgba(0,0,0,0.3)",
               color: handleColor === undefined && !theme.dark ? "#14100a" : "#151007",
             }}
           >
@@ -164,16 +197,18 @@ export function BeforeAfterSlider({
           </span>
         </div>
 
-        {/* Labels */}
+        {/* Labels — mirrored for RTL viewers: right edge = before */}
         <span
-          className="pointer-events-none absolute bottom-4 right-4 z-10 rounded-full px-3.5 py-1.5 text-xs font-bold backdrop-blur"
+          className="pointer-events-none absolute bottom-4 right-4 z-10 px-3.5 py-1.5 text-[11px] font-normal tracking-wide backdrop-blur"
           style={{ background: "rgba(0,0,0,0.55)", color: "#fff" }}
+          dir="rtl"
         >
           {beforeLabel}
         </span>
         <span
-          className="pointer-events-none absolute bottom-4 left-4 z-10 rounded-full px-3.5 py-1.5 text-xs font-bold"
+          className="pointer-events-none absolute bottom-4 left-4 z-10 px-3.5 py-1.5 text-[11px] font-medium"
           style={{ background: accent, color: handleInk }}
+          dir="rtl"
         >
           {afterLabel}
         </span>

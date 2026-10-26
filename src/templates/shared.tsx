@@ -2,11 +2,119 @@
 
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, MessageCircle, Phone, Star } from "lucide-react";
+import { ChevronDown, Star } from "lucide-react";
 import { useSite } from "@/components/SiteProvider";
 import type { FaqItem } from "@/types/site";
 
-/* ---------- Star row ---------- */
+/* ------------------------------------------------------------------ */
+/* Hebrew editorial headline engine                                    */
+/* ------------------------------------------------------------------ */
+
+/** Common Hebrew clause starters that n8n concatenates directly onto the
+ * tail of the first headline part (e.g. "נגרות יוקרתי" + "את הבית" →
+ * "נגרות יוקרתיאת הבית"). Repair the missing space at the junction. */
+const CLAUSE_STARTERS = [
+  "את",
+  "אבל",
+  "עם",
+  "שתמיד",
+  "שאליהם",
+  "שאנחנו",
+  "שנבנים",
+  "שמקרבת",
+  "שתרצו",
+  "שהחלום",
+  "דוגמת",
+  "כמו",
+  "לקבלת",
+  "להזמנת",
+  "לעסק",
+  "ברמה",
+  "בלב",
+] as const;
+
+/** Real Hebrew words that legitimately end with a starter-like suffix and
+ * must NOT be split. */
+const GLUE_EXCEPTIONS = new Set([
+  "מאת",
+  "מטעם",
+  "קראת",
+  "שראת",
+  "נאת",
+  "קוראת",
+  "מתעדכנת",
+  "ראתה",
+]);
+
+/** Collapse repeated whitespace and re-glue words that lost their space
+ * when two generated headline parts were concatenated. */
+export function normalizeHeadline(raw: string): string {
+  const s = (raw ?? "").replace(/\s+/g, " ").trim();
+  return s
+    .split(" ")
+    .map((token) => {
+      if (token.length < 5 || GLUE_EXCEPTIONS.has(token)) return token;
+      for (const starter of CLAUSE_STARTERS) {
+        if (!token.endsWith(starter) || token.length <= starter.length) continue;
+        const prefix = token.slice(0, token.length - starter.length);
+        if (prefix.length < 3) continue;
+        return `${prefix} ${starter}`;
+      }
+      return token;
+    })
+    .join(" ");
+}
+
+/**
+ * Split an editorial headline into two intentionally balanced lines.
+ * Breaks before the last clause (the segment after a mid-sentence starter)
+ * when that keeps both lines readable; otherwise splits at the word midway.
+ */
+export function splitHeadline(raw: string): [string, string] | [string] {
+  const s = normalizeHeadline(raw);
+  const words = s.split(" ");
+  if (words.length <= 1) return [s];
+
+  let breakAt = Math.ceil(words.length / 2);
+  // Prefer a break right before the second clause when we have starters.
+  for (let i = Math.floor(words.length * 0.35); i < words.length - 1; i++) {
+    if (CLAUSE_STARTERS.some((st) => words[i] === st || words[i].startsWith(st))) {
+      breakAt = i;
+      break;
+    }
+  }
+  const first = words.slice(0, breakAt).join(" ");
+  const second = words.slice(breakAt).join(" ");
+  return first && second ? [first, second] : [s];
+}
+
+/** Render a split headline with clean spacing + an intentional <br />. */
+export function EditorialHeadline({
+  text,
+  className = "",
+  style,
+}: {
+  text: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const lines = splitHeadline(text);
+  return (
+    <span className={className} style={style}>
+      {lines.map((line, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <br />}
+          {line}
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Star row                                                            */
+/* ------------------------------------------------------------------ */
+
 export function Stars({
   rating,
   className = "h-4 w-4",
@@ -30,7 +138,10 @@ export function Stars({
   );
 }
 
-/* ---------- FAQ accordion ---------- */
+/* ------------------------------------------------------------------ */
+/* FAQ accordion (restyled per template through `classes`)             */
+/* ------------------------------------------------------------------ */
+
 export function FaqAccordion({
   items,
   classes,
@@ -87,85 +198,8 @@ export function FaqAccordion({
   );
 }
 
-/* ---------- Floating WhatsApp ---------- */
-export function WhatsAppFab({ accentColor }: { accentColor: string }) {
-  const { data } = useSite();
-  return (
-    <motion.a
-      href={`https://wa.me/${data.businessInfo.whatsapp}?text=${encodeURIComponent("היי, אשמח לקבל פרטים נוספים")}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="צרו קשר בוואטסאפ"
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      transition={{ delay: 1.2, type: "spring", stiffness: 260, damping: 18 }}
-      whileHover={{ scale: 1.08 }}
-      whileTap={{ scale: 0.94 }}
-      className="fixed bottom-24 z-[9000] flex h-14 w-14 items-center justify-center rounded-full text-white shadow-2xl ltr:left-5 rtl:right-5 md:bottom-6"
-      style={{
-        background: `linear-gradient(135deg,#25D366, ${accentColor})`,
-        boxShadow: `0 10px 30px ${accentColor}55`,
-      }}
-    >
-      <MessageCircle className="h-7 w-7" fill="currentColor" aria-hidden="true" />
-      <span className="absolute inset-0 -z-10 animate-ping rounded-full bg-[#25D366]/40 [animation-duration:2.5s]" />
-    </motion.a>
-  );
-}
-
-/* ---------- Sticky mobile action bar ---------- */
-export function MobileActionBar({
-  accentColor,
-  variant,
-}: {
-  accentColor: string;
-  variant: "dark" | "light" | "warm";
-}) {
-  const { data } = useSite();
-  const bg =
-    variant === "dark"
-      ? "rgba(10,10,14,0.92)"
-      : variant === "light"
-        ? "rgba(255,255,255,0.94)"
-        : "rgba(245,238,228,0.95)";
-  const fg = variant === "dark" ? "#f5f5f5" : "#1a1712";
-  const sub = variant === "dark" ? "#9ca3af" : "#6b6455";
-
-  return (
-    <div
-      className="fixed inset-x-0 bottom-0 z-[9500] flex items-center justify-between gap-2 border-t px-4 py-3 backdrop-blur-md md:hidden"
-      style={{ background: bg, borderColor: variant === "dark" ? "#ffffff1a" : "#00000014", color: fg }}
-    >
-      <a
-        href={`tel:${data.businessInfo.phone}`}
-        className="flex flex-1 flex-col items-center gap-0.5 text-center"
-      >
-        <Phone className="h-5 w-5" aria-hidden="true" />
-        <span className="text-[11px] font-semibold">התקשרו אלינו</span>
-      </a>
-      <a
-        href={data.checkoutUrl}
-        className="flex flex-1 items-center justify-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-bold text-gray-950"
-        style={{ background: accentColor }}
-      >
-        לרכישת האתר
-      </a>
-      <a
-        href={`https://wa.me/${data.businessInfo.whatsapp}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex flex-1 flex-col items-center gap-0.5 text-center"
-      >
-        <MessageCircle className="h-5 w-5 text-[#25D366]" aria-hidden="true" />
-        <span className="text-[11px] font-semibold" style={{ color: sub }}>
-          וואטסאפ
-        </span>
-      </a>
-    </div>
-  );
-}
-
 /* ---------- Motion helpers ---------- */
+
 export const fadeUp = {
   initial: { opacity: 0, y: 28 },
   whileInView: { opacity: 1, y: 0 },

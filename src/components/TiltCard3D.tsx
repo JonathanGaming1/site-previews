@@ -1,11 +1,9 @@
 "use client";
 
-import React, { useCallback, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
-import type { LuxTheme } from "@/lib/luxtheme";
+import React, { useCallback, useRef } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
 
 interface TiltCard3DProps {
-  theme: LuxTheme;
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
@@ -13,18 +11,20 @@ interface TiltCard3DProps {
   perspective?: number;
   /** Max tilt angle in degrees */
   maxTilt?: number;
-  /** Glare opacity (0–1) */
+  /** Glare opacity (0–1). 0 disables the specular highlight. */
   glare?: number;
 }
 
 /**
- * 3D Perspective Tilt Card with a false-apple specular glare.
- * Physically tilts in 3D space (perspective + rotateX/rotateY) following the
- * pointer/touch position, with a moving metallic light reflection across the
- * surface. Springs back flat on leave.
+ * 3D perspective tilt card — performance-first rewrite.
+ *
+ * CRITICAL: this component holds ZERO React state. Pointer movement never
+ * triggers a re-render; a `requestAnimationFrame` writes `transform` and the
+ * glare gradient directly on DOM nodes through refs. React only participates
+ * in mount/unmount. This eliminates the input delay / click lag caused by
+ * full-tree re-renders on `onMouseMove`.
  */
 export function TiltCard3D({
-  theme,
   children,
   className = "",
   style,
@@ -32,73 +32,90 @@ export function TiltCard3D({
   maxTilt = 10,
   glare = 0.14,
 }: TiltCard3DProps) {
-  const ref = useRef<HTMLDivElement | null>(null);
   const frame = useRef<number | null>(null);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const [glarePos, setGlarePos] = useState({ x: 50, y: 50 });
-  const [hover, setHover] = useState(false);
+  const pending = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const glareRef = useRef<HTMLSpanElement | null>(null);
 
-  const handleMove = useCallback(
-    (clientX: number, clientY: number) => {
-      const el = ref.current;
-      if (!el) return;
+  const flush = useCallback(() => {
+    frame.current = null;
+    const card = cardRef.current;
+    const p = pending.current;
+    if (!card || !p) return;
+    card.style.transform = `rotateX(${p.x.toFixed(2)}deg) rotateY(${p.y.toFixed(2)}deg) translateZ(6px) scale(1.015)`;
+    const g = glareRef.current;
+    if (g) {
+      g.style.background = `radial-gradient(340px circle at ${p.px}% ${p.py}%, rgba(255,255,255,${glare}), transparent 60%)`;
+      g.style.opacity = "1";
+    }
+  }, [glare]);
+
+  const schedule = useCallback(() => {
+    if (frame.current === null) {
+      frame.current = requestAnimationFrame(flush);
+    }
+  }, [flush]);
+
+  const onPointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const el = e.currentTarget;
       const rect = el.getBoundingClientRect();
-      const px = (clientX - rect.left) / rect.width; // 0..1
-      const py = (clientY - rect.top) / rect.height; // 0..1
-      // rotateY follows horizontal, rotateX inverse of vertical
-      const y = (px - 0.5) * 2; // -1..1
-      const x = -(py - 0.5) * 2; // -1..1
-      if (frame.current !== null) cancelAnimationFrame(frame.current);
-      frame.current = requestAnimationFrame(() => {
-        setTilt({ x: x * maxTilt, y: y * maxTilt });
-        setGlarePos({ x: px * 100, y: py * 100 });
-      });
+      const px = (e.clientX - rect.left) / rect.width; // 0..1
+      const py = (e.clientY - rect.top) / rect.height; // 0..1
+      pending.current = {
+        x: -(py - 0.5) * 2 * maxTilt,
+        y: (px - 0.5) * 2 * maxTilt,
+        px: px * 100,
+        py: py * 100,
+      };
+      schedule();
     },
-    [maxTilt],
+    [maxTilt, schedule],
   );
 
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    handleMove(e.clientX, e.clientY);
-  };
-
-  const reset = () => {
-    if (frame.current !== null) cancelAnimationFrame(frame.current);
-    setHover(false);
-    setTilt({ x: 0, y: 0 });
-  };
+  const reset = useCallback(() => {
+    if (frame.current !== null) {
+      cancelAnimationFrame(frame.current);
+      frame.current = null;
+    }
+    pending.current = null;
+    const card = cardRef.current;
+    if (card) {
+      card.style.transform = "rotateX(0deg) rotateY(0deg) translateZ(0)";
+    }
+    const g = glareRef.current;
+    if (g) g.style.opacity = "0";
+  }, []);
 
   return (
-    <div style={{ perspective: `${perspective}px`, transformStyle: "preserve-3d" }}>
+    <div
+      style={{ perspective: `${perspective}px`, transformStyle: "preserve-3d" }}
+    >
       <div
-        ref={ref}
-        onPointerMove={onPointerMove}
-        onPointerEnter={() => setHover(true)}
+        ref={cardRef}
+        onPointerMove={glare > 0 || maxTilt > 0 ? onPointerMove : undefined}
         onPointerLeave={reset}
-        className={`relative will-change-transform ${className}`}
+        className={`relative will-change-transform transition-transform duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${className}`}
         style={{
           ...style,
-          transform: hover
-            ? `rotateX(${tilt.x.toFixed(2)}deg) rotateY(${tilt.y.toFixed(2)}deg) translateZ(6px) scale(1.015)`
-            : "rotateX(0deg) rotateY(0deg) translateZ(0)",
-          transition: hover
-            ? "transform 60ms linear"
-            : "transform 420ms cubic-bezier(0.22, 1, 0.36, 1)",
+          transform: "rotateX(0deg) rotateY(0deg) translateZ(0)",
           transformStyle: "preserve-3d",
         }}
       >
-        {/* Specular glare — moving metallic light reflection */}
-        {hover && glare > 0 && (
+        {/* Specular glare — opacity toggled by ref, never by state */}
+        {glare > 0 && (
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 overflow-hidden"
             style={{ borderRadius: "inherit" }}
           >
             <span
+              ref={glareRef}
               className="absolute inset-0"
               style={{
-                background: `radial-gradient(340px circle at ${glarePos.x}% ${glarePos.y}%, rgba(255,255,255,${glare}), transparent 60%)`,
-                mixBlendMode: theme.dark ? "screen" : "soft-light",
-                transition: "background 60ms linear",
+                opacity: 0,
+                mixBlendMode: "soft-light",
+                transition: "opacity 240ms ease",
               }}
             />
           </span>

@@ -1,11 +1,17 @@
 /**
- * Generates 4 luxury 1200x675 template preview PNGs for Discord embeds.
- * Each PNG visually depicts the actual UI layout, exact background colors,
- * header pod, 3D bento cards and style language of its template.
+ * Generates 4 art-directed 1200x675 template preview PNGs for Discord embeds.
+ * Each PNG depicts the distinctive UI of its rebuilt template:
+ *   whisky-obsidian  → FORGE ATELIER   (pitch black, thin serif hero, masked
+ *                                       studio image, 3-stage spec config)
+ *   apple-spatial    → TITANIUM PRO    (sticky split-screen, bento metrics,
+ *                                       Dynamic Island pod)
+ *   atelier-boutique → SWISS GRID      (alabaster #F2EFE9, exposed 1px
+ *                                       hairlines, giant index, table rows)
+ *   cyber-quantum    → KINETIC SHOWROOM (carbon #07080A, marquee ticker,
+ *                                       draggable range sliders, lime accent)
  *
  * Usage: node scripts/generate-previews.mjs   (runs automatically before `npm run build`)
- * If `sharp` could not be installed in a given build environment, the script
- * exits gracefully — the committed PNGs in public/previews/ remain in use.
+ * If `sharp` is unavailable, the committed PNGs in public/previews/ remain.
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -15,9 +21,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FONTS_DIR = join(ROOT, "scripts", "fonts");
 const OUT_DIR = join(ROOT, "public", "previews");
 
-/* ------------------------------------------------------------------ */
-/* Fontconfig bootstrap (build images may have zero system fonts)      */
-/* ------------------------------------------------------------------ */
+/* Fontconfig bootstrap (build images may have zero system fonts) */
 if (existsSync(FONTS_DIR)) {
   const fontconfigXml = `<?xml version="1.0"?>
 <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
@@ -39,280 +43,308 @@ try {
   process.exit(0);
 }
 
-/* ------------------------------------------------------------------ */
-/* Shared SVG helpers                                                  */
-/* ------------------------------------------------------------------ */
-
 const W = 1200;
 const H = 675;
-const GOLD_ACCENT = "#c59b27";
-const APPLE_ACCENT = "#0071e3";
-const QUANTUM_ACCENT = "#6e7bff";
-const ATELIER_ACCENT = "#8b6a3e";
-
-/** The Dynamic-Island header pod (centered, top of frame). */
-function islandPod(accent, name, statusText) {
-  return `
-    <rect x="${W / 2 - 155}" y="26" width="310" height="52" rx="26"
-      fill="rgba(18,18,24,0.72)" stroke="rgba(255,255,255,0.22)" stroke-width="1.4"/>
-    <circle cx="${W / 2 - 128}" cy="52" r="5" fill="#30d158"/>
-    <text x="${W / 2 + 130}" y="46" text-anchor="end" font-family="'Heebo'" font-size="15" font-weight="600" fill="rgba(255,255,255,0.92)">${name}</text>
-    <text x="${W / 2 + 130}" y="66" text-anchor="end" font-family="'Heebo'" font-size="11.5" fill="rgba(255,255,255,0.55)">${statusText}</text>`;
-}
-
-/** 3D bento card — draw BEFORE its icon/text so content sits on top. */
-function bentoCard({ x, y, w, h, r = 22, fill, stroke, glow, strokeWidth = 1.5, sheen }) {
-  return `
-    ${glow ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="none" stroke="${glow}" stroke-width="10" opacity="0.18"/>` : ""}
-    ${sheen ? `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="url(#${sheen})"/>` : ""}
-    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}"/>
-    <rect x="${x + 8}" y="${y + 6}" width="${w - 16}" height="${Math.max(6, h / 2)}" rx="${Math.max(6, h / 2)}" fill="rgba(255,255,255,0.05)"/>`;
-}
-
-/** Small frosted service-icon tile. */
-function iconTile(x, y, color) {
-  return `<rect x="${x}" y="${y}" width="52" height="52" rx="15" fill="${color}20" stroke="${color}55" stroke-width="1.2"/>`;
-}
-
-/** Bottom live-meter bar (quote-builder affordance). */
-function meterLine(x, y, w, color, pct) {
-  return `
-  <rect x="${x}" y="${y}" width="${w}" height="6" rx="3" fill="rgba(255,255,255,0.10)"/>
-  <rect x="${x}" y="${y}" width="${w * pct}" height="6" rx="3" fill="${color}" opacity="0.9"/>`;
-}
-
 const he = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const SERVICE_TITLES = ["מטבחים מעוצבים", "ארונות אמבטיה", "ספריית קיר", "מזנונים ואחסון"];
-const SERVICE_PRICES = ["החל מ-18,000 ₪", "החל מ-9,000 ₪", "החל מ-12,000 ₪", "החל מ-7,000 ₪"];
-const SERVICE_HINTS = [
-  "עיצוב מדויק עד המילימטר האחרון",
-  "עמבר זהב וגימור מוקפד",
-  "מודול בניה חכם לחלל",
-  "ארכיטקטורה של חום ואבן",
-];
-
-/* ------------------------------------------------------------------ */
-/* Template mockups                                                    */
-/* ------------------------------------------------------------------ */
-
-function appleSpatial() {
-  const accent = APPLE_ACCENT;
-  const cards = [0, 1, 2, 3]
-    .map((i) => {
-      const x = 90 + i * 258;
-      return `
-      ${bentoCard({ x: x - 4, y: 460, w: 240, h: 152, fill: "rgba(255,255,255,0.06)", stroke: "rgba(255,255,255,0.14)", sheen: "glassSheen" })}
-      ${iconTile(x, 468, accent)}
-      <text x="${x + 8}" y="547" font-family="'Heebo'" font-size="17" font-weight="700" fill="#f5f5f7">${he(SERVICE_TITLES[i])}</text>
-      <text x="${x + 8}" y="572" font-family="'Heebo'" font-size="13" fill="rgba(245,245,247,0.5)">עיצוב מדויק עד המילימטר האחרון</text>
-      <text x="${x + 8}" y="596" font-family="'Heebo'" font-size="13.5" font-weight="700" fill="${accent}">${he(SERVICE_PRICES[i])}</text>`;
-    })
-    .join("");
-
+/* =================================================================== */
+/* whisky-obsidian — FORGE ATELIER                                     */
+/* =================================================================== */
+function forgeAtelier() {
+  const bg = "#030303";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
   <defs>
-    <linearGradient id="glassSheen" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="rgba(255,255,255,0.10)"/>
-      <stop offset="0.6" stop-color="rgba(255,255,255,0.02)"/>
-    </linearGradient>
-    <radialGradient id="ambient" cx="0.5" cy="-0.1" r="0.9">
-      <stop offset="0" stop-color="rgba(64,110,245,0.30)"/>
-      <stop offset="1" stop-color="rgba(10,10,13,0)"/>
+    <radialGradient id="forgeMask" cx="0.5" cy="0.42" r="0.62">
+      <stop offset="0" stop-color="#5a4a2c"/>
+      <stop offset="0.55" stop-color="#241d10"/>
+      <stop offset="1" stop-color="#030303" stop-opacity="0"/>
     </radialGradient>
-    <linearGradient id="ctaGrad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="${accent}"/><stop offset="1" stop-color="#3f8cff"/>
-    </linearGradient>
-  </defs>
-  <rect width="${W}" height="${H}" fill="#0a0a0d"/>
-  <rect width="${W}" height="${H}" fill="url(#ambient)"/>
-  ${islandPod(accent, "אופק הנדימן", "פתוח כעת • זמינות לפרויקטים בהרצליה")}
-  <text x="${W / 2}" y="150" text-anchor="middle" font-family="'Heebo'" font-size="14" font-weight="600" letter-spacing="6" fill="rgba(245,245,247,0.45)">SPATIAL DESIGN STUDIO</text>
-  <text x="${W / 2}" y="215" text-anchor="middle" font-family="'Heebo'" font-size="46" font-weight="800" fill="#f5f5f7">נגרות יוקרתית שמקרבת את הבית</text>
-  <text x="${W / 2}" y="268" text-anchor="middle" font-family="'Heebo'" font-size="46" font-weight="800" fill="url(#ctaGrad)">שתמיד רצית</text>
-  <text x="${W / 2}" y="315" text-anchor="middle" font-family="'Heebo'" font-size="19" fill="rgba(245,245,247,0.6)">זכוכית מרחבית, טיטניום מוברש ובנטו תלת-ממד שנע עם הגלילה</text>
-  <rect x="${W / 2 - 130}" y="345" width="150" height="44" rx="22" fill="url(#ctaGrad)"/>
-  <text x="${W / 2 - 55}" y="373" text-anchor="middle" font-family="'Heebo'" font-size="15" font-weight="700" fill="#ffffff">ליצירת קשר עכשיו</text>
-  <rect x="${W / 2 + 40}" y="345" width="150" height="44" rx="22" fill="rgba(255,255,255,0.06)" stroke="rgba(255,255,255,0.2)" stroke-width="1.2"/>
-  <text x="${W / 2 + 115}" y="373" text-anchor="middle" font-family="'Heebo'" font-size="15" font-weight="600" fill="#f5f5f7">050-1234567</text>
-  ${cards}
-  ${meterLine(90, 640, 1020, accent, 0.44)}
-  <text x="${W - 90}" y="658" text-anchor="end" font-family="'Heebo'" font-size="11" fill="rgba(245,245,247,0.4)">מחשבון הצעת מחיר חי — עדכון בזמן אמת</text>
-</svg>`;
-}
-
-function whiskyObsidian() {
-  const accent = GOLD_ACCENT;
-  const bg = "#080706";
-  const cards = [0, 1, 2, 3]
-    .map((i) => {
-      const x = 90 + i * 258;
-      return `
-      ${bentoCard({ x: x - 4, y: 462, w: 240, h: 152, fill: "rgba(233,214,176,0.045)", stroke: "rgba(197,155,39,0.35)", glow: "#c59b2722" })}
-      <rect x="${x}" y="470" width="52" height="52" rx="15" fill="${accent}14" stroke="${accent}55" stroke-width="1.2"/>
-      <text x="${x + 10}" y="550" font-family="'Frank Ruhl Libre'" font-size="17" font-weight="700" fill="#f2e8d5">${he(SERVICE_TITLES[i])}</text>
-      <text x="${x + 10}" y="574" font-family="'Heebo'" font-size="13" fill="rgba(242,232,213,0.5)">${he(SERVICE_HINTS[1])}</text>
-      <text x="${x + 10}" y="598" font-family="'Frank Ruhl Libre'" font-size="14" font-weight="700" fill="${accent}">${he(SERVICE_PRICES[i])}</text>`;
-    })
-    .join("");
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-  <defs>
-    <filter id="grain"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="n"/><feColorMatrix in="n" type="saturate" values="0"/></filter>
-    <radialGradient id="spotlight" cx="0.28" cy="0.18" r="0.75">
-      <stop offset="0" stop-color="rgba(197,155,39,0.16)"/>
-      <stop offset="1" stop-color="rgba(197,155,39,0)"/>
-    </radialGradient>
-    <radialGradient id="spotlight2" cx="0.85" cy="0.7" r="0.6">
-      <stop offset="0" stop-color="rgba(226,184,87,0.10)"/>
-      <stop offset="1" stop-color="rgba(226,184,87,0)"/>
-    </radialGradient>
-    <linearGradient id="brassCta" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#c59b27"/><stop offset="1" stop-color="#e2b857"/>
+    <linearGradient id="forgePhoto" x1="0" y1="0" x2="1" y2="0.25">
+      <stop offset="0" stop-color="#12100b"/>
+      <stop offset="0.5" stop-color="#3a3117"/>
+      <stop offset="1" stop-color="#0f0d09"/>
     </linearGradient>
   </defs>
   <rect width="${W}" height="${H}" fill="${bg}"/>
-  <rect width="${W}" height="${H}" fill="url(#spotlight)"/>
-  <rect width="${W}" height="${H}" fill="url(#spotlight2)"/>
-  <rect width="${W}" height="${H}" filter="url(#grain)" opacity="0.05"/>
-  <rect x="0" y="0" width="${W}" height="3" fill="url(#brassCta)" opacity="0.85"/>
-  ${islandPod(accent, "אופק הנדימן", "פתוח כעת • זמינות לפרויקטים בהרצליה")}
-  <text x="${W / 2}" y="148" text-anchor="middle" font-family="'Frank Ruhl Libre'" font-size="15" letter-spacing="8" fill="${accent}">PRIVATE SINGLE-MALT CLUB BESPOKE</text>
-  <text x="${W / 2}" y="222" text-anchor="middle" font-family="'Frank Ruhl Libre'" font-size="52" font-weight="900" fill="#f2e8d5">נגרות יוקרתית שמקרבת</text>
-  <text x="${W / 2}" y="284" text-anchor="middle" font-family="'Frank Ruhl Libre'" font-size="52" font-weight="900" fill="#f2e8d5">את הבית שתמיד רצית</text>
-  <text x="${W / 2}" y="330" text-anchor="middle" font-family="'Heebo'" font-size="18" fill="rgba(242,232,213,0.6)">עיצוב ייצור והתקנה של ריהוט מעץ מלא בסטנדרט של מותג יוקרה</text>
-  <rect x="${W / 2 - 145}" y="352" width="160" height="46" rx="23" fill="url(#brassCta)"/>
-  <text x="${W / 2 - 65}" y="382" text-anchor="middle" font-family="'Heebo'" font-size="15" font-weight="700" fill="#14100a">ליצירת קשר עכשיו</text>
-  <rect x="${W / 2 + 35}" y="352" width="160" height="46" rx="23" fill="${bg}" stroke="${accent}66" stroke-width="1.2"/>
-  <text x="${W / 2 + 115}" y="382" text-anchor="middle" font-family="'Heebo'" font-size="15" font-weight="600" fill="#f2e8d5">050-1234567</text>
-  ${cards}
-  ${meterLine(90, 640, 1020, accent, 0.62)}
-  <text x="90" y="658" font-family="'Heebo'" font-size="11" fill="rgba(242,232,213,0.45)">עמבר נוזלי • גימור מוברש • גרעין עדין</text>
-</svg>`;
-}
 
-function cyberQuantum() {
-  const accent = QUANTUM_ACCENT;
-  const cards = [0, 1, 2, 3]
-    .map((i) => {
-      const x = 90 + i * 258;
-      const isoY = 512 + (i % 2) * -6;
-      return `
-      ${bentoCard({ x: x - 4, y: 462, w: 240, h: 152, r: 20, fill: "rgba(110,123,255,0.05)", stroke: "rgba(126,140,255,0.42)", glow: "#6e7bff55" })}
-      <rect x="${x}" y="470" width="52" height="52" rx="15" fill="rgba(110,123,255,0.10)" stroke="rgba(126,140,255,0.4)" stroke-width="1.2"/>
-      <text x="${x + 10}" y="550" font-family="'Heebo'" font-size="17" font-weight="700" fill="#eef0ff">${he(SERVICE_TITLES[i])}</text>
-      <text x="${x + 10}" y="574" font-family="'Heebo'" font-size="13" fill="rgba(238,240,255,0.5)">${he(SERVICE_HINTS[2])}</text>
-      <text x="${x + 10}" y="598" font-family="'Heebo'" font-size="13.5" font-weight="700" fill="#8f9bff">${he(SERVICE_PRICES[i])}</text>
-      <g transform="translate(${x + 172} ${isoY})" opacity="0.3">
-        <rect x="0" y="8" width="54" height="32" rx="4" fill="none" stroke="#8f9bff" stroke-width="1"/>
-        <rect x="6" y="0" width="54" height="32" rx="4" fill="none" stroke="#6e7bff" stroke-width="1"/>
-        <rect x="12" y="-8" width="54" height="32" rx="4" fill="rgba(110,123,255,0.4)" stroke="#a3b0ff" stroke-width="1.2"/>
-      </g>`;
-    })
-    .join("");
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-  <defs>
-    <radialGradient id="aurora1" cx="0.2" cy="0.15" r="0.6">
-      <stop offset="0" stop-color="rgba(110,123,255,0.26)"/>
-      <stop offset="1" stop-color="rgba(110,123,255,0)"/>
-    </radialGradient>
-    <radialGradient id="aurora2" cx="0.85" cy="0.75" r="0.55">
-      <stop offset="0" stop-color="rgba(162,88,255,0.18)"/>
-      <stop offset="1" stop-color="rgba(162,88,255,0)"/>
-    </radialGradient>
-    <radialGradient id="aurora3" cx="0.5" cy="0.35" r="0.7">
-      <stop offset="0" stop-color="rgba(56,232,255,0.08)"/>
-      <stop offset="1" stop-color="rgba(56,232,255,0)"/>
-    </radialGradient>
-    <linearGradient id="qGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff"/>
-      <stop offset="0.6" stop-color="#dfe3ff"/>
-      <stop offset="1" stop-color="#8f9bff"/>
-    </linearGradient>
-    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
-      <path d="M48 0H0V48" fill="none" stroke="rgba(126,140,255,0.10)" stroke-width="1"/>
-    </pattern>
-  </defs>
-  <rect width="${W}" height="${H}" fill="#05060f"/>
-  <rect width="${W}" height="400" fill="url(#grid)" opacity="0.5"/>
-  <rect width="${W}" height="${H}" fill="url(#aurora1)"/>
-  <rect width="${W}" height="${H}" fill="url(#aurora2)"/>
-  <rect width="${W}" height="${H}" fill="url(#aurora3)"/>
-  ${islandPod(accent, "עסק הדגמה", "פתוח כעת • זמינות לפרויקטים בכפר סבא")}
-  <text x="${W / 2}" y="146" text-anchor="middle" font-family="'Heebo'" font-size="13" font-weight="700" letter-spacing="7" fill="#8f9bff">FUTURESPACES // Q-STUDIO</text>
-  <text x="${W / 2}" y="212" text-anchor="middle" font-family="'Heebo'" font-size="46" font-weight="800" fill="url(#qGrad)">נגרות יוקרתית שמקרבת את הבית</text>
-  <text x="${W / 2}" y="262" text-anchor="middle" font-family="'Heebo'" font-size="46" font-weight="800" fill="url(#qGrad)">שתמיד רצית</text>
-  <text x="${W / 2}" y="305" text-anchor="middle" font-family="'Heebo'" font-size="18" fill="rgba(238,240,255,0.6)">רשתות אור אורורה, כרטיסי מודול תלת-ממדיים ושלטי טלמטריה חיים</text>
-  <g font-family="'Heebo'" font-size="12.5" font-weight="600" fill="#dbe0ff">
-    <rect x="${W / 2 - 330}" y="340" width="150" height="34" rx="17" fill="rgba(110,123,255,0.08)" stroke="rgba(126,140,255,0.4)" stroke-width="1"/>
-    <text x="${W / 2 - 255}" y="362" text-anchor="middle">דיוק מדידה ±2 מ״מ</text>
-    <rect x="${W / 2 - 150}" y="340" width="150" height="34" rx="17" fill="rgba(110,123,255,0.08)" stroke="rgba(126,140,255,0.4)" stroke-width="1"/>
-    <text x="${W / 2 - 75}" y="362" text-anchor="middle">תגובה תוך דקות</text>
-    <rect x="${W / 2 + 30}" y="340" width="150" height="34" rx="17" fill="rgba(110,123,255,0.08)" stroke="rgba(126,140,255,0.4)" stroke-width="1"/>
-    <text x="${W / 2 + 105}" y="362" text-anchor="middle">עדכוני פרויקט 24/7</text>
-    <rect x="${W / 2 + 200}" y="340" width="150" height="34" rx="17" fill="rgba(110,123,255,0.08)" stroke="rgba(126,140,255,0.4)" stroke-width="1"/>
-    <text x="${W / 2 + 275}" y="362" text-anchor="middle">פרוטוקול איכות</text>
+  <!-- 3-point header -->
+  <g font-family="'Heebo'" font-size="10" letter-spacing="3">
+    <text x="72" y="40" fill="rgba(255,255,255,0.38)">WHATSAPP</text>
+    <text x="72" y="58" fill="rgba(255,255,255,0.38)" font-size="9">+972 50 123 4567</text>
+    <g transform="translate(${W / 2 - 78} 28)">
+      <rect x="0" y="0" width="30" height="30" transform="skewX(-8)" fill="none" stroke="#c59b27aa" stroke-width="1"/>
+      <text x="9" y="21" font-size="13" fill="#c59b27" transform="skewX(8)" font-family="'Frank Ruhl Libre'">N</text>
+      <text x="42" y="19" font-size="10" letter-spacing="4" fill="rgba(255,255,255,0.65)">אולפן הפורז’</text>
+    </g>
+    <g transform="translate(${W - 110} 0)">
+      <text x="0" y="40" fill="rgba(255,255,255,0.4)">ניווט</text>
+      <line x1="34" y1="27" x2="58" y2="27" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+      <line x1="34" y1="39" x2="58" y2="39" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+    </g>
   </g>
-  <rect x="${W / 2 - 130}" y="390" width="150" height="44" rx="12" fill="${accent}" style="filter:drop-shadow(0 0 22px rgba(110,123,255,0.55))"/>
-  <text x="${W / 2 - 55}" y="419" text-anchor="middle" font-family="'Heebo'" font-size="15" font-weight="800" fill="#0a0b14">ליצירת קשר עכשיו</text>
-  <rect x="${W / 2 + 40}" y="390" width="150" height="44" rx="12" fill="rgba(255,255,255,0.03)" stroke="rgba(126,140,255,0.35)" stroke-width="1"/>
-  <text x="${W / 2 + 115}" y="419" text-anchor="middle" font-family="'Heebo'" font-size="15" font-weight="600" fill="#eef0ff">050-1234567</text>
-  ${cards}
-  ${meterLine(90, 640, 1020, accent, 0.78)}
-  <text x="${W - 90}" y="658" text-anchor="end" font-family="'Heebo'" font-size="11" fill="rgba(238,240,255,0.45)">בנטו איזומטרי תלת-ממד • גבולות לייזר</text>
+
+  <!-- Thin editorial serif hero, two clean lines -->
+  <text x="${W / 2}" y="150" text-anchor="middle" font-family="'Frank Ruhl Libre'" font-weight="300" font-size="54" fill="#f4efe6">נגרות יוקרתית</text>
+  <text x="${W / 2}" y="215" text-anchor="middle" font-family="'Frank Ruhl Libre'" font-weight="300" font-size="54" fill="#f4efe6">שמקרבת את הבית</text>
+  <line x1="${W / 2 - 26}" y1="244" x2="${W / 2 + 26}" y2="244" stroke="rgba(255,255,255,0.18)"/>
+
+  <!-- Wide dramatic studio image with radial vignette mask fade -->
+  <g mask="url(#imgMask)">
+    <rect x="60" y="266" width="${W - 120}" height="240" fill="url(#forgePhoto)"/>
+    <rect x="60" y="266" width="${W - 120}" height="240" fill="url(#forgeMask)"/>
+    <rect x="${W / 2 + 90}" y="290" width="90" height="190" fill="#0a0806" opacity="0.5"/>
+    <rect x="${W / 2 + 200}" y="310" width="60" height="170" fill="#0a0806" opacity="0.4"/>
+  </g>
+  <mask id="imgMask">
+    <rect width="${W}" height="${H}" fill="url(#vignetteFill)"/>
+  </mask>
+  <defs>
+    <radialGradient id="vignetteFill" cx="0.5" cy="0.57" r="0.42">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="0.62" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <text x="${W / 2}" y="532" text-anchor="middle" font-family="'Heebo'" font-size="10.5" letter-spacing="2.5" fill="rgba(255,255,255,0.35)">ייצור, עיצוב והתקנה בסטנדרט של מותג</text>
+  <g font-family="'Heebo'" font-size="11">
+    <text x="${W / 2 - 150}" y="558" text-anchor="middle" fill="rgba(255,255,255,0.6)" letter-spacing="2.5"> בניית מפרט והצעת מחיר </text>
+    <line x1="${W / 2 - 150}" y1="566" x2="${W / 2 + 55}" y2="566" stroke="rgba(255,255,255,0.3)"/>
+  </g>
+
+  <!-- Spec configurator strip -->
+  <g font-family="'Heebo'">
+    <g transform="translate(60 586)">
+      <rect width="260" height="62" fill="#030303" stroke="#ffffff14" stroke-width="1"/>
+      <text x="16" y="26" font-size="8.5" letter-spacing="2.6" fill="#c59b27">STAGE 01</text>
+      <text x="16" y="47" font-size="12.5" fill="rgba(255,255,255,0.85)">בחירת שירות — מטבחים</text>
+    </g>
+    <g transform="translate(326 586)">
+      <rect width="260" height="62" fill="#030303" stroke="#ffffff14" stroke-width="1"/>
+      <text x="16" y="26" font-size="8.5" letter-spacing="2.6" fill="#c59b27">STAGE 02</text>
+      <text x="16" y="47" font-size="12.5" fill="rgba(255,255,255,0.85)">רמת גימור — פרימיום</text>
+    </g>
+    <g transform="translate(592 586)">
+      <rect width="260" height="62" fill="#030303" stroke="#ffffff14" stroke-width="1"/>
+      <text x="16" y="26" font-size="8.5" letter-spacing="2.6" fill="#c59b27">STAGE 03</text>
+      <text x="16" y="47" font-size="12.5" fill="rgba(255,255,255,0.85)">לוח זמנים — תוך חודש</text>
+    </g>
+    <g transform="translate(858 586)">
+      <rect width="282" height="62" fill="none" stroke="#c59b2755" stroke-width="1"/>
+      <text x="16" y="26" font-size="8.5" letter-spacing="2.6" fill="rgba(255,255,255,0.35)">LIVE SPEC SHEET</text>
+      <text x="16" y="49" font-size="15" fill="#f4efe6" font-family="'Frank Ruhl Libre'" font-weight="300">₪48,000 — ₪60,000</text>
+    </g>
+  </g>
 </svg>`;
 }
 
-function atelierBoutique() {
-  const accent = ATELIER_ACCENT;
-  const bg = "#ede4d3";
-  const cards = [0, 1, 2, 3]
-    .map((i) => {
-      const x = 90 + i * 258;
-      return `
-      ${bentoCard({ x: x - 4, y: 462, w: 240, h: 152, fill: "rgba(255,253,247,0.75)", stroke: "rgba(64,48,32,0.16)", sheen: "warmSheen" })}
-      <rect x="${x}" y="470" width="52" height="52" rx="15" fill="${accent}15" stroke="rgba(64,48,32,0.25)" stroke-width="1.2"/>
-      <text x="${x + 10}" y="550" font-family="'Frank Ruhl Libre'" font-size="17" font-weight="700" fill="#2a2118">${he(SERVICE_TITLES[i])}</text>
-      <text x="${x + 10}" y="574" font-family="'Heebo'" font-size="13" fill="rgba(42,33,24,0.55)">${he(SERVICE_HINTS[3])}</text>
-      <text x="${x + 10}" y="598" font-family="'Frank Ruhl Libre'" font-size="14" font-weight="700" fill="${accent}">${he(SERVICE_PRICES[i])}</text>`;
-    })
-    .join("");
-
+/* =================================================================== */
+/* apple-spatial — TITANIUM PRO SPLIT-SCREEN                           */
+/* =================================================================== */
+function titaniumPro() {
+  const bg = "#0b0c0e";
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
   <defs>
-    <linearGradient id="warmSheen" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="rgba(255,255,255,0.9)"/>
-      <stop offset="1" stop-color="rgba(255,252,245,0.7)"/>
+    <linearGradient id="tiSheen" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="rgba(150,165,190,0.10)"/>
+      <stop offset="1" stop-color="rgba(11,12,14,0)"/>
     </linearGradient>
-    <linearGradient id="stoneCurtain" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#d9cdb8"/>
-      <stop offset="0.55" stop-color="#e6dac6"/>
-      <stop offset="1" stop-color="${bg}"/>
+    <linearGradient id="tiPhoto" x1="0" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#1a1d23"/>
+      <stop offset="0.55" stop-color="#2c3542"/>
+      <stop offset="1" stop-color="#13151a"/>
     </linearGradient>
-    <linearGradient id="travertineStripes" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="rgba(139,106,62,0.10)"/>
-      <stop offset="1" stop-color="rgba(139,106,62,0.02)"/>
-    </linearGradient>
+    <radialGradient id="tiAmbient" cx="0.75" cy="-0.1" r="0.9">
+      <stop offset="0" stop-color="rgba(120,140,180,0.16)"/>
+      <stop offset="1" stop-color="rgba(11,12,14,0)"/>
+    </radialGradient>
   </defs>
   <rect width="${W}" height="${H}" fill="${bg}"/>
-  <rect x="0" y="0" width="${W}" height="330" fill="url(#stoneCurtain)"/>
-  <rect x="60" y="30" width="220" height="360" rx="8" fill="#c9b99e" opacity="0.55"/>
-  <rect x="920" y="30" width="220" height="360" rx="8" fill="#c9b99e" opacity="0.55"/>
-  <rect x="80" y="180" width="1040" height="2" fill="rgba(64,48,32,0.25)"/>
-  ${islandPod(accent, "אטלייה ארצית", "פתוח כעת • זמינות לפרויקטים בירושלים")}
-  <text x="${W / 2}" y="150" text-anchor="middle" font-family="'Frank Ruhl Libre'" font-size="15" letter-spacing="8" fill="${accent}">ATELIER • TRAVERTINE FLAGSHIP</text>
-  <text x="${W / 2}" y="222" text-anchor="middle" font-family="'Frank Ruhl Libre'" font-size="50" font-weight="900" fill="#2a2118">נגרות יוקרתית שמקרבת</text>
-  <text x="${W / 2}" y="284" text-anchor="middle" font-family="'Frank Ruhl Libre'" font-size="50" font-weight="900" fill="#2a2118">את הבית שתמיד רצית</text>
-  <text x="${W / 2}" y="330" text-anchor="middle" font-family="'Heebo'" font-size="18" fill="rgba(42,33,24,0.6)">אבן טרוורטין חמה, ברונזה אספרסו ורכסי תמונה בפרלקסה</text>
-  <rect x="${W / 2 - 140}" y="356" width="160" height="46" rx="23" fill="${accent}"/>
-  <text x="${W / 2 - 60}" y="386" text-anchor="middle" font-family="'Heebo'" font-size="15" font-weight="700" fill="#fdf9f3">ליצירת קשר עכשיו</text>
-  <rect x="${W / 2 + 40}" y="356" width="160" height="46" rx="23" fill="rgba(255,253,247,0.85)" stroke="rgba(64,48,32,0.22)" stroke-width="1.2"/>
-  <text x="${W / 2 + 120}" y="386" text-anchor="middle" font-family="'Heebo'" font-size="15" font-weight="600" fill="#2a2118">050-1234567</text>
-  <rect x="0" y="410" width="${W}" height="24" fill="url(#travertineStripes)"/>
-  ${cards}
-  ${meterLine(90, 640, 1020, accent, 0.5)}
-  <text x="90" y="658" font-family="'Heebo'" font-size="11" fill="rgba(42,33,24,0.45)">גיליון ראשון — פרטים בהתאמה אישית באטלייה</text>
+  <rect width="${W}" height="${H}" fill="url(#tiAmbient)"/>
+
+  <!-- Dynamic Island pod -->
+  <rect x="${W / 2 - 140}" y="22" width="280" height="46" rx="23" fill="rgba(22,23,27,0.8)" stroke="rgba(255,255,255,0.16)" stroke-width="1"/>
+  <circle cx="${W / 2 - 112}" cy="45" r="4.5" fill="#30d158"/>
+  <text x="${W / 2}" y="50" text-anchor="middle" font-family="'Heebo'" font-size="12.5" font-weight="600" fill="rgba(255,255,255,0.85)">פתוח כעת • זמינים לפרויקטים</text>
+
+  <!-- Sticky split-screen: pinned visual column on the right, chapters on the left -->
+  <line x1="680" y1="96" x2="680" y2="${H - 60}" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+  <g transform="translate(712 120)">
+    <rect width="416" height="330" fill="url(#tiPhoto)" stroke="rgba(255,255,255,0.12)" stroke-width="1" rx="16"/>
+    <text x="596" y="300" font-size="0"></text>
+    <text x="208" y="180" text-anchor="middle" font-family="'Heebo'" font-size="12" letter-spacing="4" fill="rgba(255,255,255,0.5)">TITANIUM PRO</text>
+    <text x="208" y="205" text-anchor="middle" font-family="'Frank Ruhl Libre'" font-weight="300" font-size="19" fill="#f5f5f7">אולפן טיטניום</text>
+  </g>
+  <g transform="translate(712 470)">
+    <rect width="416" height="96" rx="12" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+    <text x="24" y="42" font-family="'Heebo'" font-weight="300" font-size="26" fill="#f5f5f7">4.9★</text>
+    <text x="24" y="72" font-family="'Heebo'" font-size="10" fill="rgba(255,255,255,0.42)">24 ביקורות Google</text>
+    <text x="164" y="42" font-family="'Heebo'" font-weight="300" font-size="26" fill="#f5f5f7">100%</text>
+    <text x="164" y="72" font-family="'Heebo'" font-size="10" fill="rgba(255,255,255,0.42)">חומרים מובחרים</text>
+    <text x="300" y="42" font-family="'Heebo'" font-weight="300" font-size="26" fill="#f5f5f7">24/7</text>
+    <text x="300" y="72" font-family="'Heebo'" font-size="10" fill="rgba(255,255,255,0.42)">מענה שוטף</text>
+  </g>
+
+  <!-- Scrolling precision chapters -->
+  <g font-family="'Heebo'" fill="rgba(245,245,247,0.35)">
+    <text x="88" y="146" font-size="10" letter-spacing="3"><tspan fill="#0071e3">01</tspan>  נגרות מודולרית</text>
+    <text x="88" y="172" font-family="'Heebo'" font-weight="400" font-size="25" fill="#f5f5f7">מטבחים בהתאמה אישית</text>
+    <line x1="88" y1="188" x2="230" y2="188" stroke="rgba(255,255,255,0.14)"/>
+    <line x1="88" y1="252" x2="640" y2="252" stroke="rgba(255,255,255,0.10)"/>
+    <text x="88" y="290" font-size="10" letter-spacing="3"><tspan fill="#0071e3">02</tspan>  תהליך</text>
+    <text x="88" y="316" font-family="'Heebo'" font-weight="400" font-size="25" fill="#f5f5f7">ארונות ונישות מדגם אישי</text>
+    <line x1="88" y1="332" x2="230" y2="332" stroke="rgba(255,255,255,0.14)"/>
+    <line x1="88" y1="396" x2="640" y2="396" stroke="rgba(255,255,255,0.10)"/>
+    <text x="88" y="434" font-size="10" letter-spacing="3"><tspan fill="#0071e3">03</tspan>  סטנדרט</text>
+    <text x="88" y="460" font-family="'Heebo'" font-weight="400" font-size="25" fill="#f5f5f7">גימור ואחריות לכל פרויקט</text>
+    <line x1="88" y1="476" x2="230" y2="476" stroke="rgba(255,255,255,0.14)"/>
+    <text x="88" y="510" font-size="12.5" fill="rgba(245,245,247,0.45)">מדידה, ייצור והתקנה — לוחות זמנים סגורים מהיום הראשון.</text>
+  </g>
+  <rect x="88" y="544" width="132" height="40" rx="20" fill="#0071e3"/>
+  <text x="154" y="570" text-anchor="middle" font-family="'Heebo'" font-size="12.5" font-weight="700" fill="#ffffff">ליצירת קשר</text>
+  <text x="240" y="570" font-family="'Heebo'" font-size="12.5" fill="rgba(245,245,247,0.6)">050-1234567</text>
+  <line x1="0" y1="${H - 8}" x2="680" y2="${H - 8}" stroke="rgba(255,255,255,0.10)"/>
+</svg>`;
+}
+
+/* =================================================================== */
+/* atelier-boutique — SWISS ARCHITECTURAL GRID                          */
+/* =================================================================== */
+function swissGrid() {
+  const bg = "#F2EFE9";
+  const ink = "#141413";
+  const hair = "rgba(20,20,19,0.15)";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+  <rect width="${W}" height="${H}" fill="${bg}"/>
+  <g font-family="'Heebo'" fill="${ink}">
+    <!-- index numerals -->
+    <text x="66" y="128" font-family="'Frank Ruhl Libre'" font-weight="300" font-size="74" fill="rgba(20,20,19,0.12)">01</text>
+    <text x="66" y="150" font-size="10" letter-spacing="5" fill="rgba(20,20,19,0.4)">/ STUDIO</text>
+
+    <!-- vertical photo curtain cell -->
+    <line x1="430" y1="86" x2="430" y2="${H - 70}" stroke="${hair}" stroke-width="1"/>
+    <g transform="translate(430 86)">
+      <rect width="240" height="330" fill="#d8d0c0"/>
+      <rect width="240" height="330" fill="#c9bfa9" opacity="0.5"/>
+      <rect x="26" y="34" width="120" height="160" fill="#b4a887" opacity="0.55"/>
+      <rect x="170" y="70" width="44" height="220" fill="#a99c78" opacity="0.4"/>
+      <rect x="66" y="220" width="150" height="84" fill="#c2b694" opacity="0.5"/>
+    </g>
+
+    <!-- asymmetric editorial typography cell -->
+    <g transform="translate(472 200)" font-family="'Frank Ruhl Libre'" font-weight="300">
+      <text x="0" y="0" font-family="'Heebo'" font-size="10" letter-spacing="5" fill="rgba(20,20,19,0.45)" font-weight="400">קבלן שיפוצים</text>
+      <text x="0" y="58" font-size="46" fill="${ink}">החלום שלך למרחב</text>
+      <text x="0" y="112" font-size="46" fill="${ink}">מושלם מתגשם</text>
+      <text x="0" y="168" font-family="'Heebo'" font-weight="400" font-size="12.5" fill="rgba(20,20,19,0.55)">שיפוצים ברמה גבוהה, שירות אישי ולוחות זמנים מדויקים</text>
+      <line x1="0" y1="196" x2="150" y2="196" stroke="rgba(20,20,19,0.5)" stroke-width="1"/>
+      <text x="0" y="224" font-family="'Heebo'" font-size="11.5" letter-spacing="2" fill="rgba(20,20,19,0.7)">להזמנת ייעוץ חינם בווטסאפ</text>
+    </g>
+
+    <!-- hairline service table rows -->
+    <g transform="translate(0 ${H - 262})">
+      <line x1="0" y1="0" x2="${W}" y2="0" stroke="${hair}" stroke-width="1"/>
+      <g transform="translate(0 44)">
+        <line x1="0" y1="0" x2="${W}" y2="0" stroke="rgba(20,20,19,0.08)" stroke-width="1"/>
+        <text x="66" y="-14" font-size="10" letter-spacing="3" fill="rgba(20,20,19,0.35)">01</text>
+        <text x="${W - 66}" y="-14" text-anchor="end" font-size="15" font-family="'Frank Ruhl Libre'" font-weight="300" fill="${ink}">שיפוץ מקיף לדירה</text>
+      </g>
+      <g transform="translate(0 88)">
+        <line x1="0" y1="0" x2="${W}" y2="0" stroke="rgba(20,20,19,0.08)" stroke-width="1"/>
+        <text x="66" y="-14" font-size="10" letter-spacing="3" fill="rgba(20,20,19,0.35)">02</text>
+        <text x="${W - 66}" y="-14" text-anchor="end" font-size="15" font-family="'Frank Ruhl Libre'" font-weight="300" fill="${ink}">שיפוץ מטבח</text>
+        <text x="66" y="-14" font-size="10" font-family="'Heebo'" fill="rgba(20,20,19,0.4)">החל מ-3,500 ₪</text>
+      </g>
+      <g transform="translate(0 132)">
+        <line x1="0" y1="0" x2="${W}" y2="0" stroke="rgba(20,20,19,0.08)" stroke-width="1"/>
+        <text x="66" y="-14" font-size="10" letter-spacing="3" fill="rgba(20,20,19,0.35)">03</text>
+        <text x="${W - 66}" y="-14" text-anchor="end" font-size="15" font-family="'Frank Ruhl Libre'" font-weight="300" fill="${ink}">שיפוץ חדרי אמבטיה</text>
+      </g>
+      <g transform="translate(0 176)">
+        <line x1="0" y1="0" x2="${W}" y2="0" stroke="${hair}" stroke-width="1"/>
+        <text x="66" y="-14" font-size="10" letter-spacing="3" fill="rgba(20,20,19,0.35)">04</text>
+        <text x="${W - 66}" y="-14" text-anchor="end" font-size="15" font-family="'Frank Ruhl Libre'" font-weight="300" fill="${ink}">שיפוץ משרדים</text>
+      </g>
+    </g>
+
+    <!-- top hairline chrome -->
+    <line x1="0" y1="86" x2="${W}" y2="86" stroke="${hair}" stroke-width="1"/>
+    <text x="${W / 2}" y="56" text-anchor="middle" font-size="10" letter-spacing="5" fill="rgba(20,20,19,0.55)">קבלן שיפוצים — רמת גן</text>
+    <line x1="0" y1="30" x2="${W}" y2="30" stroke="rgba(20,20,19,0.08)"/>
+  </g>
+</svg>`;
+}
+
+/* =================================================================== */
+/* cyber-quantum — KINETIC BESPOKE SHOWROOM                            */
+/* =================================================================== */
+function kineticShowroom() {
+  const bg = "#07080A";
+  const lime = "#cdff3d";
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+  <defs>
+    <pattern id="kGrid" width="56" height="56" patternUnits="userSpaceOnUse">
+      <path d="M56 0H0V56" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+    </pattern>
+    <radialGradient id="kFade" cx="0.5" cy="0.2" r="0.75">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <mask id="kMask"><rect width="${W}" height="560" fill="url(#kFade)"/></mask>
+  </defs>
+  <rect width="${W}" height="${H}" fill="${bg}"/>
+  <rect width="${W}" height="560" fill="url(#kGrid)" mask="url(#kMask)"/>
+
+  <!-- Swiss chrome header -->
+  <line x1="0" y1="44" x2="${W}" y2="44" stroke="rgba(255,255,255,0.08)"/>
+  <g font-family="'Heebo'">
+    <text x="60" y="30" font-size="10" letter-spacing="3" fill="rgba(255,255,255,0.45)">+972 50 123 4567</text>
+    <text x="${W / 2}" y="30" text-anchor="middle" font-size="10" letter-spacing="4" fill="rgba(255,255,255,0.6)">הסטודיו הקינטי לפרויקטים</text>
+    <text x="${W - 60}" y="30" text-anchor="end" font-size="10" letter-spacing="3" fill="${lime}">PRICE —</text>
+  </g>
+
+  <!-- Kinetic marquee ticker band -->
+  <line x1="0" y1="72" x2="${W}" y2="72" stroke="rgba(255,255,255,0.08)"/>
+  <g font-family="'Heebo'" fill="rgba(255,255,255,0.42)" font-size="10.5" letter-spacing="2.5">
+    <text x="24" y="106">קבלן שיפוצים <tspan fill="${lime}">—</tspan> שיפוץ מקיף לדירה <tspan fill="${lime}">—</tspan> 4.9★ בגוגל <tspan fill="${lime}">—</tspan> שיפוץ מטבח <tspan fill="${lime}">—</tspan> לוחות זמנים סגורים <tspan fill="${lime}">—</tspan> אחריות מסמוכת</text>
+  </g>
+
+  <!-- Swiss hero -->
+  <g font-family="'Heebo'">
+    <text x="60" y="196" font-size="10.5" letter-spacing="5" fill="rgba(255,255,255,0.35)">קבלן שיפוצים</text>
+    <text x="60" y="258" font-weight="300" font-size="44" fill="#f2f4f6" font-family="'Heebo'">החלום שלך למרחב</text>
+    <text x="60" y="308" font-weight="300" font-size="44" fill="#f2f4f6">מושלם מתגשם</text>
+    <rect x="60" y="352" width="214" height="44" fill="${lime}"/>
+    <text x="167" y="380" text-anchor="middle" font-size="13" font-weight="700" fill="#07080a">לשפץ אצלנו — הצעה מהסלון</text>
+    <g transform="translate(810 180)">
+      <!-- draggable range sliders -->
+      <rect width="330" height="300" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+      <text x="20" y="36" font-size="9" letter-spacing="3" fill="rgba(255,255,255,0.35)">LIVE QUOTE</text>
+      <text x="20" y="86" font-weight="300" font-size="34" fill="${lime}" font-family="'Heebo'">₪12,000</text>
+      <text x="20" y="114" font-size="10.5" fill="rgba(255,255,255,0.4)">up to ₪19,000</text>
+      <text x="20" y="152" font-size="10" letter-spacing="3" fill="rgba(255,255,255,0.35)">02 — היקף</text>
+      <rect x="20" y="166" width="290" height="2" fill="rgba(255,255,255,0.14)"/>
+      <rect x="20" y="164" width="146" height="6" fill="${lime}"/>
+      <rect x="160" y="158" width="10" height="20" fill="${lime}"/>
+      <text x="20" y="208" font-size="10" letter-spacing="3" fill="rgba(255,255,255,0.35)">03 — דחיפות</text>
+      <rect x="20" y="222" width="290" height="2" fill="rgba(255,255,255,0.14)"/>
+      <rect x="20" y="220" width="76" height="6" fill="${lime}"/>
+      <rect x="90" y="214" width="10" height="20" fill="${lime}"/>
+      <rect x="20" y="258" width="290" height="34" fill="${lime}"/>
+      <text x="165" y="280" text-anchor="middle" font-size="12" font-weight="700" fill="#07080a">שליחת ההצעה לוואטסאפ —</text>
+    </g>
+  </g>
+
+  <!-- numbered service index rows -->
+  <g font-family="'Heebo'" transform="translate(0 ${H - 108})">
+    <line x1="0" y1="0" x2="${W}" y2="0" stroke="rgba(255,255,255,0.08)"/>
+    <text x="60" y="36" font-size="10" letter-spacing="3" fill="rgba(255,255,255,0.25)">01</text>
+    <text x="112" y="36" font-size="14" fill="rgba(255,255,255,0.85)">שיפוץ מקיף לדירה</text>
+    <text x="${W - 60}" y="36" text-anchor="end" font-size="11" fill="rgba(255,255,255,0.45)">החל מ-5,000 ₪</text>
+    <line x1="0" y1="56" x2="${W}" y2="56" stroke="rgba(255,255,255,0.06)"/>
+    <text x="60" y="90" font-size="10" letter-spacing="3" fill="rgba(255,255,255,0.25)">02</text>
+    <text x="112" y="90" font-size="14" fill="rgba(255,255,255,0.85)">שיפוץ מטבח</text>
+    <text x="${W - 60}" y="90" text-anchor="end" font-size="11" fill="rgba(255,255,255,0.45)">החל מ-3,500 ₪</text>
+  </g>
 </svg>`;
 }
 
@@ -321,10 +353,10 @@ function atelierBoutique() {
 mkdirSync(OUT_DIR, { recursive: true });
 
 const targets = [
-  ["apple-spatial", appleSpatial],
-  ["whisky-obsidian", whiskyObsidian],
-  ["cyber-quantum", cyberQuantum],
-  ["atelier-boutique", atelierBoutique],
+  ["whisky-obsidian", forgeAtelier],
+  ["apple-spatial", titaniumPro],
+  ["atelier-boutique", swissGrid],
+  ["cyber-quantum", kineticShowroom],
 ];
 
 for (const [name, buildSvg] of targets) {

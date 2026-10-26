@@ -155,13 +155,11 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
     if (isSameSlug) return;
 
     const load = async () => {
-      // 1) Raw GitHub — always the freshest saved content (cache-busted)
-      // 2) Same-origin /sites/{slug}.json — Cloudflare Pages fallback
+      // 1) Same-origin /sites/{slug}.json — fast Cloudflare CDN copy first
+      // 2) Raw GitHub — fresher saved content when CDN misses, cache-busted
       // 3) Bundled default data — graceful offline fallback
       try {
-        const res = await fetch(`${GITHUB_RAW_BASE}/${slug}.json?t=${Date.now()}`, {
-          cache: "no-store",
-        });
+        const res = await fetch(`/sites/${slug}.json`, { cache: "no-store" });
         if (res.ok) {
           const remote = (await res.json()) as Partial<SiteData>;
           setData(hydrateSite(remote, slug));
@@ -172,7 +170,9 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
         /* fall through */
       }
       try {
-        const res = await fetch(`/sites/${slug}.json`, { cache: "no-store" });
+        const res = await fetch(`${GITHUB_RAW_BASE}/${slug}.json?t=${Date.now()}`, {
+          cache: "no-store",
+        });
         if (res.ok) {
           const remote = (await res.json()) as Partial<SiteData>;
           setData(hydrateSite(remote, slug));

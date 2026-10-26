@@ -22,8 +22,8 @@ const NAV_ITEMS = [
 export function DynamicIslandNav({ theme }: { theme: LuxTheme }) {
   const { data } = useSite();
   const [expanded, setExpanded] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const podRef = useRef<HTMLDivElement | null>(null);
 
   const city = data.businessInfo.address.split(",")[0]?.trim() || "באזור שלכם";
   const status = expanded
@@ -58,13 +58,22 @@ export function DynamicIslandNav({ theme }: { theme: LuxTheme }) {
     };
   }, [expanded]);
 
-  // Subtle shadow lift on scroll (native-feeling elevation)
+  // Subtle shadow lift on scroll — ref-based class toggle, zero re-renders.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    const el = podRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const scrolledNow = window.scrollY > 40;
+      if (el.dataset.scrolled === String(scrolledNow)) return;
+      el.dataset.scrolled = String(scrolledNow);
+      el.style.boxShadow = scrolledNow
+        ? `0 18px 44px rgba(0,0,0,${theme.dark ? 0.55 : 0.18}), inset 0 1px 0 rgba(255,255,255,0.08)`
+        : `0 8px 26px rgba(0,0,0,${theme.dark ? 0.35 : 0.12}), inset 0 1px 0 rgba(255,255,255,0.08)`;
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [theme.dark]);
 
   return (
     <div
@@ -73,15 +82,15 @@ export function DynamicIslandNav({ theme }: { theme: LuxTheme }) {
     >
       <motion.div
         layout
+        ref={podRef}
+        data-scrolled={false}
         onMouseEnter={() => setExpanded(true)}
         className="pointer-events-auto flex cursor-pointer flex-col items-center overflow-hidden backdrop-blur-2xl"
         style={{
           background: glassBg,
           border: `1px solid ${glassBorder}`,
           borderRadius: 28,
-          boxShadow: scrolled
-            ? `0 18px 44px rgba(0,0,0,${theme.dark ? 0.55 : 0.18}), inset 0 1px 0 rgba(255,255,255,0.08)`
-            : `0 8px 26px rgba(0,0,0,${theme.dark ? 0.35 : 0.12}), inset 0 1px 0 rgba(255,255,255,0.08)`,
+          boxShadow: `0 8px 26px rgba(0,0,0,${theme.dark ? 0.35 : 0.12}), inset 0 1px 0 rgba(255,255,255,0.08)`,
           WebkitBackdropFilter: "blur(24px saturate(180%))",
           backdropFilter: "blur(24px saturate(180%))",
         }}

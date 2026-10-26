@@ -1,241 +1,573 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Activity, Cpu, Gauge, Signal } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { X } from "lucide-react";
 import { useSite } from "@/components/SiteProvider";
-import { DynamicIslandNav } from "@/components/DynamicIslandNav";
-import { InteractiveQuoteBuilder } from "@/components/InteractiveQuoteBuilder";
-import { VipConciergeDrawer } from "@/components/VipConciergeDrawer";
-import { FaqAccordion, MobileActionBar, WhatsAppFab } from "@/templates/shared";
-import { AvailabilityBadge, ProcessTimeline } from "@/templates/features";
+import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
 import {
-  BenefitsSection,
-  ContactSection,
-  ProjectsSection,
-  ReviewsSection,
-  ServicesGrid,
+  EditorialHeadline,
+  FaqAccordion,
   fadeUp,
-} from "@/templates/sections";
-import { TiltCard3D } from "@/components/TiltCard3D";
-import { LUX_THEMES } from "@/templates/theme";
+  Stars,
+} from "@/templates/shared";
 
-/**
- * `cyber-quantum` — futuristic 3D high-tech luxury in the spirit of
- * Linear / Stripe / Vercel. Deep-space obsidian, holographic aurora mesh
- * lighting, isometric floating cards, interactive telemetry badges and
- * glowing laser borders.
- */
+/* ------------------------------------------------------------------ */
+/* KINETIC BESPOKE SHOWROOM                                            */
+/* Pure carbon #07080A. Razor-sharp Swiss typography (Heebo, light      */
+/* weights, tight metric tracking), a kinetic CSS marquee ticker of     */
+/* capabilities, an interactive slider-based quote calculator with      */
+/* draggable range sliders, and a slide-over VIP priority callback      */
+/* drawer. Monochrome with one electric accent. No glows, no pills.     */
+/* ------------------------------------------------------------------ */
+
+const ACCENT = "#cdff3d";
+
+function parsePrice(text?: string): number | null {
+  if (!text) return null;
+  const digits = text.replace(/[^\d]/g, "");
+  const n = digits ? parseInt(digits, 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export function CyberQuantumTemplate() {
   const { data, editsFor } = useSite();
-  const theme = LUX_THEMES["cyber-quantum"];
-  const { businessInfo: b, hero, faq } = data;
+  const { businessInfo: b, hero, faq, reviews, services, projects = [], benefits = [] } = data;
+  const [serviceIdx, setServiceIdx] = useState(0);
+  const [scopeLevel, setScopeLevel] = useState(50); // 0..100 → scale 1..3
+  const [urgencyLevel, setUrgencyLevel] = useState(25); // 0..100 → ×1..1.6
+  const [vipOpen, setVipOpen] = useState(false);
 
-  // Cursor-reactive aurora mesh (parallax light)
-  const [pointer, setPointer] = useState({ x: 50, y: 30 });
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      setPointer({
-        x: (e.clientX / window.innerWidth) * 100,
-        y: (e.clientY / window.innerHeight) * 100,
-      });
-    };
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
-  }, []);
+  const base = useMemo(() => parsePrice(services[serviceIdx]?.price), [services, serviceIdx]);
+  const scale = 1 + (scopeLevel / 100) * 2; // 1..3
+  const hurry = 1 + (urgencyLevel / 100) * 0.6; // 1..1.6
+  const low = base ? Math.round((base * scale) / 100) * 100 : null;
+  const high = low ? Math.round((low * hurry) / 100) * 100 : null;
+
+  const scopeLabel =
+    scopeLevel < 33 ? "נקודתי" : scopeLevel < 66 ? "חדר או אזור" : "היקף מלא";
+  const urgencyLabel =
+    urgencyLevel < 33 ? "גמיש" : urgencyLevel < 66 ? "שבועות הקרובים" : "מיידי / דחוף";
+
+  const quoteHref = `https://wa.me/${b.whatsapp}?text=${encodeURIComponent(
+    [
+      `שלום, חישוב מהסלון הקינטי של ${b.name}:`,
+      `• שירות: ${services[serviceIdx]?.title ?? ""}`,
+      `• היקף בגרירת המדד: ${scopeLabel} (${Math.round(scopeLevel)}%)`,
+      `• דחיפות: ${urgencyLabel}`,
+      low
+        ? `• טווח השקעה צפוי: ${low.toLocaleString("he-IL")}–${high?.toLocaleString("he-IL")} ₪`
+        : "• מתעניין בהצעה מותאמת אישית",
+      "אשמח להצעה מדויקת.",
+    ].join("\n"),
+  )}`;
+
+  /* Kinetic capability ticker — duplicated once for a seamless CSS loop */
+  const tickerItems = [
+    `${b.category}`,
+    "ביצוע מדוד עד המולימטר",
+    `${b.googleRating.toFixed(1)}★ בגוגל`,
+    "לוחות זמנים סגורים",
+    "אחריות מסמוכת",
+    "עדכוני פרויקט בזמן אמת",
+  ];
 
   return (
-    <div className="relative min-h-screen pb-28 md:pb-10" style={{ background: theme.pageBg, color: theme.text }}>
-      {/* Holographic aurora mesh lighting */}
+    <div
+      className="relative min-h-screen pb-24"
+      style={{ background: "#07080a", color: "rgba(242,244,246,0.76)" }}
+      dir="rtl"
+    >
+      {/* Faint technical grid plane — static, zero cost */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0"
-        style={{
-          background: `
-            radial-gradient(52% 38% at ${pointer.x}% ${pointer.y}%, rgba(110,123,255,0.18), transparent 62%),
-            radial-gradient(38% 30% at 14% 12%, rgba(56,232,255,0.10), transparent 60%),
-            radial-gradient(42% 34% at 86% 78%, rgba(162,88,255,0.12), transparent 60%)`,
-        }}
-      />
-      {/* Faint grid plane */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0 opacity-[0.35]"
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.28]"
         style={{
           backgroundImage:
-            "linear-gradient(rgba(126,140,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(126,140,255,0.06) 1px, transparent 1px)",
-          backgroundSize: "48px 48px",
-          maskImage: "radial-gradient(70% 60% at 50% 30%, black, transparent 85%)",
-          WebkitMaskImage: "radial-gradient(70% 60% at 50% 30%, black, transparent 85%)",
+            "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
+          backgroundSize: "56px 56px",
+          maskImage: "radial-gradient(75% 60% at 50% 20%, black, transparent 92%)",
+          WebkitMaskImage: "radial-gradient(75% 60% at 50% 20%, black, transparent 92%)",
         }}
       />
 
-      <DynamicIslandNav theme={theme} />
-
-      {/* ---------- Hero — holographic command deck ---------- */}
-      <header className="relative z-10 mx-auto flex min-h-[96vh] max-w-6xl flex-col items-center justify-center px-6 pt-28 text-center">
-        <AvailabilityBadge theme={theme} />
-
-        <motion.h1
-          initial={{ opacity: 0, y: 38 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-8 max-w-4xl bg-gradient-to-b from-white via-[#dfe3ff] to-[#8f9bff] bg-clip-text text-4xl font-bold leading-[1.08] tracking-tight text-transparent md:text-6xl"
-          {...editsFor("hero.headline")}
+      {/* ---------- Razor Swiss top chrome ---------- */}
+      <header
+        className="sticky top-0 z-[9500] flex items-center justify-between border-b px-5 py-3.5 text-[10px] tracking-[0.3em] backdrop-blur md:px-10"
+        style={{ background: "rgba(7,8,10,0.88)", borderColor: "rgba(255,255,255,0.08)" }}
+        dir="ltr"
+      >
+        <a href={`tel:${b.phone}`} className="transition-colors hover:text-white" dir="ltr">
+          {b.phone}
+        </a>
+        <code className="text-white/50" dir="ltr" {...editsFor("businessInfo.name")}>
+          {b.name.toUpperCase()}
+        </code>
+        <a
+          href="#quote"
+          className="transition-colors hover:text-white"
+          style={{ color: ACCENT }}
         >
-          {hero.headline}
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, delay: 0.18 }}
-          className="mt-6 max-w-2xl text-lg leading-relaxed md:text-xl"
-          style={{ color: theme.muted }}
-          {...editsFor("hero.subheadline")}
-        >
-          {hero.subheadline}
-        </motion.p>
-
-        {/* Interactive telemetry badges */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className="mt-9 flex flex-wrap items-center justify-center gap-3"
-        >
-          {[
-            { icon: Gauge, label: `דיוק מדידה`, value: "±2 מ\"מ" },
-            { icon: Signal, label: "זמן תגובה", value: '<15 דק׳' },
-            { icon: Cpu, label: "עדכוני פרויקט", value: "מקוונים 24/7" },
-            { icon: Activity, label: "פרוטוקול איכות", value: "6 סטנדרטים" },
-          ].map((t, i) => (
-            <span
-              key={i}
-              className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold"
-              style={{
-                border: `1px solid ${theme.border}`,
-                background: "rgba(110,123,255,0.07)",
-                color: theme.text,
-                boxShadow: `0 0 18px rgba(110,123,255,0.10), inset 0 0 22px rgba(110,123,255,0.05)`,
-              }}
-            >
-              <t.icon className="h-3.5 w-3.5" style={{ color: theme.accent }} aria-hidden="true" />
-              {t.label}
-              <span className="font-bold" style={{ color: theme.accent }}>{t.value}</span>
-            </span>
-          ))}
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mt-10 flex flex-wrap items-center justify-center gap-4"
-        >
-          <motion.a
-            href={`https://wa.me/${b.whatsapp}`}
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.97 }}
-            className="rounded-xl px-9 py-4 text-base font-bold"
-            style={{
-              background: theme.accent,
-              color: "#0a0b14",
-              boxShadow: `0 0 34px ${theme.accent}66, 0 10px 40px rgba(0,0,0,0.4)`,
-            }}
-          >
-            {hero.ctaText}
-          </motion.a>
-          <a
-            href={`tel:${b.phone}`}
-            className="rounded-xl px-9 py-4 text-base font-semibold backdrop-blur"
-            style={{ border: `1px solid ${theme.border}`, color: theme.headline, background: "rgba(255,255,255,0.03)" }}
-          >
-            {b.phone}
-          </a>
-        </motion.div>
+          PRICE —
+        </a>
       </header>
 
-      {/* ---------- Isometric islets — services with laser borders ---------- */}
-      <ServicesGrid theme={theme} eyebrow="מודולים של הסטודיו" heading="שירותים שמופעלים בדיוק" columns={4} />
-
-      {/* ---------- Quantum configurator ---------- */}
-      <section className="mx-auto max-w-4xl px-6 pb-20">
-        <InteractiveQuoteBuilder theme={theme} />
-      </section>
-
-      {/* ---------- Before / After scan ---------- */}
-      <ProjectsSection theme={theme} eyebrow="סריקת ההפרש" heading="לפני / אחרי — בפוקוס" />
-
-      {/* ---------- Isometric benefits tile ---------- */}
-      <div style={{ borderTop: `1px solid ${theme.border}`, borderBottom: `1px solid ${theme.border}`, background: "rgba(110,123,255,0.03)" }}>
-        <BenefitsSection theme={theme} heading="תשתית שעובדת בשבילכם" eyebrow="היתרונות" icons={[Gauge, Signal, Cpu, Activity]} />
+      {/* ---------- KINETIC MARQUEE TICKER (pure CSS) ---------- */}
+      <div
+        className="ticker relative z-10 overflow-hidden border-b py-3"
+        style={{ borderColor: "rgba(255,255,255,0.08)" }}
+        dir="ltr"
+        aria-label="רשימת יכולות נעות"
+      >
+        <div className="ticker-track items-center gap-0 text-[11px] tracking-[0.28em] text-white/45">
+          {[...tickerItems, ...tickerItems].map((t, i) => (
+            <span key={i} className="inline-flex items-center whitespace-nowrap">
+              <span className="px-6" dir="rtl">{t}</span>
+              <span style={{ color: ACCENT }}>—</span>
+            </span>
+          ))}
+        </div>
       </div>
 
-      {/* ---------- Floating isometric mission card ---------- */}
-      <section className="mx-auto max-w-4xl px-6 py-20">
-        <motion.div {...fadeUp}>
-          <TiltCard3D theme={theme} maxTilt={6}>
-            <div
-              className="flex flex-col items-center gap-6 rounded-[2rem] p-10 text-center md:flex-row md:text-right"
-              style={{
-                background: theme.surface,
-                border: `1px solid ${theme.border}`,
-                boxShadow: `0 0 40px rgba(110,123,255,0.10), inset 0 1px 0 rgba(255,255,255,0.08)`,
-              }}
-            >
-              <span
-                className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl"
-                style={{ background: `${theme.accent}1a`, border: `1px solid ${theme.border}`, color: theme.accent }}
-              >
-                <Cpu className="h-8 w-8" aria-hidden="true" />
-              </span>
-              <div>
-                <h3 className="text-2xl font-bold" style={{ color: theme.headline }}>
-                  סטנדרט ביצוע מדויק — על כל הפנים
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed md:text-base" style={{ color: theme.muted }}>
-                  {data.businessInfo.tagline} — הצוות שלנו מנהל את הפרויקט שלכם עם פרוטוקול איכות
-                  מחמיר, עדכונים חיים ולוח התקדמות שקוף לגמרי.
-                </p>
-              </div>
-            </div>
-          </TiltCard3D>
-        </motion.div>
+      {/* ---------- Hero — sharp Swiss composition ---------- */}
+      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20 pt-24 md:pt-32">
+        <motion.p
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-[11px] font-medium tracking-[0.42em] text-white/35"
+          {...editsFor("businessInfo.category")}
+        >
+          {b.category}
+        </motion.p>
+        <motion.h1
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-6 max-w-4xl text-4xl font-light leading-[1.15] tracking-tight sm:text-5xl md:text-6xl"
+          style={{ color: "#f2f4f6" }}
+          {...editsFor("hero.headline")}
+        >
+          <EditorialHeadline text={hero.headline} />
+        </motion.h1>
 
-        <div className="mt-16">
-          <ProcessTimeline theme={theme} />
+        {/* Asymmetric hero split: statement + CTA pinned opposite */}
+        <div className="mt-14 grid items-end gap-10 border-t pt-8 md:grid-cols-[1fr_auto]" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+          <motion.p
+            {...fadeUp}
+            className="max-w-xl text-[14px] leading-[1.95] text-white/45"
+            {...editsFor("hero.subheadline")}
+          >
+            {hero.subheadline}
+          </motion.p>
+          <motion.div {...fadeUp} className="flex flex-col items-start gap-3">
+            <a
+              href={`https://wa.me/${b.whatsapp}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-8 py-3.5 text-[13px] font-bold tracking-[0.06em] transition-transform duration-200 hover:-translate-y-0.5"
+              style={{ background: ACCENT, color: "#07080a" }}
+            >
+              {hero.ctaText}
+            </a>
+            <a
+              href={`tel:${b.phone}`}
+              className="px-3 py-1 text-[12px] text-white/45 transition-colors hover:text-white"
+              dir="ltr"
+            >
+              {b.phone}
+            </a>
+          </motion.div>
         </div>
       </section>
 
-      {/* ---------- Reviews ---------- */}
-      <ReviewsSection theme={theme} />
+      {/* ---------- Services — numbered kinetic index (NO icon boxes) ---------- */}
+      <section className="relative z-10 border-y" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+        <div className="mx-auto max-w-6xl px-6 py-14">
+          <p className="mb-10 text-[10px] tracking-[0.4em] text-white/35" dir="ltr">
+            MODULES / 01
+          </p>
+          <ul role="list">
+            {services.map((s, i) => (
+              <li
+                key={i}
+                className="group grid grid-cols-[3.5rem_1fr_auto] items-baseline gap-4 border-b py-6 transition-colors last:border-b-0"
+                style={{ borderColor: "rgba(255,255,255,0.07)" }}
+                dir="rtl"
+              >
+                <span className="text-[11px] tracking-[0.3em] text-white/25" dir="ltr">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+                <div>
+                  <h3
+                    className="text-xl font-medium leading-[1.2] tracking-tight text-white/85 transition-colors group-hover:text-white md:text-2xl"
+                    {...editsFor(`services.${i}.title`)}
+                  >
+                    {s.title}
+                  </h3>
+                  <p className="mt-1.5 max-w-xl text-[13px] leading-relaxed text-white/35" {...editsFor(`services.${i}.description`)}>
+                    {s.description}
+                  </p>
+                </div>
+                <span className="text-[12px] tabular-nums text-white/45" {...editsFor(`services.${i}.price`)}>
+                  {s.price}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* ---------- Slider-based quote calculator ---------- */}
+      <section id="quote" className="relative z-10 mx-auto max-w-6xl px-6 py-20" >
+        <div className="grid gap-10 lg:grid-cols-[7fr_5fr]">
+          <div>
+            <p className="mb-10 text-[10px] tracking-[0.4em] text-white/35" dir="ltr">
+              CALCULATOR / 02
+            </p>
+            <h2
+              className="text-2xl font-light leading-[1.15] tracking-tight sm:text-3xl"
+              style={{ color: "#f2f4f6" }}
+            >
+              מדד חי: גררו את הידיות ובנו את הצעת המחיר
+            </h2>
+
+            {/* Service pick — sharp radio row */}
+            <p className="mb-2.5 mt-9 text-[10px] tracking-[0.3em] text-white/35">01 — שירות</p>
+            <div className="flex flex-wrap gap-x-5 gap-y-2" role="radiogroup" aria-label="בחירת שירות">
+              {services.map((s, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  role="radio"
+                  aria-checked={serviceIdx === i}
+                  onClick={() => setServiceIdx(i)}
+                  className="border-b py-1 text-left text-[13px] transition-colors"
+                  style={{
+                    borderBottomColor: serviceIdx === i ? ACCENT : "rgba(255,255,255,0.14)",
+                    color: serviceIdx === i ? "#f2f4f6" : "rgba(242,244,246,0.42)",
+                  }}
+                >
+                  {s.title}
+                </button>
+              ))}
+            </div>
+
+            {/* Draggable range slider — היקף */}
+            <p className="mb-0.5 mt-9 flex items-baseline justify-between text-[10px] tracking-[0.3em] text-white/35">
+              <span>02 — היקף</span>
+              <span className="text-white/70" dir="ltr">{scopeLabel}</span>
+            </p>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={scopeLevel}
+              onChange={(e) => setScopeLevel(Number(e.target.value))}
+              className="kinetic-range mt-1 w-full"
+              style={{ ["--range-accent" as string]: ACCENT }}
+              aria-label="היקף הפרויקט"
+            />
+            <div className="flex justify-between text-[9px] tracking-widest text-white/25" dir="ltr">
+              <span>POINT</span><span>ROOM</span><span>FULL SCOPE</span>
+            </div>
+
+            {/* Draggable range slider — דחיפות */}
+            <p className="mb-0.5 mt-9 flex items-baseline justify-between text-[10px] tracking-[0.3em] text-white/35">
+              <span>03 — דחיפות</span>
+              <span className="text-white/70" dir="ltr">{urgencyLabel}</span>
+            </p>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={urgencyLevel}
+              onChange={(e) => setUrgencyLevel(Number(e.target.value))}
+              className="kinetic-range mt-1 w-full"
+              style={{ ["--range-accent" as string]: ACCENT }}
+              aria-label="דחיפות הפרויקט"
+            />
+            <div className="flex justify-between text-[9px] tracking-widest text-white/25" dir="ltr">
+              <span>FLEXIBLE</span><span>NEXT WEEKS</span><span>RUSH</span>
+            </div>
+          </div>
+
+          {/* Live readout */}
+          <aside
+            className="flex flex-col justify-between gap-8 p-8"
+            style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)" }}
+            aria-live="polite"
+            dir="rtl"
+          >
+            <div>
+              <p className="text-[10px] tracking-[0.4em] text-white/35" dir="ltr">LIVE QUOTE</p>
+              <p
+                className="mt-6 text-5xl font-light leading-none tracking-tight"
+                style={{ color: ACCENT }}
+                dir="ltr"
+              >
+                {low ? `₪${low.toLocaleString("he-IL")}` : "—"}
+              </p>
+              {high && (
+                <p className="mt-2 text-[12px] text-white/35" dir="ltr">
+                  up to ₪{high.toLocaleString("he-IL")}
+                </p>
+              )}
+              <p className="mt-8 text-[13px] leading-[1.9] text-white/45">
+                {services[serviceIdx]?.title} — {scopeLabel}, בדחיפות "
+                {urgencyLabel}". הטווח מעודכן לחיים תוך כדי גרירה.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <a
+                href={quoteHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="py-3.5 text-center text-[13px] font-bold transition-opacity hover:opacity-85"
+                style={{ background: ACCENT, color: "#07080a" }}
+              >
+                שליחת ההצעה לוואטסאפ —
+              </a>
+              <button
+                type="button"
+                onClick={() => setVipOpen(true)}
+                className="py-3.5 text-center text-[13px] tracking-[0.06em] transition-colors hover:text-white"
+                style={{ border: "1px solid rgba(255,255,255,0.14)", color: "rgba(242,244,246,0.7)" }}
+              >
+                בעדיפות VIP — שיחה חוזרת
+              </button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      {/* ---------- Benefits — hairline columns ---------- */}
+      {benefits.length > 0 && (
+        <section className="relative z-10 border-y" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+          <div className="grid md:grid-cols-3" dir="rtl">
+            {benefits.slice(0, 3).map((bf, i) => (
+              <div
+                key={i}
+                className="border-t px-8 py-10 md:border-l md:first:border-l-0"
+                style={{ borderColor: "rgba(255,255,255,0.08)" }}
+              >
+                <p className="text-[10px] tracking-[0.3em]" style={{ color: ACCENT }} dir="ltr">
+                  ADV/ {String(i + 1).padStart(2, "0")}
+                </p>
+                <h3 className="mt-3 text-lg font-medium tracking-tight text-white/90" {...editsFor(`benefits.${i}.title`)}>
+                  {bf.title}
+                </h3>
+                <p className="mt-2 text-[13px] leading-[1.85] text-white/40" {...editsFor(`benefits.${i}.description`)}>
+                  {bf.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ---------- Before/After scan ---------- */}
+      <section className="relative z-10 mx-auto max-w-5xl px-6 py-20">
+        <p className="mb-8 text-[10px] tracking-[0.4em] text-white/35" dir="ltr">
+          SCAN / BEFORE — AFTER
+        </p>
+        <BeforeAfterSliderInline
+          beforeImage={projects[0]?.beforeImage}
+          afterImage={projects[0]?.afterImage}
+        />
+        {projects.slice(1, 3).map((p, i) => (
+          <figure
+            key={i}
+            className="mt-6 grid gap-0 border md:grid-cols-2"
+            style={{ borderColor: "rgba(255,255,255,0.08)" }}
+            dir="rtl"
+          >
+            {p.afterImage && (
+              <div className="h-56 overflow-hidden border-b md:border-b-0 md:border-l" style={{ borderColor: "rgba(255,255,255,0.08)" }} dir="ltr">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.afterImage} alt={p.title} loading="lazy" className="h-full w-full object-cover" style={{ filter: "saturate(0.85)" }} />
+              </div>
+            )}
+            <figcaption className="p-7">
+              <span className="text-[10px] tracking-[0.3em] text-white/30" dir="ltr">
+                P—{String(i + 2).padStart(3, "0")}
+              </span>
+              <h3 className="mt-2 text-lg font-medium tracking-tight text-white/85" dir="rtl">{p.title}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-white/35" dir="rtl">{p.description}</p>
+            </figcaption>
+          </figure>
+        ))}
+      </section>
+
+      {/* ---------- Reviews --- monochrome rows ---------- */}
+      <section className="relative z-10 border-y" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+        <div className="mx-auto max-w-6xl px-6 py-14">
+          <div className="mb-8 flex items-center justify-between">
+            <p className="text-[10px] tracking-[0.4em] text-white/35" dir="ltr">FEEDBACK / 03</p>
+            <Stars rating={Math.round(b.googleRating)} className="h-3.5 w-3.5" starClass="text-white/70" />
+          </div>
+          <ul role="list">
+            {reviews.slice(0, 3).map((r, i) => (
+              <li
+                key={i}
+                className="flex items-baseline justify-between gap-6 border-b py-5 last:border-b-0"
+                style={{ borderColor: "rgba(255,255,255,0.07)" }}
+                dir="rtl"
+              >
+                <div>
+                  <p className="text-[13px] font-medium text-white/80" {...editsFor(`reviews.${i}.author`)}>
+                    {r.author}
+                  </p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-white/35" {...editsFor(`reviews.${i}.text`)}>
+                    {r.text}
+                  </p>
+                </div>
+                <span className="shrink-0 text-[12px] tabular-nums text-white/40" dir="ltr">
+                  {r.rating}.0
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       {/* ---------- FAQ ---------- */}
-      <section className="mx-auto max-w-6xl px-6 pb-10 pt-6">
-        <motion.h2
-          {...fadeUp}
-          className="mb-10 text-center text-3xl font-bold md:text-4xl"
-          style={{ color: theme.headline }}
-        >
-          שאלות מהשטח
-        </motion.h2>
+      <section className="relative z-10 mx-auto max-w-3xl px-6 py-20">
+        <h2 className="mb-9 text-center text-2xl font-light tracking-tight sm:text-3xl" style={{ color: "#f2f4f6" }}>
+          שאלות מהשדה
+        </h2>
         <FaqAccordion
           items={faq}
           classes={{
-            card: "rounded-2xl border backdrop-blur-xl overflow-hidden",
-            button: "flex w-full items-center justify-between gap-4 px-6 py-5 text-right",
-            icon: "h-5 w-5",
-            answer: "px-6 pb-5 text-sm leading-relaxed",
+            card: "border overflow-hidden",
+            button: "flex w-full items-center justify-between gap-4 px-6 py-5 text-right text-[13px] text-white/80",
+            icon: "h-4 w-4 text-white/30",
+            answer: "px-6 pb-5 text-[12px] leading-relaxed text-white/40",
           }}
         />
       </section>
 
-      {/* ---------- Contact ---------- */}
-      <ContactSection theme={theme} heading="מוכנים לשדרג את המרחב?" />
+      {/* ---------- Contact footer ---------- */}
+      <footer className="relative z-10 mx-auto max-w-6xl px-6 pb-8 text-center" dir="rtl">
+        <p className="text-2xl font-light leading-[1.4] tracking-tight text-white/85" {...editsFor("businessInfo.description")}>
+          {b.description}
+        </p>
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-[11px] tracking-[0.18em] text-white/35">
+          <span>{b.openingHours}</span>
+          <span>{b.address}</span>
+          <a href={`tel:${b.phone}`} dir="ltr" className="hover:text-white/80">{b.phone}</a>
+        </div>
+      </footer>
 
-      <WhatsAppFab accentColor={theme.accent} />
-      <VipConciergeDrawer theme={theme} triggerPosition="right" />
-      <MobileActionBar accentColor={theme.accent} variant="dark" />
+      {/* ---------- Slide-over VIP priority callback drawer ---------- */}
+      <AnimatePresence>
+        {vipOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setVipOpen(false)}
+              className="fixed inset-0 z-[94000] bg-black/70 backdrop-blur-sm"
+            />
+            <motion.aside
+              initial={{ x: "104%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "104%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 33 }}
+              className="fixed inset-y-0 left-0 z-[94100] flex w-full max-w-md flex-col p-8"
+              style={{ background: "#0b0c0f", borderRight: "1px solid rgba(255,255,255,0.08)" }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="שיחה חוזרת בעדיפות"
+              dir="rtl"
+            >
+              <div className="mb-8 flex items-center justify-between">
+                <p className="text-[10px] tracking-[0.4em]" style={{ color: ACCENT }} dir="ltr">
+                  VIP // PRIORITY LINE
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setVipOpen(false)}
+                  className="p-1 text-white/40 transition hover:text-white"
+                  aria-label="סגור"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <h3 className="text-2xl font-light leading-[1.3] tracking-tight text-white">
+                שיחה חוזרת בעדיפות VIP — בלי תור, בלי המתנה.
+              </h3>
+              <p className="mt-3 text-[13px] leading-relaxed text-white/40">
+                בחרו חלון שנוח לכם ואשרו את ההעדפה — כל הפרטים נשלחים ישירות
+                לוואטסאפ של {b.name}.
+              </p>
+              <div className="mt-9 flex flex-col gap-px" role="radiogroup" aria-label="חלון חזרה" style={{ background: "rgba(255,255,255,0.08)" }}>
+                {[
+                  { label: "בוקר", range: "08:00–12:00" },
+                  { label: "צהריים", range: "12:00–16:00" },
+                  { label: "ערב", range: "16:00–20:00" },
+                ].map((w, i) => (
+                  <a
+                    key={w.label}
+                    href={`https://wa.me/${b.whatsapp}?text=${encodeURIComponent(`בקשת שיחת עדיפות VIP — חלון: ${w.label} (${w.range}). שלום, אשמח לקבל חזרה מהסטודיו של ${b.name}.`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setVipOpen(false)}
+                    className="flex items-center justify-between px-5 py-4 text-[13px] transition-colors hover:text-white"
+                    style={{ background: "#0b0c0f", color: "rgba(242,244,246,0.7)" }}
+                    dir="rtl"
+                  >
+                    <span className="flex items-baseline gap-3">
+                      <span className="text-[10px] tracking-[0.28em] text-white/25" dir="ltr">
+                        W{i + 1}
+                      </span>
+                      {w.label}
+                    </span>
+                    <span className="text-white/35" dir="ltr">{w.range}</span>
+                  </a>
+                ))}
+              </div>
+              <a
+                href={`tel:${b.phone}`}
+                className="mt-6 block py-4 text-center text-[13px] font-bold transition-opacity hover:opacity-85"
+                style={{ background: ACCENT, color: "#07080a" }}
+              >
+                שיחה ישירה מיידית
+              </a>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/* Thin inline before/after for cyber-quantum using the shared slider */
+function BeforeAfterSliderInline({
+  beforeImage,
+  afterImage,
+}: {
+  beforeImage?: string;
+  afterImage?: string;
+}) {
+  return (
+    <BeforeAfterSlider
+      theme={{
+        accent: "#cdff3d",
+        dark: true,
+        pageBg: "#07080a",
+        surface: "rgba(255,255,255,0.04)",
+        border: "rgba(255,255,255,0.10)",
+        headline: "#f2f4f6",
+        text: "rgba(242,244,246,0.76)",
+        muted: "rgba(242,244,246,0.44)",
+        fontSerif: undefined,
+      }}
+      beforeImage={beforeImage}
+      afterImage={afterImage}
+      beforeLabel="לפני"
+      afterLabel="אחרי"
+      caption="גררו את הידית — סריקת ההפרש"
+    />
   );
 }

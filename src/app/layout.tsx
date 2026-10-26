@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ViewTracker } from "@/components/ViewTracker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,12 +24,17 @@ export default function RootLayout({
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
+        {/* Editorial weights only — no ultra-thick blocky faces (900/800) */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Frank+Ruhl+Libre:wght@400;500;700;900&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700&family=Heebo:wght@300;400;500;700&display=swap"
           rel="stylesheet"
         />
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        {/* PostHog + Discord live analytics — every route, including /checkout */}
+        <ViewTracker />
+      </body>
     </html>
   );
 }

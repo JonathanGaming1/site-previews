@@ -12,10 +12,10 @@ export const LEGACY_TEMPLATE_FALLBACK: Record<string, TemplateId> = {
 };
 
 export const TEMPLATE_OPTIONS: { id: TemplateId; label: string }[] = [
-  { id: "apple-spatial", label: "Apple Spatial — זכוכית מרחבית" },
-  { id: "whisky-obsidian", label: "Whisky Obsidian — עמבר אובסידיאן" },
-  { id: "cyber-quantum", label: "Cyber Quantum — מרחב עתידני" },
-  { id: "atelier-boutique", label: "Atelier Boutique — טרוורטין ארכיטקטוני" },
+  { id: "apple-spatial", label: "Titanium Pro — פיצול טיטניום" },
+  { id: "whisky-obsidian", label: "Forge Atelier — אולפן שחור" },
+  { id: "cyber-quantum", label: "Kinetic Showroom — סלון קינטי" },
+  { id: "atelier-boutique", label: "Swiss Grid — רשת אדריכלית" },
 ];
 
 export interface ThemeConfig {

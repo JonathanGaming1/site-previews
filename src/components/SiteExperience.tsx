@@ -4,7 +4,7 @@ import React from "react";
 import { SiteProvider, useSite } from "@/components/SiteProvider";
 import { AdminToolbar } from "@/components/AdminToolbar";
 import { SecurityGuard } from "@/components/SecurityGuard";
-import { ViewTracker } from "@/components/ViewTracker";
+import { ViewTracker, DemoVisitPing } from "@/components/ViewTracker";
 import { AppleSpatialTemplate } from "@/templates/AppleSpatialTemplate";
 import { WhiskyObsidianTemplate } from "@/templates/WhiskyObsidianTemplate";
 import { CyberQuantumTemplate } from "@/templates/CyberQuantumTemplate";
@@ -30,6 +30,7 @@ function ExperienceShell() {
   return (
     <>
       <ViewTracker />
+      <DemoVisitPing />
       <TemplateRenderer />
       <AdminToolbar />
       <SecurityGuard />

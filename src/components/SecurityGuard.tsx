@@ -7,12 +7,12 @@ import { useSite } from "@/components/SiteProvider";
 /**
  * Demo experience guard.
  * Active only when siteData.isDemo === true and the visitor has no secret ?key=.
- * - Renders a single sleek, Apple-style frosted-glass bottom dock bar.
+ * - Renders a single sleek bottom dock bar linking to checkout.
  * - Blocks context menu / selection / F12 / devtools shortcuts.
- * - A tamper watchdog (MutationObserver + interval) verifies the dock is
- *   present, in the viewport and visually intact; tampering blurs the page.
- * NOTE: the giant diagonal watermark overlays were removed on purpose —
- * they ruined the luxury look. This compact dock is the only demo marker.
+ * - Tamper watchdog: a lightweight `MutationObserver` scoped to the dock
+ *   container only. NO poll timers — zero CPU overhead while browsing.
+ *   (The previous 400ms setInterval with getComputedStyle/getBoundingClientRect
+ *   per tick burned the main thread and degraded every click.)
  */
 export function SecurityGuard() {
   const { data, isAdmin, mounted, slug } = useSite();
@@ -51,44 +51,57 @@ export function SecurityGuard() {
     };
   }, [active]);
 
-  // Tamper Watchdog — protects only the demo dock bar.
+  // Tamper Watchdog — MutationObserver on the dock container ONLY.
+  // Fires the lock when the dock is detached from the DOM. CSS-based tampering
+  // (opacity/display/visibility) is detected via attribute observation as well.
   useEffect(() => {
-    if (!active) return;
+    if (!active || !dockRef) return;
 
     let fired = false;
-    const check = () => {
+    const lock = () => {
       if (fired) return;
-      const el = dockRef;
-      if (!el || !document.body.contains(el)) {
-        fired = true;
-      } else {
-        const rect = el.getBoundingClientRect();
-        const style = window.getComputedStyle(el);
-        const inViewport =
-          rect.left < window.innerWidth &&
-          rect.right > 0 &&
-          rect.bottom > 0 &&
-          rect.height > 0;
-        const visuallyIntact =
-          parseFloat(style.opacity) > 0.5 &&
-          style.display !== "none" &&
-          style.visibility !== "hidden" &&
-          rect.height > 15;
-        if (!inViewport || !visuallyIntact) fired = true;
-      }
-      if (fired) {
-        document.documentElement.style.filter = "blur(25px)";
-        document.documentElement.style.pointerEvents = "none";
-        setLocked(true);
-      }
+      fired = true;
+      document.documentElement.style.filter = "blur(25px)";
+      document.documentElement.style.pointerEvents = "none";
+      setLocked(true);
     };
 
-    const interval = window.setInterval(check, 400);
-    const observer = new MutationObserver(check);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    const checkIntegrity = () => {
+      if (fired) return;
+      if (!dockRef || !document.body.contains(dockRef)) {
+        lock();
+        return;
+      }
+      const style = window.getComputedStyle(dockRef);
+      const rect = dockRef.getBoundingClientRect();
+      const inViewport =
+        rect.left < window.innerWidth &&
+        rect.right > 0 &&
+        rect.bottom > 0 &&
+        rect.height > 0;
+      const visuallyIntact =
+        parseFloat(style.opacity) > 0.5 &&
+        style.display !== "none" &&
+        style.visibility !== "hidden" &&
+        rect.height > 15;
+      if (!inViewport || !visuallyIntact) lock();
+    };
+
+    // One observer, scoped to the dock element and its ancestors chain latch.
+    const observer = new MutationObserver(checkIntegrity);
+    observer.observe(dockRef, { attributes: true, attributeFilter: ["style", "class", "hidden"] });
+    observer.observe(document.body, { childList: true, subtree: false });
+
+    // Watch for direct detachment of the dock itself.
+    let dockParent: HTMLElement | null = dockRef.parentElement;
+    while (dockParent && dockParent !== document.body) {
+      const parentEl = dockParent;
+      const ancestorObserver = new MutationObserver(checkIntegrity);
+      ancestorObserver.observe(parentEl, { childList: true });
+      dockParent = parentEl.parentElement;
+    }
 
     return () => {
-      window.clearInterval(interval);
       observer.disconnect();
       document.documentElement.style.filter = "";
       document.documentElement.style.pointerEvents = "";
@@ -103,7 +116,7 @@ export function SecurityGuard() {
     <>
       {locked && <LockOverlay />}
 
-      {/* Compact Apple-style frosted glass demo dock */}
+      {/* Compact frosted-glass demo dock */}
       <div
         ref={setDockRef}
         id="demo-guard-dock"
