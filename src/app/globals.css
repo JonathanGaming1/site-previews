@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-heebo: "Heebo", "Assistant", "Rubik", "system-ui", sans-serif;
+}
+
+html {
+  font-family: var(--font-heebo);
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-heebo);
+}
+
+/* Anti-copy: applied to the root when the demo guard is active */
+.guard-active,
+.guard-active * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Demo-mode editable outline highlight for the in-site admin editor */
+[data-edit-active="true"] {
+  outline: 1px dashed rgba(56, 189, 248, 0.55);
+  outline-offset: 3px;
+  cursor: text;
+  border-radius: 4px;
+  transition: outline-color 0.2s ease;
+}
+
+[data-edit-active="true"]:focus {
+  outline: 2px solid rgba(56, 189, 248, 0.9);
+}
