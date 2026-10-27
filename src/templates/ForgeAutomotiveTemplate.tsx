@@ -1,936 +1,770 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
-import { useSite } from "@/components/SiteProvider";
-import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
+import React, { useRef, useState, useEffect } from "react";
 import {
-  EditorialHeadline,
-  FaqAccordion,
-  RatingBars,
-  formatNis,
-  parsePrice,
-  waLink,
-} from "@/templates/shared";
-import type { LuxTheme } from "@/lib/luxtheme";
-import {
-  CameraPortal,
-  Magnetic,
-  Parallax,
-  SpecMark,
-  SpecularLight,
-  TiltStage,
-} from "@/templates/motion";
+  motion,
+  useScroll,
+  useTransform,
+  useMotionValue,
+  useSpring,
+  AnimatePresence,
+} from "framer-motion";
 
-/* ------------------------------------------------------------------ */
-/* FORGE / DARK LUXURY ATELIER                                         */
-/* Obsidian #030303, British bespoke workshop restraint, a 3-point    */
-/* header, a masked studio photograph dissolving into the page, and a */
-/* three-stage specification commission desk.                          */
-/* ------------------------------------------------------------------ */
+interface TemplateProps {
+  data: any;
+}
 
-const FINISHES = [
-  {
-    code: "01",
-    name: "Bespoke",
-    he: "בספוק",
-    multiplier: 1,
-    detail: "תפירה מלאה למידות, חומרים נבחרים וגימור יד.",
-  },
-  {
-    code: "02",
-    name: "Signature",
-    he: "סיגנצ'ור",
-    multiplier: 1.42,
-    detail: "שכבת גימור שנייה, מבחר חומרים מורחב ונגיעות אישיות.",
-  },
-  {
-    code: "03",
-    name: "Reserve",
-    he: "ריזרב",
-    multiplier: 1.95,
-    detail: "רזרבה מלאה של הסטודיו: עדיפות, פיקוח צמוד וליווי אישי.",
-  },
-] as const;
+// כרטיס תלת-ממדי אמיתי שמגיב לתנועת העכבר עם החזר אור מתכתי (בלי רינדור מחדש של React)
+function TiltMonolith({
+  children,
+  index,
+}: {
+  children: React.ReactNode;
+  index: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0);
+  const y = useMotionValue(0);
+  const glareX = useMotionValue(50);
+  const glareY = useMotionValue(50);
 
-const SCHEDULES = [
-  { name: "Flexible", he: "גמיש", months: 0, note: "הסטודיו קובע תאריך בנוחות העבודה" },
-  { name: "Season", he: "העונה הקרובה", months: 1, note: "פתיחה בתור בעונה הנוכחית" },
-  { name: "Priority", he: "עדיפות", months: 2, note: "מקום קדמי בתור הסטודיו" },
-] as const;
+  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [10, -10]), {
+    stiffness: 180,
+    damping: 22,
+  });
+  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-10, 10]), {
+    stiffness: 180,
+    damping: 22,
+  });
 
-const NAV_ITEMS = [
-  { href: "#atelier", label: "הסטודיו" },
-  { href: "#commission", label: "בניית מפרט" },
-  { href: "#work", label: "עבודות" },
-  { href: "#clients", label: "לקוחות" },
-  { href: "#contact", label: "יצירת קשר" },
-];
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const normX = (e.clientX - rect.left) / rect.width - 0.5;
+    const normY = (e.clientY - rect.top) / rect.height - 0.5;
+    x.set(normX);
+    y.set(normY);
+    glareX.set(((e.clientX - rect.left) / rect.width) * 100);
+    glareY.set(((e.clientY - rect.top) / rect.height) * 100);
+  }
 
-export function ForgeAutomotiveTemplate() {
-  const { data, editsFor } = useSite();
-  const { businessInfo: b, hero, services, faq, reviews, projects = [], benefits = [] } = data;
+  function handleMouseLeave() {
+    x.set(0);
+    y.set(0);
+  }
 
-  const accent = data.theme.accentColor || "#c59b27";
-  const primary = data.theme.primaryColor || "#f4efe6";
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      initial={{ opacity: 0, y: 60 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.8, delay: index * 0.12, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        rotateX,
+        rotateY,
+        transformStyle: "preserve-3d",
+      }}
+      className="group relative overflow-hidden bg-[#070708] border border-white/[0.08] p-8 md:p-12 transition-colors duration-500 hover:border-white/25"
+    >
+      {/* אלומת אור דינמית שעוקבת אחרי העכבר בתוך הכרטיס */}
+      <motion.div
+        className="pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+        style={{
+          background: useTransform(
+            [glareX, glareY],
+            ([gx, gy]) =>
+              `radial-gradient(420px circle at ${gx}% ${gy}%, rgba(212,175,55,0.12), transparent 70%)`
+          ),
+        }}
+      />
+      <div style={{ transform: "translateZ(35px)" }} className="relative z-10">
+        {children}
+      </div>
+    </motion.div>
+  );
+}
 
+export default function ForgeAutomotiveTemplate({ data }: TemplateProps) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [serviceIdx, setServiceIdx] = useState(0);
-  const [finishIdx, setFinishIdx] = useState(1);
-  const [scheduleIdx, setScheduleIdx] = useState(0);
+  const [selectedServiceIdx, setSelectedServiceIdx] = useState(0);
+  const [selectedTier, setSelectedTier] = useState<"SIGNATURE" | "BESPOKE" | "RESERVE">("BESPOKE");
+  const [selectedTimeline, setSelectedTimeline] = useState<"STANDARD" | "PRIORITY" | "IMMEDIATE">("PRIORITY");
+  const [sliderPos, setSliderPos] = useState(52);
 
-  const base = useMemo(
-    () => parsePrice(services[serviceIdx]?.price) ?? 12000,
-    [services, serviceIdx],
+  const info = data?.businessInfo || {};
+  const hero = data?.hero || {};
+  const services = Array.isArray(data?.services) && data.services.length > 0
+    ? data.services
+    : [
+        { title: "תכנון והנדסת מפרט", description: "אפיון מדויק בהתאמה מלאה לדרישות הפרויקט ולתנאי השטח.", price: "בהתאמה אישית" },
+        { title: "ביצוע בסטנדרט אטלייה", description: "שימוש בחומרי הגלם העמידים והיוקרתיים ביותר תחת בקרת איכות קפדנית.", price: "אחריות מלאה" },
+        { title: "פרויקטים מיוחדים VIP", description: "ליווי אישי צמוד מהסקיצה הראשונה ועד למסירת המפתח.", price: "מפרט שמור" },
+        { title: "תחזוקה ושירות פרימיום", description: "מענה מהיר וזמינות מלאה לשמירה על איכות התוצאה לאורך שנים.", price: "ליווי שנתי" },
+      ];
+  const reviews = Array.isArray(data?.reviews) ? data.reviews : [];
+  const faqs = Array.isArray(data?.faq) ? data.faq : [];
+
+  const whatsappNumber = info.whatsapp || String(info.phone || "").replace(/\D/g, "").replace(/^0/, "972");
+  const whatsappLink = whatsappNumber ? `https://wa.me/${whatsappNumber}` : "#contact";
+
+  // --- 1. פיזיקת עכבר חיה ב-3D על כל במת ה-Hero (כמו ב-Forge Automotive) ---
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const stageRotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [6, -6]), {
+    stiffness: 90,
+    damping: 25,
+  });
+  const stageRotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-8, 8]), {
+    stiffness: 90,
+    damping: 25,
+  });
+  const imageShiftX = useSpring(useTransform(mouseX, [-0.5, 0.5], [-28, 28]), {
+    stiffness: 70,
+    damping: 20,
+  });
+  const imageShiftY = useSpring(useTransform(mouseY, [-0.5, 0.5], [-18, 18]), {
+    stiffness: 70,
+    damping: 20,
+  });
+  const lightX = useSpring(useTransform(mouseX, [-0.5, 0.5], [20, 80]), {
+    stiffness: 80,
+    damping: 20,
+  });
+  const lightY = useSpring(useTransform(mouseY, [-0.5, 0.5], [20, 80]), {
+    stiffness: 80,
+    damping: 20,
+  });
+
+  useEffect(() => {
+    const handleGlobalMouse = (e: MouseEvent) => {
+      const nx = e.clientX / window.innerWidth - 0.5;
+      const ny = e.clientY / window.innerHeight - 0.5;
+      mouseX.set(nx);
+      mouseY.set(ny);
+    };
+    window.addEventListener("mousemove", handleGlobalMouse, { passive: true });
+    return () => window.removeEventListener("mousemove", handleGlobalMouse);
+  }, [mouseX, mouseY]);
+
+  // --- 2. מצלמת גלילה תלת-ממדית (Scroll-Driven 3D Portal Zoom-In) ---
+  const portalRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: portalRef,
+    offset: ["start start", "end end"],
+  });
+
+  // ככל שגוללים עם הגלגלת למטה, המצלמה נכנסת פיזית לתוך התמונה!
+  const carScale = useTransform(scrollYProgress, [0, 0.65, 1], [1, 2.35, 3.6]);
+  const carY = useTransform(scrollYProgress, [0, 0.7, 1], ["0%", "8%", "18%"]);
+  const carOpacity = useTransform(scrollYProgress, [0, 0.68, 0.95], [1, 0.85, 0]);
+
+  const titleScale = useTransform(scrollYProgress, [0, 0.45], [1, 1.55]);
+  const titleY = useTransform(scrollYProgress, [0, 0.45], ["0%", "-65%"]);
+  const titleOpacity = useTransform(scrollYProgress, [0, 0.38], [1, 0]);
+
+  // השכבה הפנימית שבוקעת מתוך החושך אחרי שנכנסים לתוך התמונה בגלילה
+  const interiorScale = useTransform(scrollYProgress, [0.42, 0.88], [0.72, 1]);
+  const interiorOpacity = useTransform(scrollYProgress, [0.45, 0.78], [0, 1]);
+  const interiorY = useTransform(scrollYProgress, [0.45, 0.88], ["80px", "0px"]);
+
+  const heroImg =
+    hero.backgroundImage ||
+    "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=1800&q=85";
+
+  const configuredSpecText = encodeURIComponent(
+    `היי ${info.name || ""}, הרכבתי מפרט באתר:\n` +
+      `• שירות: ${services[selectedServiceIdx]?.title || ""}\n` +
+      `• רמת גימור: ${selectedTier}\n` +
+      `• לוח זמנים: ${selectedTimeline}\n` +
+      `אשמח לתיאום שיחת ייעוץ.`
   );
-  const finish = FINISHES[finishIdx];
-  const schedule = SCHEDULES[scheduleIdx];
-  const low = Math.round((base * finish.multiplier) / 100) * 100;
-  const high = Math.round((low * (1 + schedule.months * 0.08)) / 100) * 100;
-  const reference = `${String(serviceIdx + 1).padStart(2, "0")}·${finish.code}·${String(
-    scheduleIdx + 1,
-  ).padStart(2, "0")}`;
-
-  const dispatchHref = waLink(
-    b.whatsapp,
-    [
-      `שלום, הגעתי לסטודיו של ${b.name}.`,
-      `• שירות: ${services[serviceIdx]?.title ?? ""}`,
-      `• רמת גימור: ${finish.name} / ${finish.he}`,
-      `• לוח זמנים: ${schedule.he}`,
-      `• מפרט: ${reference}`,
-      `• טווח השקעה צפוי: ${formatNis(low)}–${formatNis(high)}`,
-      "אשמח לתאם מדידה ופגישת אטלייה.",
-    ].join("\n"),
-  );
-
-  const theme: LuxTheme = {
-    accent,
-    dark: true,
-    pageBg: "#030303",
-    surface: "rgba(255,255,255,0.035)",
-    border: "rgba(255,255,255,0.09)",
-    headline: "#f4efe6",
-    text: "rgba(244,239,230,0.72)",
-    muted: "rgba(244,239,230,0.42)",
-    fontSerif: "'Frank Ruhl Libre', serif",
-  };
-
-  const monogram = (b.name || "F").trim().charAt(0);
-  const city = b.address.split(",")[0]?.trim() || b.address;
 
   return (
     <div
-      className="relative min-h-screen overflow-x-hidden pb-24"
-      style={{ background: "#030303", color: theme.text }}
       dir="rtl"
+      className="min-h-screen bg-[#030303] text-[#F5F5F3] font-heebo selection:bg-[#C59B27] selection:text-black overflow-x-hidden"
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0"
-        style={{
-          background:
-            "radial-gradient(60% 45% at 50% -10%, rgba(197,155,39,0.07), transparent 65%), radial-gradient(50% 50% at 100% 100%, rgba(255,255,255,0.025), transparent 70%)",
-        }}
-      />
-
-      {/* Cursor-tracked studio rim light — the whole showroom relights as the
-          mouse moves, on top of the static ambient gradient above. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-[5]"
-      >
-        <SpecularLight
-          color={`color-mix(in srgb, ${accent} 13%, transparent)`}
-          size={56}
-        />
-      </div>
-
-      {/* ---------------- 3-point atelier header ---------------- */}
-      <header className="fixed inset-x-0 top-0 z-[9600] border-b border-white/[0.07] bg-[#030303]/85 backdrop-blur-xl">
-        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-5 py-3.5 md:px-8">
-          <div className="flex items-center gap-4 text-[10px] tracking-[0.24em] text-white/40" dir="ltr">
-            <a
-              href={waLink(b.whatsapp, `שלום ${b.name}, אשמח לפרטים.`)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition hover:text-white/90"
-            >
-              WHATSAPP
-            </a>
-            <a
-              href={`tel:${b.phone}`}
-              className="hidden transition hover:text-white/90 sm:inline"
-              dir="ltr"
-            >
-              {b.phone}
-            </a>
-          </div>
-
-          <a href="#top" className="flex items-center justify-center gap-3">
-            <span
-              className="flex h-8 w-8 items-center justify-center border text-[13px]"
-              style={{
-                borderColor: `color-mix(in srgb, ${accent} 55%, transparent)`,
-                color: accent,
-                transform: "skewX(-9deg)",
-                fontFamily: "'Frank Ruhl Libre', serif",
-              }}
-            >
-              <span style={{ transform: "skewX(9deg)" }}>{monogram}</span>
-            </span>
-            <span
-              className="hidden max-w-[220px] truncate text-[10px] tracking-[0.3em] text-white/75 sm:inline"
-              {...editsFor("businessInfo.name")}
-            >
-              {b.name}
-            </span>
-          </a>
-
-          <div className="justify-self-end" dir="ltr">
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-haspopup="dialog"
-              aria-expanded={menuOpen}
-              className="group flex items-center gap-3 text-[10px] tracking-[0.28em] text-white/55 transition hover:text-white"
-            >
-              <span>ניווט</span>
-              <span aria-hidden="true" style={{ color: accent }}>
-                =
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ---------------- full-screen velvet menu ---------------- */}
+      {/* תפריט ניווט קולנועי על מסך מלא (נפתח בלחיצה על NAVIGATE =) */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35 }}
-            className="fixed inset-0 z-[100000] flex flex-col bg-[#030303]"
-            role="dialog"
-            aria-modal="true"
-            aria-label="תפריט ניווט"
+            initial={{ opacity: 0, clipPath: "inset(0 0 100% 0)" }}
+            animate={{ opacity: 1, clipPath: "inset(0 0 0% 0)" }}
+            exit={{ opacity: 0, clipPath: "inset(0 0 100% 0)" }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-0 z-50 bg-[#040404]/98 backdrop-blur-2xl flex flex-col justify-between p-8 md:p-16"
           >
-            <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6">
-              <span className="text-[10px] tracking-[0.32em] text-white/35">
-                {b.name.toUpperCase()} / ATELIER INDEX
+            <div className="flex items-center justify-between border-b border-white/10 pb-6">
+              <span className="text-xs tracking-[0.35em] text-white/40 uppercase">
+                {info.name || "FORGE ATELIER"}
               </span>
               <button
-                type="button"
                 onClick={() => setMenuOpen(false)}
-                className="flex h-10 w-10 items-center justify-center border border-white/12 text-white/70 transition hover:border-white/35 hover:text-white"
-                aria-label="סגור תפריט"
+                className="text-xs tracking-[0.3em] uppercase text-white/70 hover:text-white flex items-center gap-3"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                <span>סגור תפריט</span>
+                <span className="text-lg font-light">×</span>
               </button>
             </div>
-            <nav className="mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-6">
-              {NAV_ITEMS.map((item, i) => (
-                <motion.a
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  initial={{ opacity: 0, y: 22 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.06 * i + 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  className="group grid grid-cols-[3.2rem_1fr_auto] items-baseline gap-5 border-b border-white/[0.06] py-5 md:py-6"
-                >
-                  <span className="text-[10px] tracking-[0.3em] text-white/25" dir="ltr">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span
-                    className="text-3xl font-light text-white/65 transition-colors duration-500 group-hover:text-white md:text-5xl"
-                    style={{ fontFamily: "'Frank Ruhl Libre', serif", letterSpacing: "-0.015em" }}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 my-auto py-12">
+              <div className="space-y-6">
+                {[
+                  { num: "01", label: "האטלייה והחזון", href: "#vision" },
+                  { num: "02", label: "מפרט שירותים", href: "#services" },
+                  { num: "03", label: "קונפיגורטור התאמה אישית", href: "#configurator" },
+                  { num: "04", label: "השוואת סטנדרט (לפני / אחרי)", href: "#comparison" },
+                  { num: "05", label: "תיאום פגישת ייעוץ", href: "#contact" },
+                ].map((item) => (
+                  <a
+                    key={item.num}
+                    href={item.href}
+                    onClick={() => setMenuOpen(false)}
+                    className="group flex items-baseline gap-6 border-b border-white/[0.06] pb-4 hover:border-white/30 transition-all"
                   >
-                    {item.label}
-                  </span>
-                  <span className="text-white/20 transition group-hover:text-white/60" aria-hidden="true">
-                    ←
-                  </span>
-                </motion.a>
-              ))}
-            </nav>
-            <div className="mx-auto flex w-full max-w-7xl flex-wrap items-end justify-between gap-3 px-6 pb-10 text-[10px] tracking-[0.2em] text-white/30">
-              <span>{b.address}</span>
-              <a href={`tel:${b.phone}`} dir="ltr" className="hover:text-white/70">
-                {b.phone}
-              </a>
+                    <span className="text-xs font-mono text-[#C59B27]">{item.num}</span>
+                    <span className="font-frank text-3xl md:text-5xl font-light tracking-tight group-hover:translate-x-[-10px] transition-transform duration-300">
+                      {item.label}
+                    </span>
+                  </a>
+                ))}
+              </div>
+
+              <div className="flex flex-col justify-end space-y-6 border-r border-white/10 pr-8">
+                <p className="text-xs tracking-[0.25em] text-white/40 uppercase">קו ישיר לאטלייה</p>
+                <p className="font-frank text-3xl font-light text-white">{info.phone || "050-0000000"}</p>
+                <p className="text-sm text-white/50">{info.address || info.city || "ישראל"}</p>
+                <p className="text-xs text-white/35">{info.openingHours}</p>
+              </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ---------------- hero: 3D camera portal into the showroom ----------------
-          The wheel does not scroll flat panels away — the camera dollies INTO
-          the centerpiece (the photograph scales, recedes and blurs past the
-          lens), two velvet panels part ways, and the headline resolves from
-          inside the car itself. */}
-      <section id="top" className="relative z-10 overflow-hidden">
-        <CameraPortal
-          heightVh={320}
-          perspective={1400}
-          zoom={3.9}
-          blurOut={24}
-          veilColor="rgba(3,3,3,0.95)"
-          hint={
-            <span className="flex flex-col items-center gap-3 text-white/30">
-              <SpecMark className="text-white/30">SCROLL — ENTER THE SHOWROOM</SpecMark>
-              <span
-                aria-hidden="true"
-                className="block h-10 w-px"
-                style={{ background: `linear-gradient(${accent}, transparent)` }}
-              />
-            </span>
-          }
-          scene={
-            <div className="absolute inset-0">
-              {/* multi-depth parallax: the gold bloom trails behind the car */}
-              <Parallax depth={34} className="absolute inset-0">
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "radial-gradient(46% 38% at 50% 52%, color-mix(in srgb, " +
-                      accent +
-                      " 16%, transparent), transparent 72%)",
-                  }}
-                />
-              </Parallax>
-
-              {hero.backgroundImage ? (
-                <Parallax depth={12} className="absolute inset-0">
-                  <TiltStage
-                    intensity={7}
-                    glareColor={`color-mix(in srgb, ${accent} 30%, transparent)`}
-                    className="absolute inset-0"
-                  >
-                    <div className="relative h-full w-full">
-                      {/* The photograph has no frame: a radial + linear mask
-                          melts it straight into the #030303 showroom floor. */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={hero.backgroundImage}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        style={{
-                          filter: "saturate(0.72) contrast(1.08) brightness(0.88)",
-                          maskImage:
-                            "radial-gradient(ellipse 74% 66% at 50% 50%, black 40%, transparent 100%)",
-                          WebkitMaskImage:
-                            "radial-gradient(ellipse 74% 66% at 50% 50%, black 40%, transparent 100%)",
-                        }}
-                      />
-                    </div>
-                  </TiltStage>
-                </Parallax>
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <SpecMark className="text-white/25">FORGE / SHOWROOM</SpecMark>
-                </div>
-              )}
-
-              {/* Always-visible marque so the stage is never an empty plate */}
-              <div className="absolute inset-x-0 top-28 flex flex-col items-center gap-4 text-center">
-                <SpecMark className="text-white/32">{b.category}</SpecMark>
-                <p
-                  className="text-2xl font-light tracking-[-0.02em] text-white/70 md:text-3xl"
-                  style={{ fontFamily: "'Frank Ruhl Libre', serif" }}
-                >
-                  {b.name}
-                </p>
-              </div>
-            </div>
-          }
-          pane={
-            <div
-              className="h-full w-full"
-              style={{
-                background:
-                  "linear-gradient(90deg, rgba(3,3,3,0.97), rgba(3,3,3,0.76) 62%, rgba(3,3,3,0.1))",
-              }}
-            >
-              <div
-                className="h-full w-full opacity-70"
-                style={{
-                  backgroundImage:
-                    "repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 38px)",
-                  maskImage: "linear-gradient(90deg, black, transparent)",
-                  WebkitMaskImage: "linear-gradient(90deg, black, transparent)",
-                }}
-              />
-            </div>
-          }
-          interior={
-            <div className="flex h-full w-full items-center justify-center px-6">
-              <div className="max-w-3xl text-center">
-                <SpecMark style={{ color: accent }}>ATELIER INTERIOR</SpecMark>
-
-                <h1
-                  className="mt-7 text-[clamp(2.6rem,5.6vw,5.1rem)] font-light leading-[1.1] tracking-editorial"
-                  style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-                  {...editsFor("hero.headline")}
-                >
-                  <EditorialHeadline text={hero.headline} />
-                </h1>
-
-                <p
-                  className="mx-auto mt-7 max-w-xl text-[12.5px] leading-[2] text-white/42"
-                  {...editsFor("hero.subheadline")}
-                >
-                  {hero.subheadline}
-                </p>
-
-                <div className="mt-9 flex justify-center">
-                  <Magnetic strength={0.26}>
-                    <a
-                      href="#commission"
-                      className="group inline-flex items-center gap-3 border px-8 py-4 text-[11px] tracking-[0.22em] text-white/80 transition hover:bg-white/[0.04] hover:text-white"
-                      style={{ borderColor: `color-mix(in srgb, ${accent} 55%, transparent)` }}
-                    >
-                      {hero.ctaText}
-                      <span
-                        aria-hidden="true"
-                        className="transition-transform group-hover:-translate-x-1"
-                        style={{ color: accent }}
-                      >
-                        ←
-                      </span>
-                    </a>
-                  </Magnetic>
-                </div>
-
-                <div className="mt-12 grid grid-cols-3 gap-px border-t border-white/[0.08] pt-6 text-left">
-                  {[
-                    { mark: "FINISH", value: "BESPOKE" },
-                    { mark: "LEAD TIME", value: `${SCHEDULES[scheduleIdx].months + 4}W` },
-                    { mark: "STUDIO", value: city },
-                  ].map((spec) => (
-                    <div key={spec.mark} className="px-2">
-                      <SpecMark className="text-white/26">{spec.mark}</SpecMark>
-                      <p
-                        className="mt-2 truncate text-lg font-light text-white/70"
-                        dir="ltr"
-                        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                      >
-                        {spec.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="mt-7 text-[10px] leading-[2.1] tracking-[0.16em] text-white/32">
-                  {city} — עבודת יד, בקצב של אטלייה.
-                  <br />
-                  {b.openingHours}
-                </p>
-              </div>
-            </div>
-          }
-        />
-      </section>
-
-      {/* ---------------- services — ledger rows ---------------- */}
-      <section id="atelier" className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="mb-3 flex items-end justify-between border-b border-white/[0.08] pb-4">
-          <span className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-            ATELIER / 01
-          </span>
-          <h2
-            className="text-2xl font-light md:text-3xl"
-            style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
+      {/* סרגל עליון מינימליסטי זהה ל-Forge Automotive */}
+      <header className="fixed top-0 inset-x-0 z-40 px-6 md:px-14 py-7 flex items-center justify-between pointer-events-none">
+        <div className="flex items-center gap-6 pointer-events-auto">
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[11px] tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
           >
-            מה נרקם בסטודיו
-          </h2>
-        </div>
-        <ul>
-          {services.map((service, i) => (
-            <li
-              key={i}
-              className="group grid grid-cols-[2.8rem_1fr] items-baseline gap-4 border-b border-white/[0.06] py-7 md:grid-cols-[4rem_1fr_auto]"
+            WHATSAPP
+          </a>
+          {info.phone && (
+            <a
+              href={`tel:${info.phone}`}
+              className="hidden sm:inline-block text-[11px] tracking-[0.2em] text-white/50 hover:text-white transition-colors"
             >
-              <span className="text-[10px] tracking-[0.3em] text-white/22" dir="ltr">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div>
-                <h3
-                  className="text-xl font-light leading-[1.2] text-white/82 transition-colors group-hover:text-white md:text-2xl"
-                  style={{ fontFamily: "'Frank Ruhl Libre', serif" }}
-                  {...editsFor(`services.${i}.title`)}
-                >
-                  {service.title}
-                </h3>
-                <p
-                  className="mt-2 max-w-lg text-[12.5px] leading-[1.9] text-white/34"
-                  {...editsFor(`services.${i}.description`)}
-                >
-                  {service.description}
-                </p>
-              </div>
-              <span
-                className="col-start-2 mt-2 text-[11px] tracking-[0.1em] text-white/45 md:col-start-auto md:mt-0"
-                {...editsFor(`services.${i}.price`)}
-              >
-                {service.price}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* ---------------- 3-stage bespoke commission desk ---------------- */}
-      <section id="commission" className="relative z-10 border-y border-white/[0.08]">
-        <div className="mx-auto max-w-6xl px-6 py-20 md:py-28">
-          <div className="mb-10 flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.08] pb-4">
-            <span className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-              COMMISSION / 02
-            </span>
-            <h2
-              className="text-2xl font-light md:text-3xl"
-              style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-            >
-              הרכבת מפרט אישי
-            </h2>
-          </div>
-
-          <div className="grid gap-px bg-white/[0.08] md:grid-cols-3">
-            {/* Stage 01 */}
-            <div className="bg-[#030303] p-5 md:p-6">
-              <p className="text-[9px] tracking-[0.34em]" dir="ltr" style={{ color: accent }}>
-                STAGE 01 / SERVICE
-              </p>
-              <h3 className="mb-5 mt-1.5 text-lg font-light" style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}>
-                בחירת שירות
-              </h3>
-              <div role="radiogroup" aria-label="בחירת שירות">
-                {services.map((service, i) => {
-                  const active = serviceIdx === i;
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setServiceIdx(i)}
-                      className="flex w-full items-baseline justify-between gap-3 border-b px-1 py-3 text-right transition-colors"
-                      style={{
-                        borderColor: active
-                          ? `color-mix(in srgb, ${accent} 60%, transparent)`
-                          : "rgba(255,255,255,0.07)",
-                        color: active ? "#f4efe6" : "rgba(244,239,230,0.44)",
-                      }}
-                    >
-                      <span className="text-[12.5px]">{service.title}</span>
-                      <span
-                        className="text-[8px] tracking-[0.28em]"
-                        style={{ color: active ? accent : "rgba(255,255,255,0.2)" }}
-                        dir="ltr"
-                      >
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Stage 02 */}
-            <div className="bg-[#030303] p-5 md:p-6">
-              <p className="text-[9px] tracking-[0.34em]" dir="ltr" style={{ color: accent }}>
-                STAGE 02 / FINISH
-              </p>
-              <h3 className="mb-5 mt-1.5 text-lg font-light" style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}>
-                רמת גימור וחומרים
-              </h3>
-              <div role="radiogroup" aria-label="רמת גימור">
-                {FINISHES.map((option, i) => {
-                  const active = finishIdx === i;
-                  return (
-                    <button
-                      key={option.name}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setFinishIdx(i)}
-                      className="flex w-full flex-col items-start border-b px-1 py-2.5 text-right transition-colors"
-                      style={{
-                        borderColor: active
-                          ? `color-mix(in srgb, ${accent} 60%, transparent)`
-                          : "rgba(255,255,255,0.07)",
-                      }}
-                    >
-                      <span className="flex w-full items-baseline justify-between gap-2">
-                        <span className="text-[12.5px]" style={{ color: active ? "#f4efe6" : "rgba(244,239,230,0.44)" }}>
-                          {option.name}
-                          <span className="mr-2 text-[10px] text-white/30">{option.he}</span>
-                        </span>
-                        <span className="text-[8px] tracking-[0.28em]" style={{ color: active ? accent : "rgba(255,255,255,0.2)" }} dir="ltr">
-                          {option.code}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 text-[9.5px] leading-relaxed text-white/25">
-                        {option.detail}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Stage 03 */}
-            <div className="bg-[#030303] p-5 md:p-6">
-              <p className="text-[9px] tracking-[0.34em]" dir="ltr" style={{ color: accent }}>
-                STAGE 03 / TIMELINE
-              </p>
-              <h3 className="mb-5 mt-1.5 text-lg font-light" style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}>
-                לוחות זמנים
-              </h3>
-              <div role="radiogroup" aria-label="לוח זמנים">
-                {SCHEDULES.map((option, i) => {
-                  const active = scheduleIdx === i;
-                  return (
-                    <button
-                      key={option.name}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setScheduleIdx(i)}
-                      className="flex w-full flex-col items-start border-b px-1 py-3 text-right transition-colors"
-                      style={{
-                        borderColor: active
-                          ? `color-mix(in srgb, ${accent} 60%, transparent)`
-                          : "rgba(255,255,255,0.07)",
-                      }}
-                    >
-                      <span className="flex w-full items-baseline justify-between gap-2">
-                        <span className="text-[12.5px]" style={{ color: active ? "#f4efe6" : "rgba(244,239,230,0.44)" }}>
-                          {option.he}
-                        </span>
-                        <span className="text-[8px] tracking-[0.24em] text-white/25" dir="ltr">
-                          {option.name.toUpperCase()}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 text-[9.5px] text-white/25">{option.note}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* live telemetry sheet */}
-          <div className="mt-px grid border border-white/[0.09] md:grid-cols-[1.5fr_1fr]">
-            <div className="p-6 md:p-8" aria-live="polite">
-              <div className="flex items-center justify-between border-b border-white/[0.07] pb-3">
-                <span className="text-[9px] tracking-[0.36em] text-white/30" dir="ltr">
-                  LIVE SPECIFICATION / {reference}
-                </span>
-                <span className="inline-flex items-center gap-2 text-[9px] tracking-[0.22em] text-white/35">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} />
-                  OPEN
-                </span>
-              </div>
-              <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-                <div>
-                  <dt className="text-[8.5px] tracking-[0.28em] text-white/25">SERVICE</dt>
-                  <dd className="mt-1 text-[13px] text-white/82">{services[serviceIdx]?.title}</dd>
-                </div>
-                <div>
-                  <dt className="text-[8.5px] tracking-[0.28em] text-white/25">FINISH</dt>
-                  <dd className="mt-1 text-[13px] text-white/82">
-                    {finish.name} <span className="text-white/35">/ {finish.he}</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-[8.5px] tracking-[0.28em] text-white/25">TIMELINE</dt>
-                  <dd className="mt-1 text-[13px] text-white/82">{schedule.he}</dd>
-                </div>
-              </dl>
-              <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-white/[0.07] pt-5">
-                <div>
-                  <p className="text-[8.5px] tracking-[0.3em] text-white/25">ESTIMATED COMMISSION</p>
-                  <p
-                    className="mt-1 text-3xl font-light tracking-tight md:text-4xl"
-                    style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-                    dir="ltr"
-                  >
-                    {formatNis(low)}
-                    <span className="text-white/28"> — {formatNis(high)}</span>
-                  </p>
-                </div>
-                <p className="max-w-[230px] text-[9.5px] leading-relaxed text-white/25">
-                  הערכה מבוססת על המפרט שנבחר. המחיר הסופי נקבע לאחר מדידה בסטודיו.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col justify-between gap-4 border-t border-white/[0.09] bg-white/[0.02] p-6 md:border-r md:border-t-0 md:p-8">
-              <div>
-                <p className="text-[9px] tracking-[0.3em] text-white/28">ATELIER DISPATCH</p>
-                <p className="mt-2 text-[12px] leading-[1.9] text-white/42">
-                  המפרט נשלח ישירות לוואטסאפ הסטודיו, עם כל שלוש הבחירות והערכת ההשקעה.
-                </p>
-              </div>
-              <a
-                href={dispatchHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center justify-between border px-5 py-3.5 text-[11px] tracking-[0.16em] transition-colors"
-                style={{
-                  borderColor: `color-mix(in srgb, ${accent} 55%, transparent)`,
-                  color: primary,
-                }}
-              >
-                שליחת המפרט לסטודיו
-                <span
-                  className="transition-transform group-hover:-translate-x-1"
-                  style={{ color: accent }}
-                  aria-hidden="true"
-                >
-                  ←
-                </span>
-              </a>
-            </div>
-          </div>
-
-          {/* draggable studio split comparison */}
-          <div className="mt-16 grid gap-8 lg:grid-cols-[1fr_2fr]">
-            <div>
-              <p className="text-[9px] tracking-[0.36em] text-white/28" dir="ltr">
-                STUDIO SPLIT / 03
-              </p>
-              <h3
-                className="mt-3 text-2xl font-light leading-[1.25] md:text-3xl"
-                style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-              >
-                לפני שהסטודיו נגע.
-                <br />
-                אחרי.
-              </h3>
-              <p className="mt-4 max-w-xs text-[11.5px] leading-[1.9] text-white/34">
-                גררו את הידית לאורך התצלום. אותו חדר, אותה אור — מלאכה אחרת.
-              </p>
-            </div>
-            <BeforeAfterSlider
-              theme={theme}
-              beforeImage={projects[0]?.beforeImage}
-              afterImage={projects[0]?.afterImage}
-              beforeLabel="לפני"
-              afterLabel="אחרי"
-              caption=""
-            />
-          </div>
+              {info.phone}
+            </a>
+          )}
         </div>
-      </section>
 
-      {/* ---------------- process — vertical ledger ---------------- */}
-      <section id="work" className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="grid gap-10 lg:grid-cols-[1fr_2fr]">
-          <div className="lg:sticky lg:top-28 lg:self-start">
-            <p className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-              METHOD / 04
-            </p>
-            <h2
-              className="mt-4 text-3xl font-light leading-[1.2] md:text-4xl"
-              style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-            >
-              סדר עבודה
-              <br />
-              של אטלייה.
-            </h2>
-            <p className="mt-5 max-w-xs text-[12px] leading-[1.9] text-white/34">
-              {b.description}
-            </p>
-          </div>
-          <div>
-            {(data.processTimeline?.length
-              ? data.processTimeline
-              : (services.length ? services : benefits).slice(0, 4).map((item, i) => ({
-                  title: item.title,
-                  description: item.description,
-                }))
-            )
-              .slice(0, 4)
-              .map((step, i) => (
-                <motion.div
-                  key={`${step.title}-${i}`}
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-80px" }}
-                  transition={{ duration: 0.6, delay: i * 0.05 }}
-                  className="grid grid-cols-[3rem_1fr] gap-4 border-t border-white/[0.08] py-7"
-                >
-                  <span
-                    className="text-[10px] tracking-[0.24em]"
-                    style={{ color: accent }}
-                    dir="ltr"
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <h3 className="text-lg font-light text-white/85" style={{ fontFamily: "'Frank Ruhl Libre', serif" }}>
-                      {step.title}
-                    </h3>
-                    <p className="mt-1.5 max-w-xl text-[12px] leading-[1.9] text-white/34">
-                      {step.description}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------------- projects — cinematic strip ---------------- */}
-      {projects.length > 0 && (
-        <section className="relative z-10 border-y border-white/[0.08] py-16">
-          <div className="mx-auto mb-8 flex max-w-6xl items-end justify-between px-6">
-            <span className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-              COMMISSIONED / 05
-            </span>
-            <h2 className="text-2xl font-light md:text-3xl" style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}>
-              ארכיון העבודות
-            </h2>
-          </div>
-          <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-4 md:px-[max(1.5rem,calc((100vw-72rem)/2+1.5rem))]">
-            {projects.map((project, i) => (
-              <figure
-                key={i}
-                className="min-w-[84vw] shrink-0 snap-center border border-white/[0.08] md:min-w-[520px]"
-              >
-                {project.afterImage && (
-                  <div className="relative h-[34vh] overflow-hidden md:h-[46vh]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={project.afterImage}
-                      alt={project.title}
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                      style={{ filter: "saturate(0.8) brightness(0.9)" }}
-                    />
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          "linear-gradient(180deg, transparent 50%, rgba(3,3,3,0.8) 100%)",
-                      }}
-                    />
-                  </div>
-                )}
-                <figcaption className="flex items-baseline justify-between gap-4 px-4 py-4">
-                  <span className="text-base font-light text-white/85" style={{ fontFamily: "'Frank Ruhl Libre', serif" }}>
-                    {project.title}
-                  </span>
-                  <span className="text-[9px] tracking-[0.3em] text-white/25" dir="ltr">
-                    NO. {String(i + 1).padStart(3, "0")}
-                  </span>
-                </figcaption>
-                {project.description && (
-                  <p className="px-4 pb-5 text-[11.5px] leading-relaxed text-white/35">
-                    {project.description}
-                  </p>
-                )}
-              </figure>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ---------------- clients — quote wall ---------------- */}
-      <section id="clients" className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="mb-8 flex items-center justify-between border-b border-white/[0.08] pb-4">
-          <span className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-            CLIENT BOOK / 06
-          </span>
-          <span className="flex items-center gap-3 text-[11px] text-white/45">
-            {b.googleRating.toFixed(1)} / 5
-            <RatingBars rating={b.googleRating} color={accent} />
+        {/* סמל גיאומטרי נקי במרכז כמו ב-Forge */}
+        <div className="flex flex-col items-center pointer-events-auto">
+          <svg
+            width="28"
+            height="18"
+            viewBox="0 0 28 18"
+            fill="none"
+            className="mb-1.5 opacity-90"
+          >
+            <path d="M14 1L26 17H20L14 9L8 17H2L14 1Z" fill="white" />
+          </svg>
+          <span className="text-[11px] tracking-[0.38em] uppercase font-medium text-white/90">
+            {info.name || "FORGE"}
           </span>
         </div>
-        <div className="grid gap-px bg-white/[0.07] md:grid-cols-3">
-          {reviews.slice(0, 3).map((review, i) => (
-            <figure key={i} className="flex flex-col justify-between bg-[#030303] p-7 md:p-8">
-              <blockquote
-                className="text-[15px] font-light leading-[1.85] text-white/72 md:text-base"
-                style={{ fontFamily: "'Frank Ruhl Libre', serif" }}
-                {...editsFor(`reviews.${i}.text`)}
-              >
-                “{review.text}”
-              </blockquote>
-              <figcaption className="mt-8 flex items-center justify-between text-[10px] tracking-[0.2em] text-white/35">
-                <span {...editsFor(`reviews.${i}.author`)}>{review.author}</span>
-                <span className="text-white/22" dir="ltr">
-                  {review.rating}.0
-                </span>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      </section>
 
-      {/* ---------------- FAQ + contact ---------------- */}
-      <section className="relative z-10 mx-auto max-w-5xl px-6 pb-20">
-        <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr]">
-          <div>
-            <p className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-              ENQUIRIES / 07
-            </p>
-            <h2
-              className="mt-4 text-2xl font-light leading-[1.25] md:text-3xl"
-              style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-            >
-              שאלות לפני
-              <br />
-              שמתחילים.
-            </h2>
-          </div>
-          <FaqAccordion
-            items={faq}
-            classes={{
-              card: "border-b border-white/[0.07]",
-              button:
-                "flex w-full items-center justify-between gap-4 py-5 text-right text-[12.5px] text-white/78",
-              icon: "h-4 w-4 text-white/30",
-              answer: "pb-5 text-[11.5px] leading-[1.9] text-white/38",
+        <button
+          onClick={() => setMenuOpen(true)}
+          className="pointer-events-auto flex items-center gap-3 text-[11px] tracking-[0.28em] uppercase text-white/75 hover:text-white transition-colors"
+        >
+          <span>ניווט</span>
+          <span className="flex flex-col gap-1.5 w-5">
+            <span className="w-full h-[1px] bg-white" />
+            <span className="w-3/4 h-[1px] bg-white/70 mr-auto" />
+          </span>
+        </button>
+      </header>
+
+      {/* =====================================================================
+          במת ה-3D והכניסה לתוך התמונה בגלילה (SCROLL-ZOOM 3D CAMERA PORTAL)
+         ===================================================================== */}
+      <section ref={portalRef} className="relative h-[260vh] bg-[#030303]">
+        <div
+          className="sticky top-0 h-screen w-full overflow-hidden flex flex-col items-center justify-center"
+          style={{ perspective: "1400px" }}
+        >
+          {/* אלומת תאורת סטודיו שחיה וזזה עם העכבר */}
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-0"
+            style={{
+              background: useTransform(
+                [lightX, lightY],
+                ([lx, ly]) =>
+                  `radial-gradient(650px circle at ${lx}% ${ly}%, rgba(255,255,255,0.07), rgba(197,155,39,0.03) 40%, transparent 75%)`
+              ),
             }}
           />
+
+          {/* הבמה המרכזית שנוטה ב-3D לפי העכבר ונכנסת פנימה לפי הגלגלת */}
+          <motion.div
+            style={{
+              rotateX: stageRotateX,
+              rotateY: stageRotateY,
+              transformStyle: "preserve-3d",
+            }}
+            className="relative z-10 w-full max-w-6xl mx-auto px-6 flex flex-col items-center justify-center"
+          >
+            {/* הכותרת הדקה והיוקרתית במרכז (בדיוק כמו For Those Who Refuse Ordinary) */}
+            <motion.div
+              style={{
+                scale: titleScale,
+                y: titleY,
+                opacity: titleOpacity,
+                transform: "translateZ(75px)",
+              }}
+              className="text-center mb-4 md:mb-6 pointer-events-none"
+            >
+              <h1 className="font-frank font-light text-4xl sm:text-6xl md:text-[5.2rem] leading-[1.08] tracking-tight text-white max-w-3xl mx-auto">
+                {hero.headline || info.name || "למי שמסרב לסטנדרט רגיל"}
+              </h1>
+            </motion.div>
+
+            {/* התמונה המרכזית שמתמזגת לשחור המוחלט (Vignette Mask) ומתקרבת אליך בגלילה */}
+            <motion.div
+              style={{
+                scale: carScale,
+                y: carY,
+                opacity: carOpacity,
+                x: imageShiftX,
+                rotateZ: useTransform(imageShiftY, [-18, 18], [-0.8, 0.8]),
+                transform: "translateZ(20px)",
+              }}
+              className="relative w-full max-w-5xl aspect-[16/8.5] flex items-center justify-center"
+            >
+              <div
+                className="w-full h-full relative overflow-hidden"
+                style={{
+                  WebkitMaskImage:
+                    "radial-gradient(ellipse 78% 68% at 50% 50%, #000 42%, transparent 96%)",
+                  maskImage:
+                    "radial-gradient(ellipse 78% 68% at 50% 50%, #000 42%, transparent 96%)",
+                }}
+              >
+                <img
+                  src={heroImg}
+                  alt={info.name || "Showcase"}
+                  className="w-full h-full object-cover object-center contrast-[1.12] brightness-95 scale-105"
+                />
+                {/* הברקת אור שחולפת על האובייקט בתזוזת העכבר */}
+                <motion.div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background: useTransform(
+                      lightX,
+                      (lx) =>
+                        `linear-gradient(105deg, transparent ${Number(lx) - 25}%, rgba(255,255,255,0.14) ${lx}%, transparent ${Number(lx) + 25}%)`
+                    ),
+                  }}
+                />
+              </div>
+            </motion.div>
+
+            {/* הכיתוב התחתון המינימליסטי מתחת לתמונה (כמו בלפטופ של Forge) */}
+            <motion.div
+              style={{ opacity: titleOpacity }}
+              className="text-center max-w-md mx-auto mt-2 space-y-5"
+            >
+              <p className="text-xs sm:text-sm text-white/60 font-light leading-relaxed tracking-wide">
+                {hero.subheadline || info.description}
+              </p>
+              <div className="flex items-center justify-center gap-8 pt-2">
+                <a
+                  href="#configurator"
+                  className="text-[11px] tracking-[0.28em] uppercase text-white border-b border-white/40 pb-1.5 hover:border-[#C59B27] hover:text-[#C59B27] transition-all"
+                >
+                  {hero.ctaText || "הרכבת מפרט אישי"}
+                </a>
+                <span className="text-[10px] tracking-[0.25em] text-white/30 uppercase">
+                  גלול לכניסה פנימה ↓
+                </span>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* השכבה הפנימית (The Cockpit / Atelier Core) שנחשפת מתוך התמונה תוך כדי גלילה! */}
+          <motion.div
+            id="vision"
+            style={{
+              scale: interiorScale,
+              opacity: interiorOpacity,
+              y: interiorY,
+            }}
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-6"
+          >
+            <div className="pointer-events-auto max-w-5xl w-full bg-[#060607]/90 backdrop-blur-2xl border border-white/15 p-8 md:p-16 shadow-[0_0_120px_rgba(0,0,0,0.95)]">
+              <div className="flex flex-col md:flex-row items-start md:items-end justify-between border-b border-white/10 pb-8 mb-10 gap-6">
+                <div>
+                  <span className="text-[10px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-3">
+                    INSIDE THE ATELIER // 01
+                  </span>
+                  <h2 className="font-frank text-3xl md:text-5xl font-light text-white leading-tight">
+                    הנדסת פרטים ללא פשרות.
+                  </h2>
+                </div>
+                <p className="text-xs md:text-sm text-white/55 max-w-md font-light leading-relaxed">
+                  {info.description}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                {[
+                  { label: "דירוג לקוחות מאומת", val: `${info.googleRating || "4.9"} / 5.0` },
+                  { label: "ביקורות בגוגל", val: `+${info.reviewsCount || "40"}` },
+                  { label: "אזור פעילות", val: info.city || "פריסה ארצית" },
+                  { label: "סטנדרט ביצוע", val: "BESPOKE" },
+                ].map((stat, i) => (
+                  <div key={i} className="border-r border-white/10 pr-5">
+                    <div className="font-frank text-2xl md:text-4xl font-light text-white mb-1">
+                      {stat.val}
+                    </div>
+                    <div className="text-[11px] tracking-wider text-white/40 uppercase">
+                      {stat.label}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
-      <footer id="contact" className="relative z-10 border-t border-white/[0.07] px-6 py-16 text-center">
-        <p
-          className="mx-auto max-w-4xl text-[clamp(1.8rem,4vw,3.2rem)] font-light leading-[1.3]"
-          style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-          {...editsFor("businessInfo.description")}
-        >
-          {b.description}
-        </p>
-        <div className="mx-auto mt-10 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[10px] tracking-[0.2em] text-white/35">
-          <span>{b.address}</span>
-          <span>{b.openingHours}</span>
-          <a href={`tel:${b.phone}`} dir="ltr" className="transition hover:text-white/80">
-            {b.phone}
-          </a>
-          <a
-            href={waLink(b.whatsapp, `שלום ${b.name}, אשמח לתאם פגישה באטלייה.`)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="border-b pb-1 transition hover:text-white/80"
-            style={{ borderColor: `color-mix(in srgb, ${accent} 50%, transparent)` }}
-          >
-            וואטסאפ
-          </a>
+      {/* =====================================================================
+          02 // מונוליטים תלת-ממדיים של שירותי העסק (ללא אייקונים זולים!)
+         ===================================================================== */}
+      <section id="services" className="py-28 md:py-36 px-6 md:px-14 max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-end justify-between mb-20 border-b border-white/10 pb-8">
+          <div>
+            <span className="text-[11px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-3">
+              02 // SPECIFICATIONS & CRAFTSMANSHIP
+            </span>
+            <h2 className="font-frank text-4xl md:text-6xl font-light tracking-tight">
+              תחומי התמחות ומפרטים
+            </h2>
+          </div>
+          <p className="text-xs tracking-[0.2em] text-white/40 uppercase mt-4 md:mt-0">
+            הזז את העכבר על כל מפרט לבחינה בתלת-ממד
+          </p>
         </div>
-        <p className="mt-10 text-[8px] tracking-[0.38em] text-white/16" dir="ltr">
-          {b.name.toUpperCase()} — BESPOKE ATELIER
-        </p>
+
+        <div
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          style={{ perspective: "1200px" }}
+        >
+          {services.map((srv: any, idx: number) => (
+            <TiltMonolith key={idx} index={idx}>
+              <div className="flex items-center justify-between border-b border-white/[0.07] pb-5 mb-8">
+                <span className="font-mono text-xs tracking-[0.3em] text-white/35">
+                  SPEC // 0{idx + 1}
+                </span>
+                <span className="text-xs tracking-[0.15em] text-[#C59B27] border border-[#C59B27]/30 px-3 py-1">
+                  {srv.price || "בהתאמה אישית"}
+                </span>
+              </div>
+              <h3 className="font-frank text-2xl md:text-4xl font-light text-white mb-4">
+                {srv.title}
+              </h3>
+              <p className="text-sm text-white/55 font-light leading-relaxed mb-8">
+                {srv.description}
+              </p>
+              <a
+                href="#configurator"
+                onClick={() => setSelectedServiceIdx(idx)}
+                className="inline-flex items-center gap-4 text-[11px] tracking-[0.25em] uppercase text-white/70 group-hover:text-white transition-colors"
+              >
+                <span>הגדר מפרט זה בקונפיגורטור</span>
+                <span className="w-8 h-[1px] bg-[#C59B27] transition-all duration-300 group-hover:w-14" />
+              </a>
+            </TiltMonolith>
+          ))}
+        </div>
+      </section>
+
+      {/* =====================================================================
+          03 // קונפיגורטור מפרט 3 שלבים בסגנון רכבי יוקרה (FORGE CONFIGURATOR)
+         ===================================================================== */}
+      <section
+        id="configurator"
+        className="py-28 bg-[#060607] border-y border-white/[0.07] px-6 md:px-14"
+      >
+        <div className="max-w-7xl mx-auto">
+          <div className="mb-16">
+            <span className="text-[11px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-3">
+              03 // BESPOKE COMMISSION CONFIGURATOR
+            </span>
+            <h2 className="font-frank text-4xl md:text-6xl font-light">
+              בניית מפרט פרויקט אישי
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            {/* שלבי הבחירה */}
+            <div className="lg:col-span-8 space-y-10">
+              {/* STAGE 01 */}
+              <div className="border border-white/10 bg-[#030303] p-6 md:p-8">
+                <div className="text-[11px] font-mono tracking-[0.3em] text-white/40 uppercase mb-5">
+                  STAGE 01 // בחר את המערכת או השירות המבוקש
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {services.map((srv: any, idx: number) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedServiceIdx(idx)}
+                      className={`text-right p-4 border transition-all duration-300 ${
+                        selectedServiceIdx === idx
+                          ? "border-[#C59B27] bg-[#C59B27]/10 text-white"
+                          : "border-white/10 bg-transparent text-white/55 hover:border-white/25"
+                      }`}
+                    >
+                      <div className="text-[10px] font-mono text-white/35 mb-1">
+                        0{idx + 1}
+                      </div>
+                      <div className="font-frank text-lg font-light">{srv.title}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* STAGE 02 */}
+              <div className="border border-white/10 bg-[#030303] p-6 md:p-8">
+                <div className="text-[11px] font-mono tracking-[0.3em] text-white/40 uppercase mb-5">
+                  STAGE 02 // בחר רמת גימור והיקף (EDITION)
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    { id: "SIGNATURE", name: "Signature", desc: "ביצוע מוקפד לפי מפרט מלא" },
+                    { id: "BESPOKE", name: "Bespoke Atelier", desc: "התאמה אישית מלאה מאפס" },
+                    { id: "RESERVE", name: "Black Reserve VIP", desc: "פרויקט דגל עם עדיפות עליונה" },
+                  ].map((tier) => (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      onClick={() => setSelectedTier(tier.id as any)}
+                      className={`text-right p-4 border transition-all duration-300 ${
+                        selectedTier === tier.id
+                          ? "border-[#C59B27] bg-[#C59B27]/10 text-white"
+                          : "border-white/10 text-white/55 hover:border-white/25"
+                      }`}
+                    >
+                      <div className="font-mono text-xs tracking-wider uppercase mb-1">
+                        {tier.name}
+                      </div>
+                      <div className="text-xs text-white/45 font-light">{tier.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* STAGE 03 */}
+              <div className="border border-white/10 bg-[#030303] p-6 md:p-8">
+                <div className="text-[11px] font-mono tracking-[0.3em] text-white/40 uppercase mb-5">
+                  STAGE 03 // לוח זמנים מבוקש
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { id: "STANDARD", label: "תכנון מראש" },
+                    { id: "PRIORITY", label: "החודש הקרוב" },
+                    { id: "IMMEDIATE", label: "זמינות מיידית VIP" },
+                  ].map((tl) => (
+                    <button
+                      key={tl.id}
+                      type="button"
+                      onClick={() => setSelectedTimeline(tl.id as any)}
+                      className={`p-4 border text-xs tracking-wider uppercase transition-all ${
+                        selectedTimeline === tl.id
+                          ? "border-[#C59B27] bg-[#C59B27]/10 text-white"
+                          : "border-white/10 text-white/50 hover:border-white/25"
+                      }`}
+                    >
+                      {tl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* תעודת המפרט החיה (Live Telemetry Spec Sheet) */}
+            <div className="lg:col-span-4 border border-white/15 bg-[#030303] p-8 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-6">
+                  <span className="text-[10px] font-mono tracking-[0.3em] text-[#C59B27]">
+                    LIVE TELEMETRY SPEC
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-[#C59B27] animate-pulse" />
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-white/35 mb-1">
+                      מערכת נבחרת
+                    </div>
+                    <div className="font-frank text-2xl font-light text-white">
+                      {services[selectedServiceIdx]?.title}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/10 pt-4">
+                    <div className="text-[10px] uppercase tracking-widest text-white/35 mb-1">
+                      רמת גימור
+                    </div>
+                    <div className="font-mono text-sm text-[#C59B27]">{selectedTier}</div>
+                  </div>
+
+                  <div className="border-t border-white/10 pt-4">
+                    <div className="text-[10px] uppercase tracking-widest text-white/35 mb-1">
+                      הערכת תקציב ראשונית
+                    </div>
+                    <div className="font-frank text-xl text-white">
+                      {services[selectedServiceIdx]?.price || "בהתאמה אישית"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-10 mt-10 border-t border-white/10">
+                <a
+                  href={`${whatsappLink}?text=${configuredSpecText}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block w-full text-center bg-white text-black hover:bg-[#C59B27] hover:text-black py-4 text-xs tracking-[0.25em] uppercase font-medium transition-colors duration-300"
+                >
+                  שלח מפרט זה לתיאום בוואטסאפ
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* =====================================================================
+          04 // סליידר השוואת סטנדרט אינטראקטיבי (BEFORE / AFTER SPLIT STAGE)
+         ===================================================================== */}
+      <section id="comparison" className="py-28 px-6 md:px-14 max-w-7xl mx-auto">
+        <div className="mb-14 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div>
+            <span className="text-[11px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-3">
+              04 // PRECISION COMPARISON
+            </span>
+            <h2 className="font-frank text-4xl md:text-5xl font-light">
+              ההבדל בין רגיל ליוצא דופן
+            </h2>
+          </div>
+          <p className="text-xs text-white/45">גרור את הסמן להשוואת רמת הגימור</p>
+        </div>
+
+        <div className="relative w-full aspect-[16/8] overflow-hidden border border-white/15 select-none">
+          <img
+            src={heroImg}
+            alt="After Bespoke"
+            className="absolute inset-0 w-full h-full object-cover contrast-125"
+          />
+          <div
+            className="absolute inset-0 overflow-hidden"
+            style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
+          >
+            <img
+              src={heroImg}
+              alt="Standard"
+              className="absolute inset-0 w-full h-full object-cover grayscale brightness-50 contrast-75"
+            />
+          </div>
+
+          <input
+            type="range"
+            min={5}
+            max={95}
+            value={sliderPos}
+            onChange={(e) => setSliderPos(Number(e.target.value))}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
+          />
+
+          <div
+            style={{ left: `${sliderPos}%` }}
+            className="pointer-events-none absolute top-0 bottom-0 w-[1px] bg-[#C59B27] z-20 flex items-center justify-center"
+          >
+            <div className="w-10 h-10 bg-[#030303] border border-[#C59B27] text-[10px] font-mono text-[#C59B27] flex items-center justify-center">
+              ↔
+            </div>
+          </div>
+
+          <span className="absolute bottom-5 right-5 z-20 bg-black/80 border border-white/15 px-3 py-1 text-[10px] tracking-[0.25em] uppercase">
+            סטנדרט רגיל
+          </span>
+          <span className="absolute bottom-5 left-5 z-20 bg-black/80 border border-[#C59B27]/50 text-[#C59B27] px-3 py-1 text-[10px] tracking-[0.25em] uppercase">
+            גימור {info.name}
+          </span>
+        </div>
+      </section>
+
+      {/* =====================================================================
+          05 // חוות דעת ויצירת קשר מינימליסטית
+         ===================================================================== */}
+      <footer id="contact" className="border-t border-white/10 bg-[#020202] py-28 px-6 md:px-14">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-end">
+          <div>
+            <span className="text-[11px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-4">
+              05 // PRIVATE CONSULTATION
+            </span>
+            <h2 className="font-frank text-5xl md:text-7xl font-light leading-[1.05] mb-8">
+              מוכנים לעבור לסטנדרט הבא?
+            </h2>
+            <p className="text-sm text-white/50 max-w-md font-light mb-10">
+              {info.address || info.city} • {info.openingHours}
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <a
+                href={whatsappLink}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-white text-black hover:bg-[#C59B27] px-8 py-4 text-xs tracking-[0.25em] uppercase font-medium transition-colors"
+              >
+                תיאום ישיר בוואטסאפ
+              </a>
+              {info.phone && (
+                <a
+                  href={`tel:${info.phone}`}
+                  className="border border-white/20 hover:border-white px-8 py-4 text-xs tracking-[0.25em] uppercase transition-colors"
+                >
+                  {info.phone}
+                </a>
+              )}
+            </div>
+          </div>
+
+          {reviews.length > 0 && (
+            <div className="grid grid-cols-1 gap-6 border-r border-white/10 pr-8">
+              {reviews.slice(0, 2).map((rev: any, idx: number) => (
+                <div key={idx} className="border-b border-white/[0.07] pb-6">
+                  <p className="font-frank text-xl font-light text-white/85 mb-3">
+                    &ldquo;{rev.text}&rdquo;
+                  </p>
+                  <span className="text-[11px] font-mono tracking-widest text-[#C59B27] uppercase">
+                    — {rev.author}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </footer>
     </div>
   );
