@@ -14,6 +14,14 @@ import {
   waLink,
 } from "@/templates/shared";
 import type { LuxTheme } from "@/lib/luxtheme";
+import {
+  CameraPortal,
+  Magnetic,
+  Parallax,
+  SpecMark,
+  SpecularLight,
+  TiltStage,
+} from "@/templates/motion";
 
 /* ------------------------------------------------------------------ */
 /* FORGE / DARK LUXURY ATELIER                                         */
@@ -126,6 +134,18 @@ export function ForgeAutomotiveTemplate() {
             "radial-gradient(60% 45% at 50% -10%, rgba(197,155,39,0.07), transparent 65%), radial-gradient(50% 50% at 100% 100%, rgba(255,255,255,0.025), transparent 70%)",
         }}
       />
+
+      {/* Cursor-tracked studio rim light — the whole showroom relights as the
+          mouse moves, on top of the static ambient gradient above. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-[5]"
+      >
+        <SpecularLight
+          color={`color-mix(in srgb, ${accent} 13%, transparent)`}
+          size={56}
+        />
+      </div>
 
       {/* ---------------- 3-point atelier header ---------------- */}
       <header className="fixed inset-x-0 top-0 z-[9600] border-b border-white/[0.07] bg-[#030303]/85 backdrop-blur-xl">
@@ -247,94 +267,174 @@ export function ForgeAutomotiveTemplate() {
         )}
       </AnimatePresence>
 
-      {/* ---------------- hero: black air + dissolving photograph ---------------- */}
+      {/* ---------------- hero: 3D camera portal into the showroom ----------------
+          The wheel does not scroll flat panels away — the camera dollies INTO
+          the centerpiece (the photograph scales, recedes and blurs past the
+          lens), two velvet panels part ways, and the headline resolves from
+          inside the car itself. */}
       <section id="top" className="relative z-10 overflow-hidden">
-        <div className="mx-auto flex max-w-6xl flex-col items-center px-6 pb-8 pt-36 text-center md:pt-48">
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1 }}
-            className="text-[9px] tracking-[0.5em] text-white/32"
-            {...editsFor("businessInfo.category")}
-          >
-            {b.category}
-          </motion.p>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1.05, ease: [0.22, 1, 0.36, 1] }}
-            className="mt-8 max-w-4xl text-[clamp(2.75rem,6vw,5.4rem)] font-light leading-[1.12]"
-            style={{
-              fontFamily: "'Frank Ruhl Libre', serif",
-              letterSpacing: "-0.025em",
-              color: primary,
-            }}
-            {...editsFor("hero.headline")}
-          >
-            <EditorialHeadline text={hero.headline} />
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 1 }}
-            className="mt-8 max-w-xl text-[12px] leading-[2] text-white/38"
-            {...editsFor("hero.subheadline")}
-          >
-            {hero.subheadline}
-          </motion.p>
-        </div>
-
-        {hero.backgroundImage && (
-          <motion.div
-            initial={{ opacity: 0, scale: 1.03 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.5, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="relative mx-auto max-w-[1180px] px-2 md:px-6"
-          >
-            <div className="relative h-[44vh] w-full md:h-[64vh]">
-              {/* The photograph has no frame: a radial + linear mask melts it
-                  straight into the #030303 showroom floor. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={hero.backgroundImage}
-                alt=""
-                className="h-full w-full object-cover"
-                style={{
-                  filter: "saturate(0.72) contrast(1.06) brightness(0.9)",
-                  maskImage:
-                    "radial-gradient(ellipse 80% 70% at 50% 50%, black 45%, transparent 100%), linear-gradient(to bottom, transparent 0%, black 14%, black 84%, transparent 100%)",
-                  WebkitMaskImage:
-                    "radial-gradient(ellipse 80% 70% at 50% 50%, black 45%, transparent 100%)",
-                }}
-              />
-              <div
+        <CameraPortal
+          heightVh={320}
+          perspective={1400}
+          zoom={3.9}
+          blurOut={24}
+          veilColor="rgba(3,3,3,0.95)"
+          hint={
+            <span className="flex flex-col items-center gap-3 text-white/30">
+              <SpecMark className="text-white/30">SCROLL — ENTER THE SHOWROOM</SpecMark>
+              <span
                 aria-hidden="true"
-                className="absolute inset-0"
+                className="block h-10 w-px"
+                style={{ background: `linear-gradient(${accent}, transparent)` }}
+              />
+            </span>
+          }
+          scene={
+            <div className="absolute inset-0">
+              {/* multi-depth parallax: the gold bloom trails behind the car */}
+              <Parallax depth={34} className="absolute inset-0">
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "radial-gradient(46% 38% at 50% 52%, color-mix(in srgb, " +
+                      accent +
+                      " 16%, transparent), transparent 72%)",
+                  }}
+                />
+              </Parallax>
+
+              {hero.backgroundImage ? (
+                <Parallax depth={12} className="absolute inset-0">
+                  <TiltStage
+                    intensity={7}
+                    glareColor={`color-mix(in srgb, ${accent} 30%, transparent)`}
+                    className="absolute inset-0"
+                  >
+                    <div className="relative h-full w-full">
+                      {/* The photograph has no frame: a radial + linear mask
+                          melts it straight into the #030303 showroom floor. */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={hero.backgroundImage}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        style={{
+                          filter: "saturate(0.72) contrast(1.08) brightness(0.88)",
+                          maskImage:
+                            "radial-gradient(ellipse 74% 66% at 50% 50%, black 40%, transparent 100%)",
+                          WebkitMaskImage:
+                            "radial-gradient(ellipse 74% 66% at 50% 50%, black 40%, transparent 100%)",
+                        }}
+                      />
+                    </div>
+                  </TiltStage>
+                </Parallax>
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <SpecMark className="text-white/25">FORGE / SHOWROOM</SpecMark>
+                </div>
+              )}
+
+              {/* Always-visible marque so the stage is never an empty plate */}
+              <div className="absolute inset-x-0 top-28 flex flex-col items-center gap-4 text-center">
+                <SpecMark className="text-white/32">{b.category}</SpecMark>
+                <p
+                  className="text-2xl font-light tracking-[-0.02em] text-white/70 md:text-3xl"
+                  style={{ fontFamily: "'Frank Ruhl Libre', serif" }}
+                >
+                  {b.name}
+                </p>
+              </div>
+            </div>
+          }
+          pane={
+            <div
+              className="h-full w-full"
+              style={{
+                background:
+                  "linear-gradient(90deg, rgba(3,3,3,0.97), rgba(3,3,3,0.76) 62%, rgba(3,3,3,0.1))",
+              }}
+            >
+              <div
+                className="h-full w-full opacity-70"
                 style={{
-                  background:
-                    "radial-gradient(ellipse 52% 44% at 50% 55%, transparent 40%, rgba(3,3,3,0.55) 100%)",
+                  backgroundImage:
+                    "repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 38px)",
+                  maskImage: "linear-gradient(90deg, black, transparent)",
+                  WebkitMaskImage: "linear-gradient(90deg, black, transparent)",
                 }}
               />
             </div>
-          </motion.div>
-        )}
+          }
+          interior={
+            <div className="flex h-full w-full items-center justify-center px-6">
+              <div className="max-w-3xl text-center">
+                <SpecMark style={{ color: accent }}>ATELIER INTERIOR</SpecMark>
 
-        <div className="mx-auto max-w-3xl px-6 pt-10 text-center">
-          <p className="text-[10px] leading-[2.1] tracking-[0.16em] text-white/34">
-            {city} — עבודת יד, בקצב של אטלייה.
-            <br />
-            {b.openingHours}
-          </p>
-          <a
-            href="#commission"
-            className="mx-auto mt-8 inline-block border-b pb-1.5 text-[11px] tracking-[0.22em] text-white/70 transition hover:text-white"
-            style={{ borderColor: `color-mix(in srgb, ${accent} 55%, transparent)` }}
-          >
-            {hero.ctaText}
-          </a>
-        </div>
+                <h1
+                  className="mt-7 text-[clamp(2.6rem,5.6vw,5.1rem)] font-light leading-[1.1] tracking-editorial"
+                  style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
+                  {...editsFor("hero.headline")}
+                >
+                  <EditorialHeadline text={hero.headline} />
+                </h1>
+
+                <p
+                  className="mx-auto mt-7 max-w-xl text-[12.5px] leading-[2] text-white/42"
+                  {...editsFor("hero.subheadline")}
+                >
+                  {hero.subheadline}
+                </p>
+
+                <div className="mt-9 flex justify-center">
+                  <Magnetic strength={0.26}>
+                    <a
+                      href="#commission"
+                      className="group inline-flex items-center gap-3 border px-8 py-4 text-[11px] tracking-[0.22em] text-white/80 transition hover:bg-white/[0.04] hover:text-white"
+                      style={{ borderColor: `color-mix(in srgb, ${accent} 55%, transparent)` }}
+                    >
+                      {hero.ctaText}
+                      <span
+                        aria-hidden="true"
+                        className="transition-transform group-hover:-translate-x-1"
+                        style={{ color: accent }}
+                      >
+                        ←
+                      </span>
+                    </a>
+                  </Magnetic>
+                </div>
+
+                <div className="mt-12 grid grid-cols-3 gap-px border-t border-white/[0.08] pt-6 text-left">
+                  {[
+                    { mark: "FINISH", value: "BESPOKE" },
+                    { mark: "LEAD TIME", value: `${SCHEDULES[scheduleIdx].months + 4}W` },
+                    { mark: "STUDIO", value: city },
+                  ].map((spec) => (
+                    <div key={spec.mark} className="px-2">
+                      <SpecMark className="text-white/26">{spec.mark}</SpecMark>
+                      <p
+                        className="mt-2 truncate text-lg font-light text-white/70"
+                        dir="ltr"
+                        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                      >
+                        {spec.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="mt-7 text-[10px] leading-[2.1] tracking-[0.16em] text-white/32">
+                  {city} — עבודת יד, בקצב של אטלייה.
+                  <br />
+                  {b.openingHours}
+                </p>
+              </div>
+            </div>
+          }
+        />
       </section>
 
       {/* ---------------- services — ledger rows ---------------- */}

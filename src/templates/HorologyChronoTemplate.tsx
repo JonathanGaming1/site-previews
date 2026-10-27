@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import { useSite } from "@/components/SiteProvider";
 import {
   EditorialHeadline,
@@ -11,6 +11,52 @@ import {
   parsePrice,
   waLink,
 } from "@/templates/shared";
+import {
+  CameraPortal,
+  Magnetic,
+  Parallax,
+  SpecMark,
+  SpecularLight,
+  TiltStage,
+} from "@/templates/motion";
+
+/** One gear of the interlocking train: teeth, radius, spin rate and direction. */
+function Gear({
+  cx,
+  cy,
+  r,
+  teeth,
+  rate,
+  opacity,
+}: {
+  cx: number;
+  cy: number;
+  r: number;
+  teeth: number;
+  rate: string;
+  opacity: number;
+}) {
+  const pitch = (Math.PI * 2) / teeth;
+  const tooth = Array.from({ length: teeth }, (_, i) => {
+    const a = i * pitch;
+    const inner = r - 9;
+    const outer = r + 9;
+    const w = pitch * 0.24;
+    const p = (angle: number, radius: number) =>
+      `${cx + Math.cos(angle) * radius} ${cy + Math.sin(angle) * radius}`;
+    return `M ${p(a - w, inner)} L ${p(a - w * 0.72, outer)} L ${p(a + w * 0.72, outer)} L ${p(a + w, inner)} Z`;
+  }).join(" ");
+
+  return (
+    <motion.g style={{ rotate: 0 }}>
+      <g style={{ animation: rate, transformOrigin: `${cx}px ${cy}px` }} opacity={opacity}>
+        <circle cx={cx} cy={cy} r={r - 9} fill="none" stroke={GOLD} strokeOpacity="0.5" />
+        <circle cx={cx} cy={cy} r={r - 30} fill="none" stroke={GOLD} strokeOpacity="0.22" />
+        <path d={tooth} fill="none" stroke={GOLD} strokeOpacity="0.42" />
+      </g>
+    </motion.g>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /* HOROLOGY / SWISS MECHANICAL OBSERVATORY                             */
@@ -98,6 +144,11 @@ export function HorologyChronoTemplate() {
         },
       ];
   const [activeIdx, setActiveIdx] = useState(0);
+  // The gear train and the reticle rings turn with the page scroll itself.
+  const { scrollYProgress } = useScroll();
+  const gearTurn = useTransform(scrollYProgress, [0, 1], [0, 240]);
+  const gearTurnBack = useTransform(scrollYProgress, [0, 1], [0, -170]);
+  const reticleTurn = useTransform(scrollYProgress, [0, 1], [0, 120]);
   const count = dialServices.length;
   const currentIdx = Math.min(activeIdx, count - 1);
   const active = dialServices[currentIdx];
@@ -142,6 +193,11 @@ export function HorologyChronoTemplate() {
             "radial-gradient(52% 40% at 74% 6%, rgba(212,175,55,0.10), transparent 66%), radial-gradient(45% 45% at 6% 78%, rgba(32,58,110,0.22), transparent 70%)",
         }}
       />
+
+      {/* Champagne key light tracking the cursor across the observatory. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[5]">
+        <SpecularLight color="rgba(212,175,55,0.13)" size={50} />
+      </div>
 
       {/* ---------------- observatory instrument header ---------------- */}
       <header className="sticky top-0 z-[9500] border-b bg-[#06080F]/90 backdrop-blur-xl" style={{ borderColor: HAIRLINE }}>
@@ -192,9 +248,139 @@ export function HorologyChronoTemplate() {
         </nav>
       </header>
 
-      {/* ---------------- hero — asymmetric observatory split ---------------- */}
-      <section id="top" className="relative z-10 mx-auto max-w-7xl px-5 pt-16 md:px-8 md:pt-24">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.08fr_0.92fr]">
+      {/* ---------------- hero — optical lens portal into the movement ----------------
+          The scroll turns interlocking geared wheels and chronograph rings
+          around the viewport while the camera flies through a precision
+          optical lens; the observatory split then resolves from inside it. */}
+      <section id="top" className="relative z-10">
+        <CameraPortal
+          heightVh={320}
+          perspective={1250}
+          zoom={3.6}
+          blurOut={22}
+          veilColor="rgba(6,8,15,0.94)"
+          hint={
+            <span className="flex flex-col items-center gap-3">
+              <SpecMark style={{ color: GOLD }}>SCROLL — FOCUS THE MOVEMENT</SpecMark>
+              <span className="block h-10 w-px" style={{ background: `linear-gradient(${GOLD}, transparent)` }} />
+            </span>
+          }
+          scene={
+            <div className="absolute inset-0 overflow-hidden">
+              {/* interlocking 3D gear train, driven by scroll progress */}
+              <Parallax depth={22} className="absolute inset-0">
+                <svg
+                  viewBox="0 0 1200 800"
+                  className="absolute inset-0 h-full w-full"
+                  aria-hidden="true"
+                  preserveAspectRatio="xMidYMid slice"
+                >
+                  <motion.g style={{ rotate: gearTurn, transformOrigin: "250px 300px" }}>
+                    <Gear cx={250} cy={300} r={168} teeth={26} rate="gearspin 34s linear infinite" opacity={0.9} />
+                  </motion.g>
+                  <motion.g style={{ rotate: gearTurnBack, transformOrigin: "520px 520px" }}>
+                    <Gear cx={520} cy={520} r={124} teeth={20} rate="gearspin 22s linear infinite reverse" opacity={0.7} />
+                  </motion.g>
+                  <motion.g style={{ rotate: gearTurn, transformOrigin: "880px 240px" }}>
+                    <Gear cx={880} cy={240} r={196} teeth={30} rate="gearspin 46s linear infinite" opacity={0.55} />
+                  </motion.g>
+                  <motion.g style={{ rotate: gearTurnBack, transformOrigin: "1010px 590px" }}>
+                    <Gear cx={1010} cy={590} r={104} teeth={18} rate="gearspin 18s linear infinite reverse" opacity={0.6} />
+                  </motion.g>
+                </svg>
+              </Parallax>
+
+              {/* chronograph rings + optical lens reticle */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <motion.div
+                  style={{ rotate: reticleTurn }}
+                  className="relative aspect-square w-[min(76vmin,660px)]"
+                >
+                  <svg viewBox="0 0 600 600" className="h-full w-full" aria-hidden="true">
+                    <g fill="none" stroke={GOLD}>
+                      <circle cx="300" cy="300" r="292" strokeOpacity="0.4" />
+                      <circle cx="300" cy="300" r="268" strokeOpacity="0.16" strokeDasharray="2 9" />
+                      <circle cx="300" cy="300" r="214" strokeOpacity="0.24" />
+                      <circle cx="300" cy="300" r="150" strokeOpacity="0.12" strokeDasharray="1 6" />
+                    </g>
+                    <g stroke={GOLD} strokeWidth="1">
+                      {Array.from({ length: 96 }).map((_, i) => (
+                        <line
+                          key={i}
+                          x1="300"
+                          y1={i % 8 === 0 ? 8 : 14}
+                          x2="300"
+                          y2={i % 8 === 0 ? 34 : 22}
+                          strokeOpacity={i % 8 === 0 ? 0.7 : 0.26}
+                          transform={`rotate(${i * 3.75} 300 300)`}
+                        />
+                      ))}
+                    </g>
+                  </svg>
+                </motion.div>
+              </div>
+
+              {/* the lens itself — masked centerpiece */}
+              {hero.backgroundImage && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <TiltStage
+                    intensity={8}
+                    glareColor="rgba(212,175,55,0.26)"
+                    className="relative aspect-square w-[min(46vmin,400px)] overflow-hidden rounded-full"
+                  >
+                    <div className="relative h-full w-full">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={hero.backgroundImage}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        style={{ filter: "saturate(0.58) brightness(0.66) contrast(1.1)" }}
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-0"
+                        style={{
+                          background:
+                            "radial-gradient(circle at 50% 42%, transparent 18%, rgba(6,8,15,0.82) 100%)",
+                        }}
+                      />
+                    </div>
+                  </TiltStage>
+                </div>
+              )}
+
+              <div className="absolute inset-x-0 top-24 text-center md:top-28">
+                <SpecMark style={{ color: GOLD }}>MAISON · {city.toUpperCase()}</SpecMark>
+                <p
+                  className="mt-3 text-xl font-light text-[#f4efe6]"
+                  style={{ fontFamily: "'Frank Ruhl Libre', serif" }}
+                >
+                  {b.name}
+                </p>
+              </div>
+            </div>
+          }
+          pane={
+            <div
+              className="h-full w-full"
+              style={{
+                background:
+                  "linear-gradient(90deg, rgba(6,8,15,0.97), rgba(6,8,15,0.72) 60%, rgba(6,8,15,0.08))",
+              }}
+            >
+              <div
+                className="h-full w-full"
+                style={{
+                  backgroundImage:
+                    "repeating-linear-gradient(0deg, rgba(212,175,55,0.14) 0 1px, transparent 1px 8px)",
+                  maskImage: "linear-gradient(90deg, black, transparent)",
+                  WebkitMaskImage: "linear-gradient(90deg, black, transparent)",
+                }}
+              />
+            </div>
+          }
+          interior={
+        <div className="mx-auto grid max-w-7xl items-center gap-12 px-5 pt-20 md:px-8 md:pt-24 lg:grid-cols-[1.08fr_0.92fr]">
           <motion.div
             initial={{ opacity: 0, y: 26 }}
             animate={{ opacity: 1, y: 0 }}
@@ -234,18 +420,20 @@ export function HorologyChronoTemplate() {
             </p>
 
             <div className="mt-9 flex flex-wrap items-center gap-6">
-              <a
-                href={bookingHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center gap-3 border px-6 py-3.5 text-[11px] tracking-[0.18em] transition-colors hover:bg-white/[0.04]"
-                style={{ borderColor: HAIRLINE, color: primary }}
-              >
-                {hero.ctaText}
-                <span className="transition-transform group-hover:-translate-x-1" style={{ color: accent }} aria-hidden="true">
-                  ←
-                </span>
-              </a>
+              <Magnetic strength={0.24}>
+                <a
+                  href={bookingHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center gap-3 border px-6 py-3.5 text-[11px] tracking-[0.18em] transition-colors hover:bg-white/[0.04]"
+                  style={{ borderColor: HAIRLINE, color: primary }}
+                >
+                  {hero.ctaText}
+                  <span className="transition-transform group-hover:-translate-x-1" style={{ color: accent }} aria-hidden="true">
+                    ←
+                  </span>
+                </a>
+              </Magnetic>
               <span className="text-[10px] tracking-[0.12em] text-white/28">
                 {b.openingHours}
               </span>
@@ -379,6 +567,8 @@ export function HorologyChronoTemplate() {
             <Cross className="bottom-1 left-1" />
           </motion.div>
         </div>
+          }
+        />
       </section>
 
       {/* ---------------- interactive chronograph dial ---------------- */}

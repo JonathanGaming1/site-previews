@@ -11,8 +11,10 @@ import { useSite } from "@/components/SiteProvider";
 
 const DEFAULT_POSTHOG_KEY = "phc_AkDuMC253gZyg4HHGWyvGi63zYRSdZEoF5taihDvehV9";
 const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
-const LAST_VISIT_PREFIX = "last_visit_";
-const VISIT_WINDOW_MS = 30 * 60 * 1000;
+/** Per-device visit stamp. Refreshing or re-entering resets this, so a
+ * visitor who keeps coming back never re-triggers a Discord alert. */
+const VISIT_TS_PREFIX = "visit_ts_";
+const VISIT_WINDOW_MS = 5 * 60 * 1000; // 300 seconds
 
 let posthogInitialized = false;
 
@@ -57,8 +59,9 @@ export function AnalyticsBootstrap() {
 
 /**
  * `ViewTracker` — PostHog owns every click and interaction. Discord receives
- * a single quiet entry alert per demo, sent by `/api/track` on the server with
- * a per-IP 30-minute cooldown. No webhook URL exists in this bundle.
+ * at most one quiet entry alert per device per 5 minutes, sent by `/api/track`
+ * on the server (HttpOnly cookie + IP/User-Agent fingerprint cooldown). No
+ * webhook URL exists in this bundle.
  */
 export function ViewTracker() {
   const { data, isAdmin, mounted, slug, remoteLoaded } = useSite();
@@ -71,24 +74,29 @@ export function ViewTracker() {
 
 
     const storeSlug = slug ?? data.slug ?? "default";
-    const visitKey = LAST_VISIT_PREFIX + storeSlug;
+    const visitKey = VISIT_TS_PREFIX + storeSlug;
+    const now = Date.now();
 
-    // Client-side 30-minute guard: no request at all for repeat visitors.
+    // Strict 5-minute per-device guard. A refresh or a quick re-entry is still
+    // a visit, so it updates the stamp (resetting the timer) and never reaches
+    // /api/track at all. The edge enforces the same window by itself, with an
+    // HttpOnly cookie plus an IP + User-Agent fingerprint.
+    let recentVisit = false;
     try {
       const lastVisit = Number(localStorage.getItem(visitKey));
-      if (Number.isFinite(lastVisit) && lastVisit > 0) {
-        if (Date.now() - lastVisit < VISIT_WINDOW_MS) return;
-      }
+      recentVisit =
+        Number.isFinite(lastVisit) && lastVisit > 0 && now - lastVisit < VISIT_WINDOW_MS;
     } catch {
       /* private mode — fall through and let the edge cooldown decide */
     }
-
-    sentRef.current = true;
     try {
-      localStorage.setItem(visitKey, String(Date.now()));
+      localStorage.setItem(visitKey, String(now));
     } catch {
       /* best effort */
     }
+    if (recentVisit) return;
+
+    sentRef.current = true;
 
     initPostHog(DEFAULT_POSTHOG_KEY, DEFAULT_POSTHOG_HOST);
 

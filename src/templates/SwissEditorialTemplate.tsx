@@ -11,6 +11,22 @@ import {
   parsePrice,
   waLink,
 } from "@/templates/shared";
+import {
+  CameraPortal,
+  Magnetic,
+  Parallax,
+  SpecMark,
+  SpecularLight,
+  TiltStage,
+} from "@/templates/motion";
+
+/** Four museum walls unfolding in perspective, plus the blueprint columns. */
+const MUSEUM_WALLS = [
+  { offset: -39, rotate: 33, z: 0, depth: 30, mark: "WALL / A" },
+  { offset: -14, rotate: 12, z: 70, depth: 48, mark: "WALL / B" },
+  { offset: 14, rotate: -12, z: 70, depth: 48, mark: "WALL / C" },
+  { offset: 39, rotate: -33, z: 0, depth: 30, mark: "WALL / D" },
+] as const;
 
 /* ------------------------------------------------------------------ */
 /* SWISS / ARCHITECTURAL BLUEPRINT MONOGRAPH                           */
@@ -88,6 +104,11 @@ export function SwissEditorialTemplate() {
         }}
       />
 
+      {/* Gallery spot that tracks the cursor across the travertine. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[5]">
+        <SpecularLight color="rgba(255,255,255,0.5)" size={54} blend="soft-light" />
+      </div>
+
       {/* ---------------- magazine masthead ---------------- */}
       <header
         className="sticky top-0 z-[9500] border-b backdrop-blur-xl"
@@ -162,9 +183,126 @@ export function SwissEditorialTemplate() {
         </nav>
       </header>
 
-      {/* ---------------- magazine cover hero ---------------- */}
-      <section id="top" className="relative z-10 mx-auto max-w-[1440px] border-b" style={{ borderColor: HAIRLINE }}>
-        <div className="grid lg:grid-cols-[1.08fr_0.92fr]">
+      {/* ---------------- magazine cover hero — folding museum portal ----------------
+          Scroll unfolds four 3D perspective museum walls and slides the
+          blueprint curtains apart, revealing the full-bleed cover photograph
+          before the cover grid resolves from inside the gallery. */}
+      <section id="top" className="relative z-10">
+        <CameraPortal
+          heightVh={300}
+          perspective={1500}
+          zoom={3.3}
+          blurOut={18}
+          veilColor="rgba(243,239,230,0.94)"
+          hint={
+            <span className="flex flex-col items-center gap-3">
+              <SpecMark style={{ color: accent }}>SCROLL — OPEN THE GALLERY</SpecMark>
+              <span className="block h-8 w-px" style={{ background: `linear-gradient(${accent}, transparent)` }} />
+            </span>
+          }
+          scene={
+            <div className="absolute inset-0 overflow-hidden">
+              {/* full-bleed photograph behind the curtain columns */}
+              {hero.backgroundImage ? (
+                <TiltStage intensity={6} glareColor="rgba(255,255,255,0.3)" className="absolute inset-0">
+                  <div className="relative h-full w-full">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={hero.backgroundImage}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      style={{ filter: "saturate(0.82) contrast(1.06) brightness(1.02)" }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          "linear-gradient(180deg, rgba(243,239,230,0.16), rgba(243,239,230,0.42))",
+                      }}
+                    />
+                  </div>
+                </TiltStage>
+              ) : null}
+
+              {/* the four museum walls unfolding in 3D perspective */}
+              <div className="absolute inset-0" style={{ perspective: 1500 }}>
+                {MUSEUM_WALLS.map((wall, i) => (
+                  <Parallax
+                    key={wall.mark}
+                    depth={wall.depth}
+                    depthZ={wall.z}
+                    className="absolute inset-y-0 w-[27%] transition-transform duration-700 ease-out hover:[transform:rotateY(0deg)_translateY(-14px)]"
+                    style={{
+                      insetInlineStart: `${50 + wall.offset}%`,
+                      marginInlineStart: "-13.5%",
+                      transform: `rotateY(${wall.rotate}deg)`,
+                    }}
+                  >
+                    <div
+                      className="relative h-full w-full border"
+                      style={{
+                        borderColor: "rgba(20,19,17,0.2)",
+                        backgroundImage:
+                          "linear-gradient(to right, rgba(20,19,17,0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(20,19,17,0.07) 1px, transparent 1px)",
+                        backgroundSize: "12.5% 100%, 100% 78px",
+                        background: "linear-gradient(180deg, rgba(243,239,230,0.97), rgba(243,239,230,0.9))",
+                      }}
+                    >
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-0"
+                        style={{
+                          backgroundImage:
+                            "linear-gradient(to right, rgba(20,19,17,0.14) 1px, transparent 1px), linear-gradient(to bottom, rgba(20,19,17,0.08) 1px, transparent 1px)",
+                          backgroundSize: "25% 100%, 100% 78px",
+                        }}
+                      />
+                      <div className="absolute inset-x-3 top-4 flex items-center justify-between">
+                        <SpecMark style={{ color: accent }}>{wall.mark}</SpecMark>
+                        <span
+                          className="font-grotesk text-[9px] tracking-[0.2em]"
+                          style={{ color: "rgba(20,19,17,0.4)" }}
+                          dir="ltr"
+                        >
+                          {String(i + 1).padStart(2, "0")}/04
+                        </span>
+                      </div>
+                      <div className="absolute inset-x-3 bottom-4">
+                        <span
+                          aria-hidden="true"
+                          className="block h-px w-full"
+                          style={{ background: "rgba(20,19,17,0.28)" }}
+                        />
+                        <p
+                          className="mt-2 text-[9px] tracking-[0.18em]"
+                          style={{ color: "rgba(20,19,17,0.5)" }}
+                          dir="ltr"
+                        >
+                          TRAVERTINE / {b.tagline.slice(0, 20)}
+                        </p>
+                      </div>
+                    </div>
+                  </Parallax>
+                ))}
+              </div>
+
+              <div className="absolute inset-x-0 bottom-10 text-center">
+                <SpecMark style={{ color: accent }}>MONOGRAPH N° 05 — {b.name}</SpecMark>
+              </div>
+            </div>
+          }
+          pane={
+            <div
+              className="h-full w-full"
+              style={{
+                background:
+                  "linear-gradient(90deg, rgba(243,239,230,0.98), rgba(243,239,230,0.8) 62%, rgba(243,239,230,0.12))",
+              }}
+            />
+          }
+          interior={
+        <div className="mx-auto grid max-w-[1440px] border-b lg:grid-cols-[1.08fr_0.92fr]" style={{ borderColor: HAIRLINE }}>
           <div className="relative px-5 pb-14 pt-12 md:px-10 md:pb-20 md:pt-16">
             {/* vertical architectural running header */}
             <span
@@ -218,16 +356,18 @@ export function SwissEditorialTemplate() {
               </p>
 
               <div className="mt-9 flex flex-wrap items-center gap-6">
-                <a
-                  href={consultationHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 border px-6 py-3 text-[10.5px] tracking-[0.16em] transition hover:bg-[rgba(20,19,17,0.04)]"
-                  style={{ borderColor: "rgba(20,19,17,0.55)", color: INK }}
-                >
-                  {hero.ctaText}
-                  <span style={{ color: accent }} aria-hidden="true">←</span>
-                </a>
+                <Magnetic strength={0.22}>
+                  <a
+                    href={consultationHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 border px-6 py-3 text-[10.5px] tracking-[0.16em] transition hover:bg-[rgba(20,19,17,0.04)]"
+                    style={{ borderColor: "rgba(20,19,17,0.55)", color: INK }}
+                  >
+                    {hero.ctaText}
+                    <span style={{ color: accent }} aria-hidden="true">←</span>
+                  </a>
+                </Magnetic>
                 <span className="text-[8.5px] tracking-[0.2em]" style={{ color: "rgba(20,19,17,0.38)" }}>
                   {b.openingHours}
                 </span>
@@ -306,6 +446,8 @@ export function SwissEditorialTemplate() {
             </div>
           </div>
         </div>
+          }
+        />
       </section>
 
       {/* ---------------- editorial statement ---------------- */}

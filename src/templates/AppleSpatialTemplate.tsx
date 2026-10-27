@@ -12,6 +12,23 @@ import {
   parsePrice,
   waLink,
 } from "@/templates/shared";
+import {
+  CameraPortal,
+  Magnetic,
+  Parallax,
+  SpecMark,
+  SpecularLight,
+  TiltStage,
+} from "@/templates/motion";
+
+/** The orbiting constellation: each island sits at its own Z depth, so the
+ * cursor parallax separates them into a real spatial volume. */
+const ORBIT_ISLANDS = [
+  { start: "6%", top: "12%", w: 232, h: 132, z: 150, depth: 46, tilt: 20, label: "VIEW 01" },
+  { start: "62%", top: "6%", w: 178, h: 178, z: 260, depth: 74, tilt: 30, label: "MESH" },
+  { start: "16%", top: "58%", w: 300, h: 108, z: 90, depth: 28, tilt: 14, label: "VOLUME" },
+  { start: "70%", top: "62%", w: 196, h: 148, z: 200, depth: 58, tilt: 24, label: "LENS" },
+] as const;
 
 /* ------------------------------------------------------------------ */
 /* SPATIAL / VISIONOS FLOATING ISLANDS                                 */
@@ -92,6 +109,11 @@ export function AppleSpatialTemplate() {
           WebkitMaskImage: "radial-gradient(80% 70% at 50% 30%, black, transparent 90%)",
         }}
       />
+
+      {/* Spatial key light — follows the cursor across the whole void. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[5]">
+        <SpecularLight color="rgba(122,162,255,0.14)" size={52} />
+      </div>
 
       {/* ---------------- Dynamic Island navigation ---------------- */}
       <div className="pointer-events-none fixed inset-x-0 top-3 z-[9700] flex justify-center px-3">
@@ -190,9 +212,112 @@ export function AppleSpatialTemplate() {
         </motion.div>
       </div>
 
-      {/* ---------------- hero constellation ---------------- */}
-      <section id="top" className="relative z-10 mx-auto max-w-7xl px-4 pb-16 pt-32 md:pt-40">
-        <div className="relative grid gap-5 md:grid-cols-12">
+      {/* ---------------- hero constellation — orbiting 3D island portal ----------------
+          Levitating frosted-glass islands orbit and tilt in Z-space as the
+          cursor moves. Scrolling drives a keynote-style camera flight through
+          the constellation: the glass layers separate, the holographic mesh
+          passes the lens, and the hero island assembles from inside. */}
+      <section id="top" className="relative z-10">
+        <CameraPortal
+          heightVh={320}
+          perspective={1300}
+          zoom={3.5}
+          blurOut={26}
+          veilColor="rgba(7,8,12,0.93)"
+          hint={
+            <span className="flex flex-col items-center gap-3">
+              <SpecMark className="text-white/35">SCROLL TO ENTER SPACE</SpecMark>
+              <span className="block h-10 w-px bg-gradient-to-b from-white/50 to-transparent" />
+            </span>
+          }
+          scene={
+            <div className="absolute inset-0 overflow-hidden">
+              {/* interactive holographic mesh floor */}
+              <Parallax depth={26} className="absolute inset-0">
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-x-0 bottom-0 h-[62%] opacity-60"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(rgba(122,162,255,0.34) 1px, transparent 1px), linear-gradient(90deg, rgba(122,162,255,0.34) 1px, transparent 1px)",
+                    backgroundSize: "72px 72px",
+                    transform: "perspective(600px) rotateX(66deg)",
+                    transformOrigin: "bottom",
+                    maskImage: "linear-gradient(to top, black, transparent)",
+                    WebkitMaskImage: "linear-gradient(to top, black, transparent)",
+                  }}
+                />
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 animate-breathe"
+                  style={{
+                    background:
+                      "radial-gradient(42% 34% at 50% 46%, rgba(122,162,255,0.22), transparent 72%)",
+                  }}
+                />
+              </Parallax>
+
+              {/* the orbiting island constellation */}
+              {ORBIT_ISLANDS.map((island, i) => (
+                <Parallax
+                  key={island.label}
+                  depth={island.depth}
+                  depthZ={island.z}
+                  className="absolute"
+                  style={{
+                    insetInlineStart: island.start,
+                    top: island.top,
+                    width: island.w,
+                    height: island.h,
+                  }}
+                >
+                  <TiltStage
+                    intensity={island.tilt}
+                    glareColor="rgba(255,255,255,0.22)"
+                    className="h-full w-full"
+                  >
+                    <div
+                      className={`${GLASS} flex h-full w-full flex-col justify-between p-4`}
+                      style={{ animation: `floaty ${7 + i * 1.4}s ease-in-out infinite` }}
+                    >
+                      <SpecMark className="text-white/40">{island.label}</SpecMark>
+                      <span
+                        aria-hidden="true"
+                        className="block h-px w-full"
+                        style={{
+                          background:
+                            "linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent)",
+                        }}
+                      />
+                      <div className="flex items-end justify-between">
+                        <span className="font-grotesk text-xl font-light text-white/70" dir="ltr">
+                          {String(island.z).padStart(3, "0")}
+                        </span>
+                        <span className="text-[8px] tracking-[0.3em] text-white/30" dir="ltr">
+                          Z-DEPTH
+                        </span>
+                      </div>
+                    </div>
+                  </TiltStage>
+                </Parallax>
+              ))}
+
+              {/* pinned center stage: the Dynamic Island command pod */}
+              <div className="pointer-events-none absolute inset-x-0 top-24 flex justify-center md:top-28">
+                <Magnetic strength={0.2} maxPull={16}>
+                  <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-white/[0.14] bg-[#111318]/70 px-5 py-2.5 backdrop-blur-2xl">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#30d158] opacity-60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-[#30d158]" />
+                    </span>
+                    <SpecMark className="text-white/70">SPATIAL / {b.name}</SpecMark>
+                  </div>
+                </Magnetic>
+              </div>
+            </div>
+          }
+          interior={
+        <div className="relative mx-auto grid max-w-7xl gap-5 px-4 pb-16 pt-32 md:grid-cols-12 md:pt-40">
           <motion.div
             initial={{ opacity: 0, y: 32 }}
             animate={{ opacity: 1, y: 0 }}
@@ -223,18 +348,20 @@ export function AppleSpatialTemplate() {
               {hero.subheadline}
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
-              <a
-                href={heroHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded-full px-7 py-3 text-[13px] font-bold text-[#07080C] transition-transform hover:scale-[1.02]"
-                style={{
-                  background: accent,
-                  boxShadow: `0 12px 38px color-mix(in srgb, ${accent} 30%, transparent)`,
-                }}
-              >
-                {hero.ctaText}
-              </a>
+              <Magnetic strength={0.3}>
+                <a
+                  href={heroHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-full px-7 py-3 text-[13px] font-bold text-[#07080C] transition-transform hover:scale-[1.02]"
+                  style={{
+                    background: accent,
+                    boxShadow: `0 12px 38px color-mix(in srgb, ${accent} 30%, transparent)`,
+                  }}
+                >
+                  {hero.ctaText}
+                </a>
+              </Magnetic>
               <a
                 href={`tel:${b.phone}`}
                 dir="ltr"
@@ -369,6 +496,8 @@ export function AppleSpatialTemplate() {
             ))}
           </div>
         </div>
+          }
+        />
       </section>
 
       {/* ---------------- expandable spatial service pods ---------------- */}

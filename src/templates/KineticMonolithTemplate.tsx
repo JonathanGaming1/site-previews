@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useTransform } from "framer-motion";
 import { X } from "lucide-react";
 import { useSite } from "@/components/SiteProvider";
 import {
@@ -12,6 +12,15 @@ import {
   parsePrice,
   waLink,
 } from "@/templates/shared";
+import {
+  CameraPortal,
+  Magnetic,
+  Parallax,
+  SpecMark,
+  SpecularLight,
+  TiltStage,
+  useScrollVelocityRange,
+} from "@/templates/motion";
 
 /* ------------------------------------------------------------------ */
 /* KINETIC / MONOLITH                                                  */
@@ -65,6 +74,11 @@ export function KineticMonolithTemplate() {
   const [amplitude, setAmplitude] = useState(46);
   const [deckIndex, setDeckIndex] = useState(0);
   const deckRef = useRef<HTMLDivElement | null>(null);
+
+  // Oversized kinetic type warps with the velocity of the scroll.
+  const scrollVelocity = useScrollVelocityRange(1);
+  const typeSkew = useTransform(scrollVelocity, [-1, 1], [7, -7]);
+  const typeTrack = useTransform(scrollVelocity, [-1, 1], [0.06, -0.06]);
 
   const deckItems = useMemo(
     () =>
@@ -145,6 +159,11 @@ export function KineticMonolithTemplate() {
             "radial-gradient(55% 42% at 76% 0%, rgba(190,205,230,0.10), transparent 68%), radial-gradient(40% 40% at 4% 70%, rgba(200,255,77,0.045), transparent 70%)",
         }}
       />
+
+      {/* Brushed-metal key light sweeping the monolith as the cursor moves. */}
+      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[5]">
+        <SpecularLight color="rgba(200,255,77,0.10)" size={54} />
+      </div>
 
       {/* ---------------- technical status strip ---------------- */}
       <div className="fixed inset-x-0 top-0 z-[9510] flex h-8 items-center justify-between border-b border-white/10 bg-[#090A0D]/90 px-3 text-[7.5px] tracking-[0.26em] text-white/30 backdrop-blur-xl">
@@ -260,18 +279,90 @@ export function KineticMonolithTemplate() {
         )}
       </AnimatePresence>
 
-      {/* ---------------- hero monolith ---------------- */}
-      <section id="top" className="relative z-10 min-h-[92vh] overflow-hidden pt-24 md:pt-28">
-        {/* monolith slabs */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0">
-          <span className="absolute bottom-0 right-[8%] top-[12%] w-[16vw] border-x border-white/[0.05] bg-gradient-to-b from-white/[0.035] to-transparent" />
-          <span className="absolute bottom-0 right-[27%] top-[26%] w-[7vw] border-x border-white/[0.04] bg-gradient-to-b from-white/[0.02] to-transparent" />
-          <span className="absolute bottom-0 left-[6%] top-[34%] w-[4vw] border-x border-white/[0.03]" />
-          <span className="absolute inset-x-0 top-[26%] h-px bg-white/[0.04]" />
-          <span className="absolute inset-x-0 bottom-[18%] h-px bg-white/[0.04]" />
-        </div>
+      {/* ---------------- hero monolith — isometric 3D telemetry portal ----------------
+          Scroll dollies the camera between the monolith slabs: they slide past
+          the lens in Z-space and the console resolves from between them. */}
+      <section id="top" className="relative z-10 overflow-hidden pt-24 md:pt-28">
+        <CameraPortal
+          heightVh={300}
+          perspective={1200}
+          zoom={3.7}
+          blurOut={20}
+          veilColor="rgba(9,10,13,0.94)"
+          hint={
+            <span className="flex flex-col items-center gap-3">
+              <SpecMark style={{ color: accent }}>SCROLL — ENTER THE SLAB</SpecMark>
+              <span className="block h-10 w-px" style={{ background: `linear-gradient(${accent}, transparent)` }} />
+            </span>
+          }
+          scene={
+            <div className="absolute inset-0 overflow-hidden">
+              {/* isometric monolith slabs at three camera depths */}
+              <Parallax depth={44} className="absolute inset-0">
+                <span className="absolute bottom-0 right-[8%] top-[10%] w-[16vw] border-x border-white/[0.07] bg-gradient-to-b from-white/[0.05] to-transparent" />
+                <span className="absolute bottom-0 left-[6%] top-[30%] w-[4vw] border-x border-white/[0.05]" />
+              </Parallax>
+              <Parallax depth={22} depthZ={80} className="absolute inset-0">
+                <span className="absolute bottom-0 right-[27%] top-[22%] w-[7vw] border-x border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent" />
+              </Parallax>
+              <Parallax depth={70} depthZ={180} className="absolute inset-0">
+                <span className="absolute bottom-0 left-[22%] top-[46%] w-[3vw] border-x border-white/[0.09] bg-gradient-to-b from-white/[0.04] to-transparent" />
+              </Parallax>
 
-        <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 md:px-8 lg:grid-cols-[1.35fr_0.65fr]">
+              {/* electric GPU-style telemetry beams */}
+              <div aria-hidden="true" className="absolute inset-0">
+                {[18, 38, 58, 78].map((top, i) => (
+                  <span
+                    key={top}
+                    className="absolute inset-x-0 h-px animate-beam"
+                    style={{
+                      top: `${top}%`,
+                      background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
+                      animationDelay: `${i * 0.42}s`,
+                    }}
+                  />
+                ))}
+                <span
+                  className="absolute inset-0 animate-scanline opacity-30"
+                  style={{
+                    background: `linear-gradient(180deg, transparent, ${accent}22, transparent)`,
+                  }}
+                />
+              </div>
+
+              {/* giant kinetic type that warps with scroll velocity */}
+              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 overflow-hidden px-5">
+                <motion.p
+                  style={{ skewX: typeSkew, letterSpacing: typeTrack }}
+                  className="whitespace-nowrap text-center text-[clamp(4rem,15vw,13rem)] font-light leading-[0.86] tracking-[-0.05em] text-white/[0.07]"
+                  dir="ltr"
+                >
+                  MONOLITH
+                </motion.p>
+              </div>
+
+              <div className="absolute inset-x-0 top-24 text-center md:top-28">
+                <SpecMark style={{ color: accent }}>LIQUID CHROME / {b.name}</SpecMark>
+              </div>
+            </div>
+          }
+          pane={
+            <div
+              className="h-full w-full"
+              style={{
+                background:
+                  "linear-gradient(90deg, rgba(9,10,13,0.96), rgba(9,10,13,0.7) 62%, rgba(9,10,13,0.08))",
+              }}
+            >
+              <div
+                className="h-full w-full opacity-60"
+                style={{ background: CHROME, mixBlendMode: "overlay" }}
+              />
+            </div>
+          }
+          interior={
+            <>
+        <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 pt-16 md:px-8 md:pt-20 lg:grid-cols-[1.35fr_0.65fr]">
           <div>
             <div className="mb-7 flex items-center gap-4">
               <span className="text-[8.5px] tracking-[0.36em]" style={{ color: accent }} dir="ltr">
@@ -302,16 +393,18 @@ export function KineticMonolithTemplate() {
                 {hero.subheadline}
               </p>
               <div className="flex flex-col items-start gap-3">
-                <a
-                  href="#showroom"
-                  className="group flex items-center gap-4 px-6 py-3 text-[11px] font-bold tracking-[0.1em] text-[#090A0D]"
-                  style={{ background: accent }}
-                >
-                  {hero.ctaText}
-                  <span className="transition-transform group-hover:-translate-x-1" aria-hidden="true">
-                    ←
-                  </span>
-                </a>
+                <Magnetic strength={0.26}>
+                  <a
+                    href="#showroom"
+                    className="group flex items-center gap-4 px-6 py-3 text-[11px] font-bold tracking-[0.1em] text-[#090A0D]"
+                    style={{ background: accent }}
+                  >
+                    {hero.ctaText}
+                    <span className="transition-transform group-hover:-translate-x-1" aria-hidden="true">
+                      ←
+                    </span>
+                  </a>
+                </Magnetic>
                 <a
                   href={`tel:${b.phone}`}
                   className="text-[10px] tracking-[0.16em] text-white/35 transition hover:text-white/75"
@@ -330,6 +423,22 @@ export function KineticMonolithTemplate() {
             transition={{ duration: 1, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
             className="relative mx-auto w-full max-w-[300px] lg:max-w-none"
           >
+            {/* hovering telemetry beams + levitating 3D monolith card */}
+            <TiltStage
+              intensity={9}
+              glareColor={`color-mix(in srgb, ${accent} 20%, transparent)`}
+              className="relative"
+            >
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-x-6 top-0 h-px animate-beam"
+              style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }}
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-x-6 bottom-0 h-px animate-beam"
+              style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, animationDelay: "1.2s" }}
+            />
             <div className="relative border border-white/12 p-1.5">
               <div className="relative h-[50vh] overflow-hidden md:h-[62vh]">
                 {hero.backgroundImage ? (
@@ -373,6 +482,7 @@ export function KineticMonolithTemplate() {
               <span>CARBON / {primary.toUpperCase()}</span>
               <span>Ø {String(b.reviewsCount).padStart(3, "0")}</span>
             </div>
+            </TiltStage>
           </motion.div>
         </div>
 
@@ -387,6 +497,9 @@ export function KineticMonolithTemplate() {
             ))}
           </div>
         </div>
+            </>
+          }
+        />
       </section>
 
       {/* ---------------- horizontal gliding deck ---------------- */}

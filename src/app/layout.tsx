@@ -24,9 +24,13 @@ export default function RootLayout({
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
-        {/* Editorial weights only — no ultra-thick blocky faces (900/800) */}
+        {/* Premium editorial stack: ultra-thin high-contrast serifs for
+            headlines (Cormorant Garamond, Frank Ruhl Libre), a razored Hebrew
+            sans for body copy (Assistant), a geometric display face for
+            numerals/marks (Space Grotesk) and a single bold Hebrew display
+            (Secular One). No blocky 800/900 faces — light weights only. */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500&family=Heebo:wght@300;400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Assistant:wght@200;300;400;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Frank+Ruhl+Libre:wght@200;300;400;500;600&family=Heebo:wght@200;300;400;500;600&family=Secular+One&family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
           rel="stylesheet"
         />
       </head>
