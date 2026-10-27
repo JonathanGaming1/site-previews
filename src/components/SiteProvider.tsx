@@ -15,7 +15,13 @@ import siteDataJson from "@/data/siteData.json";
 
 const GITHUB_RAW_BASE =
   "https://raw.githubusercontent.com/JonathanGaming1/site-previews/main/public/sites";
-const ADMIN_KEY = "yam2026";
+/**
+ * The admin key NEVER lives in this bundle. The browser only holds markers
+ * that the SERVER set after a successful `login` exchange with /api/admin,
+ * which returns an HttpOnly session cookie the JS can neither read nor forge.
+ */
+export const ADMIN_SESSION_MARKER = "agency_admin_session";
+export const ADMIN_FLAG = "agency_is_admin";
 
 /** localStorage prefix for the admin's instant, 0ms local override. */
 export const SITE_OVERRIDE_PREFIX = "site_override_";
@@ -40,9 +46,12 @@ interface SiteContextValue {
   /** Business slug resolved from the URL; null while loading / unknown */
   slug: string | null;
   remoteLoaded: boolean;
-  adminKey: string | null;
+  /** True once the server-side auth check (login / whoami) has finished. */
+  adminReady: boolean;
   isAdmin: boolean;
   mounted: boolean;
+  /** Exchange an admin key with the server for an HttpOnly session cookie. */
+  login: (key: string) => Promise<boolean>;
   /** Replace the whole data object in React state (used by AI sync / recall). */
   replaceData: (next: SiteData) => void;
   /** Returns props that enable click-to-edit (contentEditable) for admin users. */
@@ -108,6 +117,25 @@ export function makeInitialBackup(data: SiteData): SiteData {
   return snapshot;
 }
 
+/** Overlay this browser's instant admin override, when one exists. */
+function applyLocalOverride(site: SiteData, storeSlug: string): SiteData {
+  if (typeof window === "undefined") return site;
+  try {
+    const raw = localStorage.getItem(SITE_OVERRIDE_PREFIX + storeSlug);
+    if (!raw) return site;
+    const local = JSON.parse(raw) as Partial<SiteData>;
+    const merged = { ...site, ...clone(local) } as SiteData;
+    merged.templateId = normalizeTemplate(local.templateId ?? site.templateId);
+    merged.n8nEditWebhookUrl = "";
+    merged.trackingWebhookUrl = "";
+    merged.checkpoints = merged.checkpoints ?? site.checkpoints;
+    if (!merged.initialBackup) merged.initialBackup = site.initialBackup;
+    return merged;
+  } catch {
+    return site;
+  }
+}
+
 /** Fill a (possibly partial / legacy) remote JSON into a valid SiteData. */
 function hydrateSite(
   remote: Partial<SiteData>,
@@ -125,27 +153,8 @@ function hydrateSite(
   merged.checkpoints = merged.checkpoints ?? [];
   if (!merged.initialBackup) merged.initialBackup = makeInitialBackup(merged);
 
-  if (applyOverride && typeof window !== "undefined") {
-    const storeSlug = slug ?? merged.slug ?? "default";
-    try {
-      const raw = localStorage.getItem(SITE_OVERRIDE_PREFIX + storeSlug);
-      if (raw) {
-        const local = JSON.parse(raw) as Partial<SiteData>;
-        const mergedLocal = { ...merged, ...clone(local) } as SiteData;
-        mergedLocal.templateId = normalizeTemplate(
-          local.templateId ?? merged.templateId,
-        );
-        mergedLocal.n8nEditWebhookUrl = "";
-        mergedLocal.trackingWebhookUrl = "";
-        mergedLocal.checkpoints = mergedLocal.checkpoints ?? merged.checkpoints;
-        if (!mergedLocal.initialBackup) {
-          mergedLocal.initialBackup = merged.initialBackup;
-        }
-        return mergedLocal;
-      }
-    } catch {
-      /* corrupt local override — fall back to the remote JSON */
-    }
+  if (applyOverride) {
+    return applyLocalOverride(merged, slug ?? merged.slug ?? "default");
   }
 
   return merged;
@@ -167,7 +176,8 @@ export function useSite(): SiteContextValue {
 
 export function SiteProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<SiteData>(() => seedSite());
-  const [adminKey, setAdminKey] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminReady, setAdminReady] = useState(false);
   const [slug, setSlug] = useState<string | null>(null);
   const [remoteLoaded, setRemoteLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -175,12 +185,98 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
 
   const initialData = useMemo(() => seedSite(), []);
 
+  const callAuth = useCallback(
+    async (payload: Record<string, unknown>): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+          credentials: "same-origin",
+          body: JSON.stringify(payload),
+        });
+        const parsed = (await res.json()) as {
+          ok?: boolean;
+          authenticated?: boolean;
+        };
+        return res.ok && parsed?.ok === true && parsed?.authenticated === true;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
+
+  /**
+   * Admin authentication is decided by the server, never by a string in the
+   * bundle: `?key=` is exchanged once for an HttpOnly session cookie, and a
+   * returning browser is confirmed with `whoami` before any data loads.
+   */
   useEffect(() => {
+    let cancelled = false;
+
+    const finish = (authenticated: boolean) => {
+      if (cancelled) return;
+      try {
+        if (authenticated) {
+          sessionStorage.setItem(ADMIN_SESSION_MARKER, "true");
+          localStorage.setItem(ADMIN_FLAG, "true");
+        } else {
+          sessionStorage.removeItem(ADMIN_SESSION_MARKER);
+          localStorage.removeItem(ADMIN_FLAG);
+        }
+      } catch {
+        /* storage disabled — the server cookie still decides */
+      }
+      setIsAdmin(authenticated);
+      setAdminReady(true);
+      setMounted(true);
+    };
+
     const params = new URLSearchParams(window.location.search);
     const key = params.get("key");
-    if (key) setAdminKey(key);
-    setMounted(true);
-  }, []);
+
+    if (key) {
+      void (async () => {
+        const authenticated = await callAuth({ action: "login", key });
+        if (authenticated && !cancelled) {
+          // Strip the secret from the address bar and history immediately.
+          params.delete("key");
+          const query = params.toString();
+          window.history.replaceState(
+            window.history.state,
+            "",
+            `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+          );
+        }
+        finish(authenticated);
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    let marked = false;
+    try {
+      marked = sessionStorage.getItem(ADMIN_SESSION_MARKER) === "true";
+    } catch {
+      marked = false;
+    }
+
+    if (marked) {
+      void (async () => {
+        finish(await callAuth({ action: "whoami" }));
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    finish(false);
+    return () => {
+      cancelled = true;
+    };
+  }, [callAuth]);
 
   // Resolve the business slug from /p/{slug} or ?site={slug} and
   // dynamically load that business's JSON so each business has a
@@ -199,7 +295,7 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (!resolvedSlug) {
-      const isAdminVisit = params.get("key") === ADMIN_KEY;
+      const isAdminVisit = isAdmin;
       setData((prev) => hydrateSite(prev, null, isAdminVisit));
       setRemoteLoaded(true);
       return;
@@ -211,7 +307,7 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
     fetchedSlugRef.current = resolvedSlug;
     if (isSameSlug) return;
 
-    const isAdminVisit = params.get("key") === ADMIN_KEY;
+    const isAdminVisit = isAdmin;
 
     const load = async () => {
       // 1) Same-origin /sites/{slug}.json — fast Cloudflare CDN copy first
@@ -249,9 +345,7 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
       setRemoteLoaded(true);
     };
     void load();
-  }, [mounted]);
-
-  const isAdmin = mounted && adminKey === ADMIN_KEY;
+  }, [mounted, isAdmin]);
 
   // 0ms persistence: every admin edit/template/colour change is mirrored to
   // localStorage immediately, so a refresh restores the exact same view.
@@ -300,6 +394,24 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
     [isAdmin, data, updateValue],
   );
 
+  /** Exchange an admin key for a server session, then unlock this browser. */
+  const login = useCallback(
+    async (key: string): Promise<boolean> => {
+      if (!(await callAuth({ action: "login", key }))) return false;
+      try {
+        sessionStorage.setItem(ADMIN_SESSION_MARKER, "true");
+        localStorage.setItem(ADMIN_FLAG, "true");
+      } catch {
+        /* storage disabled — the cookie still carries the session */
+      }
+      setIsAdmin(true);
+      setAdminReady(true);
+      setData((prev) => applyLocalOverride(prev, slug ?? prev.slug ?? "default"));
+      return true;
+    },
+    [callAuth, slug],
+  );
+
   const setTemplate = useCallback((id: TemplateId) => {
     setData((prev) => ({ ...prev, templateId: normalizeTemplate(id) }));
   }, []);
@@ -314,9 +426,10 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
       initialData,
       slug,
       remoteLoaded,
-      adminKey,
+      adminReady,
       isAdmin,
       mounted,
+      login,
       replaceData,
       editsFor,
       updateValue,
@@ -328,9 +441,10 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
       initialData,
       slug,
       remoteLoaded,
-      adminKey,
+      adminReady,
       isAdmin,
       mounted,
+      login,
       replaceData,
       editsFor,
       updateValue,

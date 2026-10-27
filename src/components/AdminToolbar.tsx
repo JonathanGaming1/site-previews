@@ -28,10 +28,9 @@ import {
 
 /* ------------------------------------------------------------------ */
 /* Server-side admin API — no GitHub token, no AI key, no n8n, no      */
-/* popups. The browser only talks to our own /api/admin route.         */
+/* popups, and no secret in this bundle: the browser only talks to     */
+/* /api/admin over an HttpOnly session cookie minted by the server.    */
 /* ------------------------------------------------------------------ */
-
-const ADMIN_KEY = "yam2026";
 
 const COLOR_PRESETS: {
   name: string;
@@ -123,7 +122,12 @@ function asSiteData(raw: unknown): Partial<SiteData> | null {
 }
 
 const ERROR_TEXT: Record<string, string> = {
-  forbidden: "מפתח הניהול שגוי — פתחו את האתר עם ?key=yam2026",
+  forbidden: "מפתח הניהול שגוי — פתחו שוב את קישור המנהל",
+  unauthorized: "אין חיבור מנהל פעיל — פתחו שוב את קישור המנהל",
+  rate_limited: "נסיונות רבים מדי — המתינו כמה דקות ונסו שוב",
+  admin_not_configured:
+    "השרת לא מוגדר — חסרים ADMIN_KEY במשתני הסביבה של Cloudflare Pages",
+  bad_origin: "הבקשה נדחתה — היא לא הגיעה מהאתר עצמו",
   invalid_slug: "כתובת העסק חסרה או אינה תקינה",
   invalid_site_data: "נתוני האתר אינם תקינים",
   empty_prompt: "כתבו הוראה לפני השליחה",
@@ -197,9 +201,9 @@ export function AdminToolbar() {
       res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         cache: "no-store",
         body: JSON.stringify({
-          key: ADMIN_KEY,
           repo: REPO_NAME,
           ...payload,
         }),
