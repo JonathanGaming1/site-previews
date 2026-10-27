@@ -4,7 +4,7 @@
   "isDemo": true,
   "n8nEditWebhookUrl": "",
   "checkoutUrl": "/checkout",
-  "trackingWebhookUrl": "http://localhost:5678/webhook/site-editor",
+  "trackingWebhookUrl": "",
   "theme": {
     "primaryColor": "#d4af37",
     "accentColor": "#f59e0b"
@@ -108,7 +108,7 @@
     "isDemo": true,
     "n8nEditWebhookUrl": "",
     "checkoutUrl": "/checkout",
-    "trackingWebhookUrl": "http://localhost:5678/webhook/site-editor",
+    "trackingWebhookUrl": "",
     "theme": {
       "primaryColor": "#d4af37",
       "accentColor": "#f59e0b"
