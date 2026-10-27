@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, Star } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useSite } from "@/components/SiteProvider";
 import type { FaqItem } from "@/types/site";
 
@@ -67,8 +67,8 @@ export function normalizeHeadline(raw: string): string {
 
 /**
  * Split an editorial headline into two intentionally balanced lines.
- * Breaks before the last clause (the segment after a mid-sentence starter)
- * when that keeps both lines readable; otherwise splits at the word midway.
+ * Breaks before the last clause when that keeps both lines readable;
+ * otherwise splits at the word midway.
  */
 export function splitHeadline(raw: string): [string, string] | [string] {
   const s = normalizeHeadline(raw);
@@ -76,7 +76,6 @@ export function splitHeadline(raw: string): [string, string] | [string] {
   if (words.length <= 1) return [s];
 
   let breakAt = Math.ceil(words.length / 2);
-  // Prefer a break right before the second clause when we have starters.
   for (let i = Math.floor(words.length * 0.35); i < words.length - 1; i++) {
     if (CLAUSE_STARTERS.some((st) => words[i] === st || words[i].startsWith(st))) {
       breakAt = i;
@@ -112,26 +111,54 @@ export function EditorialHeadline({
 }
 
 /* ------------------------------------------------------------------ */
-/* Star row                                                            */
+/* Shared commerce + rating helpers                                    */
 /* ------------------------------------------------------------------ */
 
-export function Stars({
+export function parsePrice(text?: string): number | null {
+  if (!text) return null;
+  const digits = text.replace(/[^\d]/g, "");
+  const n = digits ? parseInt(digits, 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+export function formatNis(value: number): string {
+  return `₪${Math.round(value).toLocaleString("he-IL")}`;
+}
+
+export function waLink(whatsapp: string, message: string): string {
+  return `https://wa.me/${whatsapp.replace(/[^\d]/g, "")}?text=${encodeURIComponent(message)}`;
+}
+
+/**
+ * Typographic rating mark — five precision bars, no icon-set stars.
+ * Keeps the data readable without the generic "star row" AI pattern.
+ */
+export function RatingBars({
   rating,
-  className = "h-4 w-4",
-  starClass = "text-amber-400",
+  color = "currentColor",
+  className = "",
 }: {
   rating: number;
+  color?: string;
   className?: string;
-  starClass?: string;
 }) {
+  const filled = Math.max(0, Math.min(5, Math.round(rating)));
   return (
-    <span className="inline-flex items-center gap-0.5" dir="ltr" aria-label={`דירוג ${rating} מתוך 5`}>
+    <span
+      className={`inline-flex items-end gap-1 ${className}`}
+      role="img"
+      aria-label={`דירוג ${rating} מתוך 5`}
+      title={`${rating} / 5`}
+    >
       {Array.from({ length: 5 }).map((_, i) => (
-        <Star
+        <span
           key={i}
-          className={`${className} ${i < rating ? starClass : "text-gray-400/40"}`}
-          fill={i < rating ? "currentColor" : "none"}
-          aria-hidden="true"
+          className="block w-[3px]"
+          style={{
+            height: `${6 + i * 2}px`,
+            background: i < filled ? color : "currentColor",
+            opacity: i < filled ? 1 : 0.2,
+          }}
         />
       ))}
     </span>
@@ -158,7 +185,7 @@ export function FaqAccordion({
   const { editsFor } = useSite();
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-3">
+    <div className="flex flex-col gap-0">
       {items.map((item, i) => {
         const open = openIdx === i;
         return (

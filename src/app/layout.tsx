@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ViewTracker } from "@/components/ViewTracker";
+import { AnalyticsBootstrap } from "@/components/ViewTracker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,14 +26,14 @@ export default function RootLayout({
         />
         {/* Editorial weights only — no ultra-thick blocky faces (900/800) */}
         <link
-          href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700&family=Heebo:wght@300;400;500;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500&family=Heebo:wght@300;400;500;700&display=swap"
           rel="stylesheet"
         />
       </head>
       <body className="antialiased">
         {children}
-        {/* PostHog + Discord live analytics — every route, including /checkout */}
-        <ViewTracker />
+        {/* PostHog is initialized on every route, including /checkout. */}
+        <AnalyticsBootstrap />
       </body>
     </html>
   );

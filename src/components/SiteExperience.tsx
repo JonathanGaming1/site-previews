@@ -4,24 +4,26 @@ import React from "react";
 import { SiteProvider, useSite } from "@/components/SiteProvider";
 import { AdminToolbar } from "@/components/AdminToolbar";
 import { SecurityGuard } from "@/components/SecurityGuard";
-import { ViewTracker, DemoVisitPing } from "@/components/ViewTracker";
+import { ViewTracker } from "@/components/ViewTracker";
+import { ForgeAutomotiveTemplate } from "@/templates/ForgeAutomotiveTemplate";
 import { AppleSpatialTemplate } from "@/templates/AppleSpatialTemplate";
-import { WhiskyObsidianTemplate } from "@/templates/WhiskyObsidianTemplate";
-import { CyberQuantumTemplate } from "@/templates/CyberQuantumTemplate";
-import { AtelierBoutiqueTemplate } from "@/templates/AtelierBoutiqueTemplate";
+import { HorologyChronoTemplate } from "@/templates/HorologyChronoTemplate";
+import { KineticMonolithTemplate } from "@/templates/KineticMonolithTemplate";
+import { SwissEditorialTemplate } from "@/templates/SwissEditorialTemplate";
 
 function TemplateRenderer() {
   const { data } = useSite();
   switch (data.templateId) {
-    case "whisky-obsidian":
-      return <WhiskyObsidianTemplate />;
-    case "cyber-quantum":
-      return <CyberQuantumTemplate />;
-    case "atelier-boutique":
-      return <AtelierBoutiqueTemplate />;
+    case "forge-automotive":
+      return <ForgeAutomotiveTemplate />;
+    case "horology-chrono":
+      return <HorologyChronoTemplate />;
+    case "kinetic-monolith":
+      return <KineticMonolithTemplate />;
+    case "swiss-editorial":
+      return <SwissEditorialTemplate />;
     case "apple-spatial":
     default:
-      // Unknown/legacy template ids also render the flagship spatial design.
       return <AppleSpatialTemplate />;
   }
 }
@@ -30,7 +32,6 @@ function ExperienceShell() {
   return (
     <>
       <ViewTracker />
-      <DemoVisitPing />
       <TemplateRenderer />
       <AdminToolbar />
       <SecurityGuard />

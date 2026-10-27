@@ -1,21 +1,59 @@
 export type TemplateId =
+  | "forge-automotive"
   | "apple-spatial"
-  | "whisky-obsidian"
-  | "cyber-quantum"
-  | "atelier-boutique";
+  | "horology-chrono"
+  | "kinetic-monolith"
+  | "swiss-editorial";
 
-/** Legacy template ids that may still exist in older business JSONs. */
+/**
+ * Legacy template ids that may still exist in older business JSONs.
+ * Every one resolves to one of the five current art directions.
+ */
 export const LEGACY_TEMPLATE_FALLBACK: Record<string, TemplateId> = {
-  "luxury-dark": "whisky-obsidian",
+  "whisky-obsidian": "forge-automotive",
+  "luxury-dark": "forge-automotive",
   "modern-clean": "apple-spatial",
-  "warm-boutique": "atelier-boutique",
+  "cyber-quantum": "kinetic-monolith",
+  "atelier-boutique": "swiss-editorial",
+  "warm-boutique": "swiss-editorial",
 };
 
-export const TEMPLATE_OPTIONS: { id: TemplateId; label: string }[] = [
-  { id: "apple-spatial", label: "Titanium Pro — פיצול טיטניום" },
-  { id: "whisky-obsidian", label: "Forge Atelier — אולפן שחור" },
-  { id: "cyber-quantum", label: "Kinetic Showroom — סלון קינטי" },
-  { id: "atelier-boutique", label: "Swiss Grid — רשת אדריכלית" },
+export const TEMPLATE_OPTIONS: {
+  id: TemplateId;
+  label: string;
+  short: string;
+  note: string;
+}[] = [
+  {
+    id: "forge-automotive",
+    label: "Forge Dark Luxury Atelier",
+    short: "01 / FORGE",
+    note: "שחור אובסידיאן · מלאכה בריטית",
+  },
+  {
+    id: "apple-spatial",
+    label: "Apple VisionOS Floating Islands",
+    short: "02 / SPATIAL",
+    note: "איי זכוכית מרחפים · Dynamic Island",
+  },
+  {
+    id: "horology-chrono",
+    label: "Swiss Chronograph Mechanical Luxury",
+    short: "03 / CHRONO",
+    note: "שפיר midnight · זהב שמפאן",
+  },
+  {
+    id: "kinetic-monolith",
+    label: "Futuristic Monolith & Horizontal Deck",
+    short: "04 / MONOLITH",
+    note: "כרום נוזלי · דק אופקי",
+  },
+  {
+    id: "swiss-editorial",
+    label: "Architectural Blueprint Curtain Grid",
+    short: "05 / EDITORIAL",
+    note: "טרוורטין חם · רשת שרטוט",
+  },
 ];
 
 export interface ThemeConfig {
@@ -92,11 +130,11 @@ export interface SiteData {
   businessId: string;
   templateId: TemplateId;
   isDemo: boolean;
-  /** Legacy n8n webhook (kept for backward compatibility, unused by the direct-API editor) */
+  /** Legacy n8n webhook (kept for backward compatibility, unused by the bridge editor) */
   n8nEditWebhookUrl: string;
   /** URL of the agency checkout funnel (default "/checkout") */
   checkoutUrl: string;
-  /** n8n webhook notified when a visitor opens the demo (live view radar) */
+  /** Legacy view webhook field, kept so older JSON files still hydrate */
   trackingWebhookUrl: string;
   theme: ThemeConfig;
   businessInfo: BusinessInfo;

@@ -1,469 +1,878 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { motion } from "framer-motion";
+import React, { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ChevronDown, MessageCircle, Phone, X } from "lucide-react";
 import { useSite } from "@/components/SiteProvider";
-import { DynamicIslandNav } from "@/components/DynamicIslandNav";
-import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
-import { TiltCard3D } from "@/components/TiltCard3D";
 import {
   EditorialHeadline,
   FaqAccordion,
-  fadeUp,
-  Stars,
+  RatingBars,
+  formatNis,
+  parsePrice,
+  waLink,
 } from "@/templates/shared";
 
 /* ------------------------------------------------------------------ */
-/* TITANIUM PRO STICKY SPLIT-SCREEN                                    */
-/* Deep anodized titanium #0B0C0E with brushed metallic hairlines       */
-/* (1px rgba(255,255,255,0.10)). Apple-hardware storytelling: the       */
-/* right column stays pinned while the left scrolls through precision  */
-/* chapters, plus a bento spec matrix with big typographic metrics,    */
-/* an interactive before/after slider and the Dynamic Island pod.      */
+/* SPATIAL / VISIONOS FLOATING ISLANDS                                 */
+/* Titanium void #07080C. No flat full-width sections: the page is a   */
+/* constellation of levitating glass islands, a morphing Dynamic       */
+/* Island, expandable service pods and a pinned split hardware stage.  */
 /* ------------------------------------------------------------------ */
 
-interface Chapter {
-  index: string;
-  kicker: string;
-  title: string;
-  body: string;
-}
+const GLASS =
+  "rounded-[32px] border border-white/[0.12] bg-white/[0.04] backdrop-blur-3xl shadow-[inset_0_1px_1px_rgba(255,255,255,0.25),0_36px_90px_-28px_rgba(0,0,0,0.95)]";
 
-function parsePrice(text?: string): number | null {
-  if (!text) return null;
-  const digits = text.replace(/[^\d]/g, "");
-  const n = digits ? parseInt(digits, 10) : NaN;
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
+const NAV_ITEMS = [
+  { href: "#pods", label: "שירותים" },
+  { href: "#showcase", label: "מוצר" },
+  { href: "#work", label: "עבודות" },
+  { href: "#voices", label: "ביקורות" },
+  { href: "#contact", label: "צור קשר" },
+];
 
 export function AppleSpatialTemplate() {
   const { data, editsFor } = useSite();
-  const { businessInfo: b, hero, faq, reviews, services, projects = [], benefits = [] } = data;
+  const { businessInfo: b, hero, services, faq, reviews, projects = [], benefits = [] } = data;
 
-  const chapters = useMemo<Chapter[]>(
-    () => [
-      {
-        index: "01",
-        kicker: b.category,
-        title: services[0]?.title ?? "החזון",
-        body:
-          services[0]?.description ??
-          "הסטודיו מתכנן ובונה עד פרט המילימטר האחרון, בהתאמה אישית לבית ולצורך שלך.",
-      },
-      {
-        index: "02",
-        kicker: "תהליך",
-        title: services[1]?.title ?? "ביצוע מדויק",
-        body:
-          services[1]?.description ??
-          "מדידה, ייצור והתקנה בסטנדרט אחיד — עם לוחות זמנים סגורים ועדכונים שוטפים.",
-      },
-      {
-        index: "03",
-        kicker: "סטנדרט",
-        title: services[2]?.title ?? "גימור ואחריות",
-        body:
-          services[2]?.description ??
-          "כל פרויקט נמסר עם אחריות אמיתית, בדיקת איכות סופית וקבלה מסודרת.",
-      },
-      ...(services.length > 3
-        ? [
-            {
-              index: "04",
-              kicker: "השלמות",
-              title: services[3].title,
-              body: services[3].description,
-            },
-          ]
-        : []),
-    ],
-    [b.category, services],
+  const accent = data.theme.accentColor || "#7aa2ff";
+  const primary = data.theme.primaryColor || "#f5f5f7";
+  const city = b.address.split(",")[0]?.trim() || b.address;
+
+  const [expanded, setExpanded] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [openPod, setOpenPod] = useState<number | null>(null);
+  const [podTab, setPodTab] = useState<"spec" | "price">("spec");
+  const [activeShot, setActiveShot] = useState(0);
+
+  const heroHref = waLink(
+    b.whatsapp,
+    `שלום ${b.name}, אשמח לשמוע פרטים ולתאם שיחה.`,
   );
 
-  const base = parsePrice(services[0]?.price);
-  const quoteHref = `https://wa.me/${b.whatsapp}?text=${encodeURIComponent(
-    `שלום, הגעתי מהדף של ${b.name}. אשמח לקבל הצעת מחיר ומפרט עבור ${services[0]?.title ?? ""}.`,
-  )}`;
+  const scrollTo = (href: string) => {
+    setExpanded(false);
+    setPinned(false);
+    document.querySelector(href)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
-  /* Bento typographic metrics from real business data */
-  const metrics = [
-    { big: `${b.googleRating.toFixed(1)}★`, small: `${b.reviewsCount} ביקורות Google` },
-    { big: "100%", small: "חומרים מובחרים בכל פרויקט, ללא פשרות" },
-    { big: "24/7", small: "מענה שוטף לכל שאלה לאורך הפרויקט" },
+  const openPodData = openPod !== null ? services[openPod] : null;
+  const openPodPrice = parsePrice(openPodData?.price);
+
+  const spotlight = projects[activeShot] ?? projects[0];
+  const stats = [
+    { value: b.googleRating.toFixed(1), label: "דירוג לקוחות", suffix: "/5" },
+    { value: String(b.reviewsCount), label: "ביקורות מאומתות", suffix: "" },
+    { value: "24/7", label: "מענה אישי", suffix: "" },
   ];
 
   return (
     <div
-      className="relative min-h-screen pb-24"
-      style={{ background: "#0b0c0e", color: "rgba(245,245,247,0.78)" }}
+      className="relative min-h-screen overflow-x-hidden text-white/80"
+      style={{ background: "#07080C" }}
+      dir="rtl"
     >
-      {/* Brushed-metal ambient sheen — static gradients only, no JS */}
+      {/* Titanium ambient canvas */}
       <div
         aria-hidden="true"
         className="pointer-events-none fixed inset-0 z-0"
         style={{
           background:
-            "radial-gradient(60% 40% at 78% -8%, rgba(120,140,180,0.10), transparent 62%), radial-gradient(45% 35% at 10% 30%, rgba(255,255,255,0.04), transparent 60%)",
+            "radial-gradient(55% 40% at 76% -8%, rgba(106,132,206,0.19), transparent 68%), radial-gradient(50% 45% at 8% 22%, rgba(255,255,255,0.055), transparent 70%), radial-gradient(40% 40% at 50% 105%, rgba(86,94,120,0.12), transparent 70%)",
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 z-0 opacity-[0.055]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
+          backgroundSize: "92px 92px",
+          maskImage: "radial-gradient(80% 70% at 50% 30%, black, transparent 90%)",
+          WebkitMaskImage: "radial-gradient(80% 70% at 50% 30%, black, transparent 90%)",
         }}
       />
 
-      {/* Floating Dynamic Island status bar */}
-      <DynamicIslandNav theme={{
-        accent: "#0071e3",
-        dark: true,
-        pageBg: "#0b0c0e",
-        surface: "rgba(255,255,255,0.045)",
-        border: "rgba(255,255,255,0.10)",
-        headline: "#f5f5f7",
-        text: "rgba(245,245,247,0.78)",
-        muted: "rgba(245,245,247,0.46)",
-        fontSerif: undefined,
-      }} />
-
-      {/* ---------- Full-bleed titanium hero ---------- */}
-      <header className="relative z-10 flex min-h-[92vh] flex-col items-center justify-center px-6 pt-28 text-center">
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-[11px] font-medium tracking-[0.4em]"
-          style={{ color: "rgba(245,245,247,0.35)" }}
-          {...editsFor("businessInfo.category")}
-        >
-          {b.category}
-        </motion.p>
-        <motion.h1
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-          className="mt-6 max-w-4xl text-4xl font-light leading-[1.15] tracking-tight sm:text-5xl md:text-6xl"
-          style={{ color: "#f5f5f7" }}
-          {...editsFor("hero.headline")}
-        >
-          <EditorialHeadline text={hero.headline} />
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.9, delay: 0.16 }}
-          className="mx-auto mt-6 max-w-2xl text-base leading-relaxed sm:text-lg"
-          style={{ color: "rgba(245,245,247,0.48)" }}
-          {...editsFor("hero.subheadline")}
-        >
-          {hero.subheadline}
-        </motion.p>
+      {/* ---------------- Dynamic Island navigation ---------------- */}
+      <div className="pointer-events-none fixed inset-x-0 top-3 z-[9700] flex justify-center px-3">
         <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mt-10 flex flex-wrap items-center justify-center gap-4"
+          layout
+          onMouseEnter={() => setExpanded(true)}
+          onMouseLeave={() => {
+            if (!pinned) setExpanded(false);
+          }}
+          onClick={() => {
+            setPinned((value) => !value);
+            setExpanded(true);
+          }}
+          initial={{ y: -64, opacity: 0 }}
+          animate={{
+            y: 0,
+            opacity: 1,
+            width: expanded ? "min(660px, 94vw)" : "min(236px, 74vw)",
+          }}
+          transition={{ type: "spring", stiffness: 330, damping: 30 }}
+          className="pointer-events-auto cursor-pointer overflow-hidden border border-white/[0.14] bg-[#111318]/70 shadow-[0_18px_50px_rgba(0,0,0,0.55),inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-2xl"
+          style={{ borderRadius: 30 }}
+          role="button"
+          aria-expanded={expanded}
+          aria-label="ניווט מרחבי"
         >
-          <a
-            href={`https://wa.me/${b.whatsapp}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full px-8 py-3.5 text-[15px] font-semibold text-white"
-            style={{ background: "#0071e3", boxShadow: "0 8px 30px rgba(0,113,227,0.35)" }}
-          >
-            {hero.ctaText}
-          </a>
-          <a
-            href={`tel:${b.phone}`}
-            className="rounded-full px-8 py-3.5 text-[15px] font-medium"
-            style={{ border: "1px solid rgba(255,255,255,0.18)", color: "#f5f5f7", background: "rgba(255,255,255,0.04)" }}
-            dir="ltr"
-          >
-            {b.phone}
-          </a>
+          <motion.div layout className="flex items-center justify-between gap-3 px-5 py-3">
+            <span className="flex items-center gap-2 text-[12px] font-semibold text-white/90">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#30d158] opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#30d158]" />
+              </span>
+              {expanded ? `פתוח כעת ב${city} • זמינות מיידית` : "פתוח כעת"}
+            </span>
+            <ChevronDown
+              className={`h-4 w-4 shrink-0 text-white/45 transition-transform ${expanded ? "rotate-180" : ""}`}
+              aria-hidden="true"
+            />
+          </motion.div>
+
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="border-t border-white/[0.08] px-5 pb-4 pt-3">
+                  <div className="mb-3 flex items-center justify-between rounded-2xl bg-white/[0.05] px-4 py-3">
+                    <span className="text-[11px] text-white/50">{b.openingHours}</span>
+                    <span className="text-[11px] font-semibold" style={{ color: accent }}>
+                      {b.category}
+                    </span>
+                  </div>
+                  <nav className="grid grid-cols-5 gap-1.5">
+                    {NAV_ITEMS.map((item) => (
+                      <button
+                        key={item.href}
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          scrollTo(item.href);
+                        }}
+                        className="rounded-xl bg-white/[0.05] px-1 py-2.5 text-[10.5px] font-medium text-white/65 transition hover:bg-white/[0.12] hover:text-white"
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </nav>
+                  <div className="mt-2.5 flex gap-2">
+                    <a
+                      href={heroHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-2.5 text-[12px] font-bold text-[#07080C]"
+                      style={{ background: accent }}
+                    >
+                      <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                      וואטסאפ מיידי
+                    </a>
+                    <a
+                      href={`tel:${b.phone}`}
+                      onClick={(event) => event.stopPropagation()}
+                      className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-white/[0.07] py-2.5 text-[12px] font-semibold text-white/80"
+                    >
+                      <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                      {b.phone}
+                    </a>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
-      </header>
+      </div>
 
-      {/* ---------- STICKY SPLIT-SCREEN STORYTELLING ---------- */}
-      <section className="relative z-10 mx-auto max-w-7xl border-y px-0" style={{ borderColor: "rgba(255,255,255,0.10)" }}>
-        <div className="grid lg:grid-cols-2">
-          {/* LEFT (visual in RTL order becomes right) — the pinned column.
-              In an RTL page, the first grid column renders on the right:
-              `lg:sticky` keeps it pinned while the sibling scrolls. */}
-          <div className="hidden lg:block">
-            <div className="sticky top-0 flex h-screen flex-col justify-center border-l p-12" style={{ borderColor: "rgba(255,255,255,0.10)" }} dir="ltr">
-              {hero.backgroundImage ? (
-                <div className="relative overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18 }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={hero.backgroundImage}
-                    alt=""
-                    className="h-[56vh] w-full object-cover"
-                    style={{ filter: "saturate(0.9) contrast(1.04)" }}
-                  />
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      background:
-                        "linear-gradient(200deg, rgba(11,12,14,0.2), transparent 45%), linear-gradient(0deg, rgba(11,12,14,0.6), transparent 40%)",
-                    }}
-                  />
-                  <div className="absolute bottom-5 right-6" dir="rtl">
-                    <p className="text-[10px] tracking-[0.34em] text-white/60" dir="ltr">TITANIUM PRO</p>
-                    <p className="mt-1 text-lg font-light text-white" dir="rtl">{b.name}</p>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className="flex h-[56vh] items-center justify-center"
-                  style={{ border: "1px solid rgba(255,255,255,0.10)", borderRadius: 18 }}
-                >
-                  <p className="text-[11px] tracking-[0.34em] text-white/40" dir="ltr">PRECISION STUDIO</p>
-                </div>
-              )}
+      {/* ---------------- hero constellation ---------------- */}
+      <section id="top" className="relative z-10 mx-auto max-w-7xl px-4 pb-16 pt-32 md:pt-40">
+        <div className="relative grid gap-5 md:grid-cols-12">
+          <motion.div
+            initial={{ opacity: 0, y: 32 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            className={`${GLASS} relative z-10 p-7 md:col-span-8 md:p-11`}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <p
+                className="text-[9.5px] tracking-[0.38em] text-white/36"
+                {...editsFor("businessInfo.category")}
+              >
+                {b.category}
+              </p>
+              <span className="text-[9px] tracking-[0.24em] text-white/22" dir="ltr">
+                SPATIAL / 01
+              </span>
+            </div>
+            <h1
+              className="mt-7 max-w-4xl text-[clamp(2.4rem,5.6vw,4.8rem)] font-light leading-[1.08] tracking-[-0.03em] text-[#f5f5f7]"
+              {...editsFor("hero.headline")}
+            >
+              <EditorialHeadline text={hero.headline} />
+            </h1>
+            <p
+              className="mt-6 max-w-xl text-[13.5px] leading-[1.95] text-white/48"
+              {...editsFor("hero.subheadline")}
+            >
+              {hero.subheadline}
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <a
+                href={heroHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full px-7 py-3 text-[13px] font-bold text-[#07080C] transition-transform hover:scale-[1.02]"
+                style={{
+                  background: accent,
+                  boxShadow: `0 12px 38px color-mix(in srgb, ${accent} 30%, transparent)`,
+                }}
+              >
+                {hero.ctaText}
+              </a>
+              <a
+                href={`tel:${b.phone}`}
+                dir="ltr"
+                className="rounded-full border border-white/[0.14] bg-white/[0.04] px-6 py-3 text-[12px] font-medium text-white/70 transition hover:bg-white/[0.09]"
+              >
+                {b.phone}
+              </a>
+            </div>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-10 top-0 h-px"
+              style={{
+                background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent)",
+              }}
+            />
+          </motion.div>
 
-              {/* mini metric strip under the pinned visual */}
-              <div className="mt-6 grid grid-cols-3 gap-px" style={{ background: "rgba(255,255,255,0.10)", borderRadius: 12, overflow: "hidden" }} dir="ltr">
-                {metrics.map((m, i) => (
-                  <div key={i} className="bg-[#0d0e11] px-4 py-5">
-                    <p className="text-2xl font-light text-[#f5f5f7]" dir="ltr">{m.big}</p>
-                    <p className="mt-1 text-[10px] leading-snug text-white/40" dir="rtl">{m.small}</p>
-                  </div>
-                ))}
+          {/* floating stat island */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 0.12 }}
+            className={`${GLASS} p-5 md:col-span-4`}
+            style={{ animation: "slow-drift 9s ease-in-out infinite" }}
+          >
+            <p className="text-[9px] tracking-[0.3em] text-white/32" dir="ltr">
+              LIVE REPUTATION
+            </p>
+            <div className="mt-5 flex items-end justify-between">
+              <span className="text-5xl font-light tracking-tight text-[#f5f5f7]" dir="ltr">
+                {b.googleRating.toFixed(1)}
+                <span className="text-xl text-white/25">/5</span>
+              </span>
+              <RatingBars rating={b.googleRating} color={accent} className="mb-1.5" />
+            </div>
+            <p className="mt-3 text-[10.5px] text-white/35">
+              {b.reviewsCount} ביקורות Google מאומתות
+            </p>
+            <div className="mt-5 grid grid-cols-2 gap-2 border-t border-white/[0.08] pt-4">
+              <div>
+                <p className="text-[8.5px] tracking-[0.22em] text-white/25">CITY</p>
+                <p className="mt-1 text-[11px] text-white/70">{city}</p>
+              </div>
+              <div>
+                <p className="text-[8.5px] tracking-[0.22em] text-white/25">STATUS</p>
+                <p className="mt-1 text-[11px]" style={{ color: accent }}>
+                  פנויים לפרויקט
+                </p>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          {/* SCROLLING CHAPTERS */}
-          <div dir="rtl">
-            {chapters.map((c, i) => (
-              <div
-                key={c.index}
-                className="flex min-h-[62vh] flex-col justify-center border-b p-8 md:p-12 lg:min-h-[100vh] lg:border-l last:border-b-0"
-                style={{ borderColor: "rgba(255,255,255,0.10)" }}
+          {/* floating photograph island */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.1, delay: 0.08 }}
+            className={`${GLASS} relative overflow-hidden p-2 md:col-span-7 md:row-start-2`}
+          >
+            {hero.backgroundImage ? (
+              <div className="relative h-[38vh] overflow-hidden rounded-[26px] md:h-[48vh]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={hero.backgroundImage}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  style={{ filter: "saturate(0.78) contrast(1.04)", transform: "scale(1.01)" }}
+                />
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "linear-gradient(180deg, rgba(7,8,12,0.05) 0%, rgba(7,8,12,0.55) 100%)",
+                  }}
+                />
+                <div className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[8.5px] tracking-[0.32em] text-white/45" dir="ltr">
+                      TITANIUM SERIES
+                    </p>
+                    <p className="mt-1 text-lg font-light text-white/90">{b.name}</p>
+                  </div>
+                  <span className="rounded-full border border-white/20 bg-black/25 px-3 py-1 text-[9px] tracking-[0.15em] text-white/65 backdrop-blur">
+                    {b.tagline.slice(0, 34)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-[38vh] items-center justify-center md:h-[48vh]">
+                <span className="text-[10px] tracking-[0.4em] text-white/30" dir="ltr">
+                  SPATIAL PREVIEW
+                </span>
+              </div>
+            )}
+          </motion.div>
+
+          {/* small floating category island */}
+          <motion.div
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25 }}
+            className={`${GLASS} flex flex-col justify-between p-6 md:col-span-5 md:row-start-2`}
+          >
+            <div>
+              <p className="text-[9px] tracking-[0.34em] text-white/30" dir="ltr">
+                THE STUDIO
+              </p>
+              <p
+                className="mt-4 text-[15px] font-light leading-[1.85] text-white/70"
+                {...editsFor("businessInfo.description")}
               >
-                <motion.div {...fadeUp}>
-                  <p className="flex items-baseline gap-4 text-[10px] tracking-[0.34em] text-white/35" dir="ltr">
-                    <span style={{ color: "#0071e3" }}>{c.index}</span>
-                    <span>{c.kicker}</span>
-                  </p>
-                  <h2
-                    className="mt-5 text-3xl font-light leading-[1.15] md:text-4xl"
-                    style={{ color: "#f5f5f7" }}
-                  >
-                    {c.title}
-                  </h2>
-                  <p className="mt-5 max-w-md text-[15px] leading-[1.9] text-white/50">
-                    {c.body}
-                  </p>
-                  <div className="mt-8 h-px w-14 bg-white/15" />
-                </motion.div>
+                {b.description}
+              </p>
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-white/[0.08] pt-4 text-[10px] tracking-[0.12em] text-white/32">
+              <span>{b.address}</span>
+              <span>{b.openingHours}</span>
+            </div>
+          </motion.div>
+
+          {/* floating metrics strip island */}
+          <div className={`${GLASS} grid grid-cols-3 gap-px overflow-hidden md:col-span-12`}>
+            {stats.map((stat, i) => (
+              <div key={i} className="bg-white/[0.015] px-5 py-5 text-center md:px-8 md:py-6">
+                <p className="text-2xl font-light text-[#f5f5f7] md:text-3xl" dir="ltr">
+                  {stat.value}
+                  <span className="text-sm text-white/25">{stat.suffix}</span>
+                </p>
+                <p className="mt-1 text-[9.5px] tracking-[0.16em] text-white/32">{stat.label}</p>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Mobile pinned visual (no sticky on small screens) */}
-        {hero.backgroundImage && (
-          <div className="border-t px-6 py-10 lg:hidden" style={{ borderColor: "rgba(255,255,255,0.10)" }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={hero.backgroundImage}
-              alt=""
-              className="h-[44vh] w-full rounded-2xl object-cover"
-              style={{ border: "1px solid rgba(255,255,255,0.10)", filter: "saturate(0.9)" }}
-            />
-            <div className="mt-4 grid grid-cols-3 gap-2" dir="ltr">
-              {metrics.map((m, i) => (
-                <div key={i} className="rounded-xl bg-[rgba(255,255,255,0.04)] px-3 py-4 text-center">
-                  <p className="text-xl font-light text-[#f5f5f7]" dir="ltr">{m.big}</p>
-                  <p className="mt-1 text-[9px] text-white/40" dir="rtl">{m.small}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </section>
 
-      {/* ---------- BENTO SPEC MATRIX with tilt 3D cards ---------- */}
-      <section className="relative z-10 mx-auto max-w-7xl px-6 py-20">
-        <p className="mb-10 text-[10px] tracking-[0.4em] text-white/35" dir="ltr" {...editsFor("businessInfo.category")}>
-          SPEC MATRIX
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" dir="rtl">
-          {[
-            <SpecCell
-              key="prc"
-              big={`${b.googleRating.toFixed(1)}★`}
-              small={`${b.reviewsCount} ביקורות מאומתות`}
-              title="דיוק ביצוע"
-            />,
-            <SpecCell
-              key="mat"
-              big="100%"
-              small="חומרים מובחרים בכל פרויקט"
-              title="איכות חומרים"
-            />,
-            <SpecCell
-              key="sup"
-              big="24/7"
-              small="מעקב פרויקט ומענה שוטף"
-              title="תמיכה חיה"
-            />,
-            <SpecCell
-              key="urn"
-              big={base ? `${(base / 1000).toFixed(0)}K` : "ל.מ."}
-              small={'החל מ-ש"ח — הצעה מדויקת לאחר מדידה'}
-              title="השקעה החל מ"
-            />,
-          ].map((cell, i) => (
-            <TiltCard3D key={i} maxTilt={6} glare={0.1}>
-              <div
-                className="h-full"
-                style={{
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  borderRadius: 16,
-                  background: "rgba(255,255,255,0.035)",
+      {/* ---------------- expandable spatial service pods ---------------- */}
+      <section id="pods" className="relative z-10 mx-auto max-w-7xl px-4 py-20">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4 px-1">
+          <div>
+            <p className="text-[9px] tracking-[0.38em] text-white/30" dir="ltr">
+              SPATIAL PODS / 02
+            </p>
+            <h2 className="mt-3 text-3xl font-light tracking-tight text-[#f5f5f7] md:text-4xl">
+              שירותים כאיי זכוכית
+            </h2>
+          </div>
+          <p className="max-w-xs text-[11.5px] leading-relaxed text-white/35">
+            לחצו על אי כדי לפתוח אותו למצב מיקוד מרחבי — מפרט, השקעה ותיאום.
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-6">
+          {services.map((service, i) => {
+            const isOpen = openPod === i;
+            const spans = ["md:col-span-4", "md:col-span-2", "md:col-span-2", "md:col-span-4"];
+            return (
+              <motion.article
+                key={i}
+                layout
+                onClick={() => {
+                  setOpenPod(isOpen ? null : i);
+                  setPodTab("spec");
                 }}
+                className={`${GLASS} group cursor-pointer overflow-hidden p-6 transition-colors hover:border-white/25 md:p-7 ${
+                  spans[i % spans.length]
+                } ${isOpen ? "md:col-span-6" : ""}`}
+                transition={{ type: "spring", stiffness: 280, damping: 28 }}
               >
-                {cell}
-              </div>
-            </TiltCard3D>
-          ))}
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <span className="text-[9px] tracking-[0.3em]" style={{ color: accent }} dir="ltr">
+                      POD {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <h3
+                      className="mt-3 text-xl font-light leading-[1.25] text-[#f5f5f7] md:text-2xl"
+                      {...editsFor(`services.${i}.title`)}
+                    >
+                      {service.title}
+                    </h3>
+                  </div>
+                  <span
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] text-white/55 transition group-hover:border-white/30 group-hover:text-white"
+                    aria-hidden="true"
+                  >
+                    {isOpen ? "−" : "+"}
+                  </span>
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {isOpen ? (
+                    <motion.div
+                      key="open"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="mt-5 border-t border-white/[0.08] pt-5"
+                    >
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPodTab("spec");
+                          }}
+                          className={`rounded-full px-4 py-1.5 text-[10.5px] transition ${
+                            podTab === "spec"
+                              ? "bg-white/15 text-white"
+                              : "bg-white/[0.04] text-white/45"
+                          }`}
+                        >
+                          מפרט
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPodTab("price");
+                          }}
+                          className={`rounded-full px-4 py-1.5 text-[10.5px] transition ${
+                            podTab === "price"
+                              ? "bg-white/15 text-white"
+                              : "bg-white/[0.04] text-white/45"
+                          }`}
+                        >
+                          השקעה
+                        </button>
+                      </div>
+                      {podTab === "spec" ? (
+                        <p
+                          className="mt-4 max-w-2xl text-[12.5px] leading-[1.95] text-white/50"
+                          {...editsFor(`services.${i}.description`)}
+                        >
+                          {service.description}
+                        </p>
+                      ) : (
+                        <div className="mt-4 flex flex-wrap items-baseline gap-3">
+                          <span
+                            className="text-2xl font-light text-[#f5f5f7]"
+                            {...editsFor(`services.${i}.price`)}
+                          >
+                            {service.price ?? "בהתאמה אישית"}
+                          </span>
+                          {parsePrice(service.price) && (
+                            <span className="text-[10px] text-white/30">
+                              לפני התאמות היקף
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <a
+                        href={waLink(
+                          b.whatsapp,
+                          `שלום ${b.name}, אשמח לפרטים על ${service.title}.`,
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                        className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-[11.5px] font-bold text-[#07080C]"
+                        style={{ background: accent }}
+                      >
+                        פתיחת שיחה מרחבית
+                        <span aria-hidden="true">←</span>
+                      </a>
+                    </motion.div>
+                  ) : (
+                    <motion.p
+                      key="closed"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="mt-4 line-clamp-2 max-w-lg text-[11.5px] leading-[1.85] text-white/38"
+                    >
+                      {service.description}
+                    </motion.p>
+                  )}
+                </AnimatePresence>
+
+                {!isOpen && (
+                  <div className="mt-5 flex items-center justify-between border-t border-white/[0.07] pt-4">
+                    <span className="text-[10.5px] text-white/40">{service.price}</span>
+                    <span className="text-[8.5px] tracking-[0.24em] text-white/22" dir="ltr">
+                      TAP TO FOCUS
+                    </span>
+                  </div>
+                )}
+              </motion.article>
+            );
+          })}
         </div>
       </section>
 
-      {/* ---------- Benefits — hairline columns ---------- */}
-      {benefits.length > 0 && (
-        <section className="relative z-10 border-y" style={{ borderColor: "rgba(255,255,255,0.10)" }} dir="rtl">
-          <div className="grid md:grid-cols-3">
-            {benefits.slice(0, 3).map((bf, i) => (
+      {/* ---------------- pinned split hardware showcase ---------------- */}
+      <section id="showcase" className="relative z-10 mx-auto max-w-7xl px-4 py-20">
+        <div className="mb-8 flex items-end justify-between gap-4 px-1">
+          <div>
+            <p className="text-[9px] tracking-[0.38em] text-white/30" dir="ltr">
+              PINNED SHOWCASE / 03
+            </p>
+            <h2 className="mt-3 text-3xl font-light tracking-tight text-[#f5f5f7] md:text-4xl">
+              המוצר נשאר. המפרט נע.
+            </h2>
+          </div>
+          <span className="hidden text-[10px] tracking-[0.2em] text-white/25 sm:block" dir="ltr">
+            SCROLL TO SPEC
+          </span>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div className="lg:sticky lg:top-28 lg:self-start">
+            <div className={`${GLASS} overflow-hidden p-2.5`}>
+              <div className="relative h-[52vh] overflow-hidden rounded-[26px] md:h-[66vh]">
+                {spotlight?.afterImage || hero.backgroundImage ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={spotlight?.afterImage || hero.backgroundImage}
+                      alt={spotlight?.title ?? ""}
+                      className="h-full w-full object-cover"
+                      style={{ filter: "saturate(0.76) contrast(1.05)" }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          "linear-gradient(180deg, rgba(7,8,12,0.08), rgba(7,8,12,0.75))",
+                      }}
+                    />
+                  </>
+                ) : (
+                  <div className="flex h-full items-center justify-center bg-white/[0.03]">
+                    <span className="text-[10px] tracking-[0.4em] text-white/25" dir="ltr">
+                      DEVICE VIEW
+                    </span>
+                  </div>
+                )}
+
+                <div className="absolute inset-x-4 top-4 flex items-center justify-between">
+                  <span className="rounded-full border border-white/15 bg-black/25 px-3 py-1 text-[8.5px] tracking-[0.24em] text-white/60 backdrop-blur">
+                    SPATIAL VIEW
+                  </span>
+                  <span className="rounded-full border border-white/15 bg-black/25 px-3 py-1 text-[8.5px] tracking-[0.24em] text-white/60 backdrop-blur" dir="ltr">
+                    {String(activeShot + 1).padStart(2, "0")} / {String(Math.max(projects.length, 1)).padStart(2, "0")}
+                  </span>
+                </div>
+
+                <div className="absolute inset-x-4 bottom-4">
+                  <p className="text-[9px] tracking-[0.3em] text-white/40" dir="ltr">
+                    LIVE PREVIEW
+                  </p>
+                  <p className="mt-1 text-xl font-light text-white/90">
+                    {spotlight?.title ?? b.name}
+                  </p>
+                  <div className="mt-3 flex gap-1.5">
+                    {Array.from({ length: Math.max(projects.length, 1) }).map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setActiveShot(i)}
+                        aria-label={`תצוגה ${i + 1}`}
+                        className="h-1 flex-1 transition-colors"
+                        style={{
+                          background:
+                            i === activeShot
+                              ? accent
+                              : "rgba(255,255,255,0.16)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {[
+              {
+                kicker: "MATERIAL",
+                title: services[0]?.title ?? "חומרים",
+                body: services[0]?.description ?? "חומרים נבחרים, בגימור מדויק.",
+                metric: "01",
+              },
+              {
+                kicker: "PRECISION",
+                title: services[1]?.title ?? "ביצוע",
+                body: services[1]?.description ?? "ביצוע מדויק עד הפרט האחרון.",
+                metric: "02",
+              },
+              {
+                kicker: "DELIVERY",
+                title: services[2]?.title ?? "מסירה",
+                body: services[2]?.description ?? "מסירה מסודרת, בזמן, עם אחריות.",
+                metric: "03",
+              },
+            ].map((spec, i) => (
+              <motion.div
+                key={spec.metric}
+                initial={{ opacity: 0, y: 24 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-80px" }}
+                transition={{ duration: 0.6, delay: i * 0.06 }}
+                className={`${GLASS} p-6 md:p-7`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-[8.5px] tracking-[0.34em]" style={{ color: accent }} dir="ltr">
+                    {spec.kicker}
+                  </span>
+                  <span className="text-3xl font-light leading-none text-white/12" dir="ltr">
+                    {spec.metric}
+                  </span>
+                </div>
+                <h3 className="mt-4 text-xl font-light text-[#f5f5f7]">{spec.title}</h3>
+                <p className="mt-2.5 text-[12px] leading-[1.95] text-white/42">{spec.body}</p>
+              </motion.div>
+            ))}
+
+            {benefits.slice(0, 2).map((benefit, i) => (
               <div
                 key={i}
-                className="border-t px-8 py-10 md:border-l md:first:border-l-0"
-                style={{ borderColor: "rgba(255,255,255,0.10)" }}
-                dir="ltr"
+                className={`${GLASS} flex items-start gap-4 p-6 md:p-7`}
               >
-                <p className="text-[10px] tracking-[0.3em] text-white/30" dir="ltr">
-                  {String(i + 1).padStart(2, "0")}
-                </p>
-                <h3 className="mt-3 text-lg font-medium" style={{ color: "#f5f5f7" }} dir="rtl" {...editsFor(`benefits.${i}.title`)}>
-                  {bf.title}
-                </h3>
-                <p className="mt-2 text-[13px] leading-[1.85] text-white/45" dir="rtl" {...editsFor(`benefits.${i}.description`)}>
-                  {bf.description}
-                </p>
+                <span
+                  className="mt-1 h-2 w-2 shrink-0 rounded-full"
+                  style={{ background: accent }}
+                  aria-hidden="true"
+                />
+                <div>
+                  <h3 className="text-[15px] font-medium text-white/80">{benefit.title}</h3>
+                  <p className="mt-1.5 text-[11.5px] leading-[1.9] text-white/38">
+                    {benefit.description}
+                  </p>
+                </div>
               </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ---------------- work islands ---------------- */}
+      {projects.length > 0 && (
+        <section id="work" className="relative z-10 mx-auto max-w-7xl px-4 py-20">
+          <div className="mb-8 flex items-end justify-between gap-4 px-1">
+            <div>
+              <p className="text-[9px] tracking-[0.38em] text-white/30" dir="ltr">
+                FIELD WORK / 04
+              </p>
+              <h2 className="mt-3 text-3xl font-light tracking-tight text-[#f5f5f7] md:text-4xl">
+                מרחבים שנבנו.
+              </h2>
+            </div>
+            <span className="text-[10px] tracking-[0.2em] text-white/25" dir="ltr">
+              SELECTED / {String(projects.length).padStart(2, "0")}
+            </span>
+          </div>
+          <div className="grid gap-4 md:grid-cols-12">
+            {projects.slice(0, 3).map((project, i) => (
+              <article
+                key={i}
+                className={`${GLASS} overflow-hidden p-2 ${
+                  i === 0 ? "md:col-span-7" : "md:col-span-5"
+                }`}
+              >
+                <div className="relative h-[32vh] overflow-hidden rounded-[24px] md:h-[42vh]">
+                  {project.afterImage && (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={project.afterImage}
+                        alt={project.title}
+                        loading="lazy"
+                        className="h-full w-full object-cover"
+                        style={{ filter: "saturate(0.78)" }}
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-0"
+                        style={{
+                          background:
+                            "linear-gradient(180deg, transparent 45%, rgba(7,8,12,0.82))",
+                        }}
+                      />
+                    </>
+                  )}
+                  <div className="absolute inset-x-4 bottom-4">
+                    <p className="text-[8.5px] tracking-[0.3em] text-white/40" dir="ltr">
+                      CASE {String(i + 1).padStart(2, "0")}
+                    </p>
+                    <h3 className="mt-1 text-lg font-light text-white/90">{project.title}</h3>
+                  </div>
+                </div>
+                {project.description && (
+                  <p className="px-4 py-4 text-[11.5px] leading-[1.85] text-white/38">
+                    {project.description}
+                  </p>
+                )}
+              </article>
             ))}
           </div>
         </section>
       )}
 
-      {/* ---------- Before/After ---------- */}
-      <section className="relative z-10 mx-auto max-w-5xl px-6 py-20">
-        <p className="mb-8 text-[10px] tracking-[0.4em] text-white/35" dir="ltr">BEFORE / AFTER</p>
-        <BeforeAfterSlider
-          theme={{
-            accent: "#0071e3",
-            dark: true,
-            pageBg: "#0b0c0e",
-            surface: "rgba(255,255,255,0.045)",
-            border: "rgba(255,255,255,0.10)",
-            headline: "#f5f5f7",
-            text: "rgba(245,245,247,0.78)",
-            muted: "rgba(245,245,247,0.46)",
-            fontSerif: undefined,
-          }}
-          beforeImage={projects[0]?.beforeImage}
-          afterImage={projects[0]?.afterImage}
-          beforeLabel="לפני"
-          afterLabel="אחרי"
-          caption="גררו את הידית וראו את ההפרש בעין"
-        />
-        {projects[0] && (
-          <p className="mt-4 text-center text-[13px] text-white/40" dir="rtl">
-            {projects[0].title} — {projects[0].description}
-          </p>
-        )}
-      </section>
-
-      {/* ---------- Reviews ---------- */}
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20">
-        <div className="mb-8 flex items-center justify-between">
-          <p className="text-[10px] tracking-[0.4em] text-white/35" dir="ltr">Verified Reviews</p>
-          <Stars rating={Math.round(b.googleRating)} className="h-3.5 w-3.5" starClass="text-[#fbbf24]" />
+      {/* ---------------- reviews as floating voices ---------------- */}
+      <section id="voices" className="relative z-10 mx-auto max-w-7xl px-4 py-20">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4 px-1">
+          <div>
+            <p className="text-[9px] tracking-[0.38em] text-white/30" dir="ltr">
+              CLIENT VOICES / 05
+            </p>
+            <h2 className="mt-3 text-3xl font-light tracking-tight text-[#f5f5f7] md:text-4xl">
+              מה שנשאר אחרי.
+            </h2>
+          </div>
+          <span className="flex items-center gap-3 text-[11px] text-white/45">
+            {b.googleRating.toFixed(1)} / 5
+            <RatingBars rating={b.googleRating} color={accent} />
+          </span>
         </div>
-        <div className="grid gap-4 md:grid-cols-3" dir="rtl">
-          {reviews.slice(0, 3).map((r, i) => (
+
+        <div className="grid gap-4 md:grid-cols-12">
+          {reviews.slice(0, 3).map((review, i) => (
             <figure
               key={i}
-              className="rounded-2xl p-7"
-              style={{ border: "1px solid rgba(255,255,255,0.10)", background: "rgba(255,255,255,0.03)" }}
+              className={`${GLASS} flex flex-col justify-between p-7 ${
+                i === 0 ? "md:col-span-5 md:row-span-2" : "md:col-span-7"
+              }`}
             >
-              <Stars rating={r.rating} className="h-3 w-3" starClass="text-[#fbbf24]" />
-              <blockquote className="mt-4 text-[14px] leading-[1.85] text-white/60" {...editsFor(`reviews.${i}.text`)}>
-                {r.text}
-              </blockquote>
-              <figcaption className="mt-5 text-[11px] tracking-wider text-white/35" {...editsFor(`reviews.${i}.author`)}>
-                {r.author}
+              <div>
+                <span className="text-[8.5px] tracking-[0.3em] text-white/25" dir="ltr">
+                  VERIFIED {String(i + 1).padStart(2, "0")}
+                </span>
+                <blockquote
+                  className={`mt-4 font-light leading-[1.85] text-white/70 ${
+                    i === 0 ? "text-[17px] md:text-[19px]" : "text-[13.5px]"
+                  }`}
+                  {...editsFor(`reviews.${i}.text`)}
+                >
+                  “{review.text}”
+                </blockquote>
+              </div>
+              <figcaption className="mt-6 flex items-center justify-between border-t border-white/[0.08] pt-4 text-[10px] tracking-[0.18em] text-white/35">
+                <span {...editsFor(`reviews.${i}.author`)}>{review.author}</span>
+                <span dir="ltr">{review.rating}.0 / 5</span>
               </figcaption>
             </figure>
           ))}
         </div>
       </section>
 
-      {/* ---------- FAQ + closing ---------- */}
-      <section className="relative z-10 mx-auto max-w-3xl px-6 pb-16">
-        <h2 className="mb-9 text-center text-2xl font-light sm:text-3xl" style={{ color: "#f5f5f7" }}>
-          שאלות שנשאלות בסטודיו
-        </h2>
-        <FaqAccordion
-          items={faq}
-          classes={{
-            card: "overflow-hidden rounded-2xl",
-            button: "flex w-full items-center justify-between gap-4 px-6 py-5 text-right text-[13px] text-white/80",
-            icon: "h-4 w-4 text-white/30",
-            answer: "px-6 pb-5 text-[12px] leading-relaxed text-white/45",
-          }}
-        />
+      {/* ---------------- FAQ + contact islands ---------------- */}
+      <section className="relative z-10 mx-auto max-w-7xl px-4 pb-20 pt-10">
+        <div className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+          <div className={`${GLASS} p-7 md:p-9`}>
+            <p className="text-[9px] tracking-[0.38em] text-white/30" dir="ltr">
+              FAQ / 06
+            </p>
+            <h2 className="mt-3 text-2xl font-light text-[#f5f5f7] md:text-3xl">
+              שאלות מרחביות
+            </h2>
+            <div className="mt-6">
+              <FaqAccordion
+                items={faq}
+                classes={{
+                  card: "border-b border-white/[0.08]",
+                  button:
+                    "flex w-full items-center justify-between gap-4 py-4 text-right text-[12.5px] text-white/78",
+                  icon: "h-4 w-4 text-white/30",
+                  answer: "pb-4 text-[11.5px] leading-[1.9] text-white/38",
+                }}
+              />
+            </div>
+          </div>
+
+          <div id="contact" className={`${GLASS} relative overflow-hidden p-7 md:p-9`}>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-16 -top-20 h-52 w-52 rounded-full"
+              style={{ background: `radial-gradient(circle, color-mix(in srgb, ${accent} 22%, transparent), transparent 70%)` }}
+            />
+            <p className="text-[9px] tracking-[0.38em] text-white/30" dir="ltr">
+              CONTACT / 07
+            </p>
+            <h2 className="mt-3 text-2xl font-light leading-[1.25] text-[#f5f5f7] md:text-3xl">
+              פותחים חלון
+              <br />
+              שיחה חדש.
+            </h2>
+            <p className="mt-4 text-[12px] leading-[1.9] text-white/42">
+              {b.openingHours} · {b.address}
+            </p>
+            <div className="mt-7 flex flex-col gap-2.5">
+              <a
+                href={heroHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 rounded-full py-3.5 text-[13px] font-bold text-[#07080C]"
+                style={{ background: accent }}
+              >
+                <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                וואטסאפ ישיר
+              </a>
+              <a
+                href={`tel:${b.phone}`}
+                className="flex items-center justify-center gap-2 rounded-full border border-white/[0.14] bg-white/[0.04] py-3.5 text-[13px] font-medium text-white/75"
+                dir="ltr"
+              >
+                <Phone className="h-4 w-4" aria-hidden="true" />
+                {b.phone}
+              </a>
+            </div>
+            <div className="mt-6 flex items-center justify-between border-t border-white/[0.08] pt-4 text-[9px] tracking-[0.2em] text-white/25">
+              <span>{b.name}</span>
+              <span dir="ltr">PRIMARY COLOR {primary.toUpperCase()}</span>
+            </div>
+          </div>
+        </div>
       </section>
 
-      <footer
-        className="relative z-10 mx-auto max-w-5xl px-6 pb-10 text-center"
-        style={{ color: "#f5f5f7" }}
-        dir="rtl"
-      >
-        <a
-          href={quoteHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mx-auto block max-w-sm rounded-full py-4 text-center text-[15px] font-semibold text-white"
-          style={{ background: "#0071e3", boxShadow: "0 8px 30px rgba(0,113,227,0.35)" }}
-        >
-          שירת הצעת מחיר מהסטודיו
-        </a>
-        <p className="mt-8 text-[11px] tracking-[0.2em] text-white/30">
-          {b.openingHours} · {b.address} · <span dir="ltr">{b.phone}</span>
+      <footer className="relative z-10 px-6 pb-10 text-center">
+        <p className="text-[8px] tracking-[0.4em] text-white/18" dir="ltr">
+          SPATIAL COMPUTING EXPERIENCE — {b.name.toUpperCase()}
         </p>
       </footer>
-    </div>
-  );
-}
 
-/* Bento spec cell — big typographic metric, no icon boxes */
-function SpecCell({
-  big,
-  small,
-  title,
-}: {
-  big: string;
-  small: string;
-  title: string;
-}) {
-  return (
-    <div className="flex h-full flex-col p-6" dir="rtl">
-      <p className="text-[10px] tracking-[0.3em] text-white/35">{title}</p>
-      <p
-        className="mt-4 text-4xl font-light leading-none tracking-tight"
-        style={{ color: "#f5f5f7" }}
-        dir="ltr"
-      >
-        {big}
-      </p>
-      <p className="mt-3 text-[11px] leading-snug text-white/40">{small}</p>
+      {/* dismiss helper for screen readers / touch users */}
+      {openPod !== null && (
+        <button
+          type="button"
+          onClick={() => setOpenPod(null)}
+          className="fixed bottom-24 left-4 z-[9600] flex h-9 items-center gap-2 rounded-full border border-white/15 bg-[#0b0d12]/90 px-4 text-[10px] text-white/60 backdrop-blur"
+        >
+          <X className="h-3 w-3" aria-hidden="true" />
+          סגירת מיקוד
+        </button>
+      )}
+      {openPod !== null && openPodPrice !== null && (
+        <span className="sr-only">{formatNis(openPodPrice)}</span>
+      )}
     </div>
   );
 }

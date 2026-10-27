@@ -10,12 +10,18 @@ import React, {
   useState,
 } from "react";
 import type { SiteData, TemplateId, ThemeConfig } from "@/types/site";
-import { LEGACY_TEMPLATE_FALLBACK } from "@/types/site";
+import { LEGACY_TEMPLATE_FALLBACK, TEMPLATE_OPTIONS } from "@/types/site";
 import siteDataJson from "@/data/siteData.json";
 
 const GITHUB_RAW_BASE =
   "https://raw.githubusercontent.com/JonathanGaming1/site-previews/main/public/sites";
 const ADMIN_KEY = "yam2026";
+
+/** localStorage prefix for the admin's instant, 0ms local override. */
+export const SITE_OVERRIDE_PREFIX = "site_override_";
+
+/** Raw GitHub JSON base used by the admin bridge to re-sync after n8n. */
+export const SITES_RAW_BASE = GITHUB_RAW_BASE;
 
 export const REPO_OWNER = "JonathanGaming1";
 export const REPO_NAME = "site-previews";
@@ -37,7 +43,7 @@ interface SiteContextValue {
   adminKey: string | null;
   isAdmin: boolean;
   mounted: boolean;
-  /** Replace the whole data object in React state (used by AI edit / recall). */
+  /** Replace the whole data object in React state (used by AI sync / recall). */
   replaceData: (next: SiteData) => void;
   /** Returns props that enable click-to-edit (contentEditable) for admin users. */
   editsFor: (path: string) => EditableProps;
@@ -87,22 +93,64 @@ export function getByPath(obj: Record<string, unknown>, path: string): unknown {
 export function normalizeTemplate(id: unknown): TemplateId {
   if (id && typeof id === "string") {
     if (LEGACY_TEMPLATE_FALLBACK[id]) return LEGACY_TEMPLATE_FALLBACK[id];
-    if (
-      ["apple-spatial", "whisky-obsidian", "cyber-quantum", "atelier-boutique"].includes(id)
-    ) {
+    if (TEMPLATE_OPTIONS.some((option) => option.id === id)) {
       return id as TemplateId;
     }
   }
   return "apple-spatial";
 }
 
+/** A clean first-version snapshot without recursive backup / checkpoints. */
+export function makeInitialBackup(data: SiteData): SiteData {
+  const snapshot = clone(data);
+  delete snapshot.initialBackup;
+  snapshot.checkpoints = [];
+  return snapshot;
+}
+
 /** Fill a (possibly partial / legacy) remote JSON into a valid SiteData. */
-function hydrateSite(remote: Partial<SiteData>, slug: string | null): SiteData {
+function hydrateSite(
+  remote: Partial<SiteData>,
+  slug: string | null,
+  applyOverride: boolean,
+): SiteData {
   const base = clone(siteDataJson as unknown as SiteData);
   const merged = { ...base, ...clone(remote) } as SiteData;
   merged.templateId = normalizeTemplate(remote.templateId ?? base.templateId);
   if (slug) merged.slug = slug;
+  merged.checkpoints = merged.checkpoints ?? [];
+  if (!merged.initialBackup) merged.initialBackup = makeInitialBackup(merged);
+
+  if (applyOverride && typeof window !== "undefined") {
+    const storeSlug = slug ?? merged.slug ?? "default";
+    try {
+      const raw = localStorage.getItem(SITE_OVERRIDE_PREFIX + storeSlug);
+      if (raw) {
+        const local = JSON.parse(raw) as Partial<SiteData>;
+        const mergedLocal = { ...merged, ...clone(local) } as SiteData;
+        mergedLocal.templateId = normalizeTemplate(
+          local.templateId ?? merged.templateId,
+        );
+        mergedLocal.checkpoints = mergedLocal.checkpoints ?? merged.checkpoints;
+        if (!mergedLocal.initialBackup) {
+          mergedLocal.initialBackup = merged.initialBackup;
+        }
+        return mergedLocal;
+      }
+    } catch {
+      /* corrupt local override — fall back to the remote JSON */
+    }
+  }
+
   return merged;
+}
+
+function seedSite(): SiteData {
+  const seed = clone(siteDataJson as unknown as SiteData);
+  seed.templateId = normalizeTemplate(seed.templateId);
+  seed.checkpoints = seed.checkpoints ?? [];
+  if (!seed.initialBackup) seed.initialBackup = makeInitialBackup(seed);
+  return seed;
 }
 
 export function useSite(): SiteContextValue {
@@ -111,18 +159,15 @@ export function useSite(): SiteContextValue {
   return ctx;
 }
 
-function stripMarkdownFences(text: string): string {
-  return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/```$/, "").trim();
-}
-
 export function SiteProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<SiteData>(() => clone(siteDataJson as unknown as SiteData));
-  const initialData = useMemo(() => clone(siteDataJson as unknown as SiteData), []);
+  const [data, setData] = useState<SiteData>(() => seedSite());
   const [adminKey, setAdminKey] = useState<string | null>(null);
   const [slug, setSlug] = useState<string | null>(null);
   const [remoteLoaded, setRemoteLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const fetchedSlugRef = useRef<string | null>(null);
+
+  const initialData = useMemo(() => seedSite(), []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -137,32 +182,42 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return;
 
-    let slug: string | null = null;
+    let resolvedSlug: string | null = null;
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get("site");
     if (fromQuery && fromQuery.trim()) {
-      slug = fromQuery.trim().replace(/[^a-zA-Z0-9_-]/g, "");
+      resolvedSlug = fromQuery.trim().replace(/[^a-zA-Z0-9_-]/g, "");
     } else {
       const match = window.location.pathname.match(/^\/p\/([a-zA-Z0-9_-]+)/);
-      if (match) slug = match[1];
+      if (match) resolvedSlug = match[1];
     }
 
-    if (!slug) return;
-    setSlug(slug);
+    if (!resolvedSlug) {
+      const isAdminVisit = params.get("key") === ADMIN_KEY;
+      setData((prev) => hydrateSite(prev, null, isAdminVisit));
+      setRemoteLoaded(true);
+      return;
+    }
 
-    const isSameSlug = fetchedSlugRef.current === slug;
-    fetchedSlugRef.current = slug;
+    setSlug(resolvedSlug);
+
+    const isSameSlug = fetchedSlugRef.current === resolvedSlug;
+    fetchedSlugRef.current = resolvedSlug;
     if (isSameSlug) return;
+
+    const isAdminVisit = params.get("key") === ADMIN_KEY;
 
     const load = async () => {
       // 1) Same-origin /sites/{slug}.json — fast Cloudflare CDN copy first
       // 2) Raw GitHub — fresher saved content when CDN misses, cache-busted
       // 3) Bundled default data — graceful offline fallback
       try {
-        const res = await fetch(`/sites/${slug}.json`, { cache: "no-store" });
+        const res = await fetch(`/sites/${resolvedSlug}.json`, {
+          cache: "no-store",
+        });
         if (res.ok) {
           const remote = (await res.json()) as Partial<SiteData>;
-          setData(hydrateSite(remote, slug));
+          setData(hydrateSite(remote, resolvedSlug, isAdminVisit));
           setRemoteLoaded(true);
           return;
         }
@@ -170,12 +225,13 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
         /* fall through */
       }
       try {
-        const res = await fetch(`${GITHUB_RAW_BASE}/${slug}.json?t=${Date.now()}`, {
-          cache: "no-store",
-        });
+        const res = await fetch(
+          `${GITHUB_RAW_BASE}/${resolvedSlug}.json?t=${Date.now()}`,
+          { cache: "no-store" },
+        );
         if (res.ok) {
           const remote = (await res.json()) as Partial<SiteData>;
-          setData(hydrateSite(remote, slug));
+          setData(hydrateSite(remote, resolvedSlug, isAdminVisit));
           setRemoteLoaded(true);
           return;
         }
@@ -183,13 +239,28 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
         /* fall through */
       }
       // Unknown business: fall back to bundled default data, tagged with the slug.
-      setData((prev) => ({ ...clone(prev), slug }));
+      setData((prev) => hydrateSite(prev, resolvedSlug, isAdminVisit));
       setRemoteLoaded(true);
     };
     void load();
   }, [mounted]);
 
   const isAdmin = mounted && adminKey === ADMIN_KEY;
+
+  // 0ms persistence: every admin edit/template/colour change is mirrored to
+  // localStorage immediately, so a refresh restores the exact same view.
+  useEffect(() => {
+    if (!mounted || !isAdmin || !remoteLoaded) return;
+    const storeSlug = slug ?? data.slug ?? "default";
+    try {
+      localStorage.setItem(
+        SITE_OVERRIDE_PREFIX + storeSlug,
+        JSON.stringify(data),
+      );
+    } catch {
+      /* storage full / disabled — the screen still holds the live state */
+    }
+  }, [data, isAdmin, mounted, remoteLoaded, slug]);
 
   const updateValue = useCallback((path: string, value: string | number) => {
     setData((prev) => {
@@ -200,7 +271,10 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const replaceData = useCallback((next: SiteData) => {
-    setData(clone(next));
+    const safe = clone(next);
+    safe.templateId = normalizeTemplate(safe.templateId);
+    safe.checkpoints = safe.checkpoints ?? [];
+    setData(safe);
   }, []);
 
   const editsFor = useCallback(
@@ -221,7 +295,7 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
   );
 
   const setTemplate = useCallback((id: TemplateId) => {
-    setData((prev) => ({ ...prev, templateId: id }));
+    setData((prev) => ({ ...prev, templateId: normalizeTemplate(id) }));
   }, []);
 
   const setTheme = useCallback((theme: Partial<ThemeConfig>) => {
