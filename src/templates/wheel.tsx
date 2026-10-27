@@ -92,6 +92,16 @@ function isTextTarget(node: EventTarget | null): boolean {
   return /^(INPUT|TEXTAREA|SELECT|OPTION)$/.test(el.tagName);
 }
 
+/** Keep camera gestures away from controls that own their own pointer input. */
+function isCameraInteractiveTarget(node: EventTarget | null): boolean {
+  const el = node as HTMLElement | null;
+  return Boolean(
+    el?.closest(
+      "a,button,input,textarea,select,option,[role='slider'],[contenteditable='true'],[data-camera-interactive='true']",
+    ),
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Viewport lock                                                       */
 /* ------------------------------------------------------------------ */
@@ -168,19 +178,34 @@ export function useCameraEngine(
   sceneCount: number,
   options: { sensitivity?: number; depthMm?: number } = {},
 ): CameraEngine {
-  const sensitivity = options.sensitivity ?? 0.00045;
+  const sensitivity = options.sensitivity ?? 0.00018;
   const depthMm = options.depthMm ?? 4800;
   const last = Math.max(1, sceneCount - 1);
 
   const raw = useMotionValue(0);
   const progress = useSpring(raw, {
-    stiffness: 55,
-    damping: 20,
-    mass: 0.9,
+    stiffness: 48,
+    damping: 19,
+    mass: 0.95,
   });
   const [active, setActive] = useState(0);
   const suppressed = useRef(false);
   const touchY = useRef(0);
+  const snapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearSnapTimeout = useCallback(() => {
+    if (snapTimeoutRef.current) clearTimeout(snapTimeoutRef.current);
+    snapTimeoutRef.current = null;
+  }, []);
+
+  const scheduleSnap = useCallback(() => {
+    clearSnapTimeout();
+    snapTimeoutRef.current = setTimeout(() => {
+      snapTimeoutRef.current = null;
+      const nearestScene = Math.round(raw.get() * last);
+      raw.set(nearestScene / last);
+    }, 220);
+  }, [clearSnapTimeout, last, raw]);
 
   useMotionValueEvent(progress, "change", (value) => {
     const index = Math.max(0, Math.min(last, Math.round(value * last)));
@@ -189,27 +214,32 @@ export function useCameraEngine(
 
   const jump = useCallback(
     (index: number) => {
+      clearSnapTimeout();
       raw.set(clamp01(index / last));
     },
-    [raw, last],
+    [clearSnapTimeout, raw, last],
   );
 
   const step = useCallback(
     (direction: number) => {
+      clearSnapTimeout();
       const index = Math.max(
         0,
         Math.min(last, Math.round(raw.get() * last) + direction),
       );
       raw.set(index / last);
     },
-    [raw, last],
+    [clearSnapTimeout, raw, last],
   );
 
   const setSuppressed = useCallback((value: boolean) => {
     suppressed.current = value;
     /* Freeze the camera exactly where it is while a dialog owns the screen. */
-    if (value) raw.set(raw.get());
-  }, [raw]);
+    if (value) {
+      clearSnapTimeout();
+      raw.set(raw.get());
+    }
+  }, [clearSnapTimeout, raw]);
 
   const zDepth = useTransform(
     progress,
@@ -219,11 +249,16 @@ export function useCameraEngine(
 
   useEffect(() => {
     const onWheel = (event: WheelEvent) => {
-      if (suppressed.current || ownsWheel(event.target)) return;
+      if (
+        suppressed.current ||
+        ownsWheel(event.target) ||
+        isCameraInteractiveTarget(event.target)
+      ) return;
       event.preventDefault();
       const unit =
         event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1;
       raw.set(clamp01(raw.get() + event.deltaY * unit * sensitivity));
+      scheduleSnap();
     };
 
     const onTouchStart = (event: TouchEvent) => {
@@ -231,13 +266,18 @@ export function useCameraEngine(
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      if (suppressed.current || ownsWheel(event.target)) return;
+      if (
+        suppressed.current ||
+        ownsWheel(event.target) ||
+        isCameraInteractiveTarget(event.target)
+      ) return;
       const currentY = event.touches[0]?.clientY ?? 0;
       const node = event.target as HTMLElement | null;
       if (node?.closest("[data-camera-open='true']")) return;
       const delta = touchY.current - currentY;
       touchY.current = currentY;
       raw.set(clamp01(raw.get() + delta * 0.0016));
+      scheduleSnap();
     };
 
     const onKeyDown = (event: KeyboardEvent) => {
@@ -265,12 +305,13 @@ export function useCameraEngine(
     window.addEventListener("keydown", onKeyDown);
 
     return () => {
+      clearSnapTimeout();
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [jump, last, raw, sensitivity, step]);
+  }, [clearSnapTimeout, jump, last, raw, scheduleSnap, sensitivity, step]);
 
   return useMemo(
     () => ({

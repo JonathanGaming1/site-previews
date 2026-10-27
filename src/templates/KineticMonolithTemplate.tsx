@@ -61,7 +61,7 @@ export function KineticMonolithTemplate() {
   const [menu, setMenu] = useState(false);
 
   const engine = useCameraEngine(SCENES.length, {
-    sensitivity: 0.00046,
+    sensitivity: 0.00018,
     depthMm: 8800,
   });
   const rig = useCameraRig({ tiltX: 6, tiltY: 12, lightMin: 12, lightMax: 88 });
@@ -234,7 +234,7 @@ export function KineticMonolithTemplate() {
         {/* ---------------- 01 · ENTRY ---------------- */}
         <motion.section
           style={{ ...s1, ...livePointer(active === 0) }}
-          className="absolute inset-0 flex items-center justify-center px-6"
+          className="absolute inset-0 flex items-center justify-center px-6 pb-24 pt-20"
         >
           <motion.div style={{ x: glideSlow }} className="max-w-5xl text-center">
             <span className="font-grotesk text-[10px] uppercase tracking-[0.55em] text-white/40">
@@ -269,7 +269,7 @@ export function KineticMonolithTemplate() {
         {/* ---------------- 02 · MODULES ---------------- */}
         <motion.section
           style={{ ...s2, ...livePointer(active === 1) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-14"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
         >
           <motion.div style={{ x: glide }} className="w-full">
             <div className="flex items-end justify-between border-b border-white/10 pb-5">
@@ -470,7 +470,7 @@ export function KineticMonolithTemplate() {
         {/* ---------------- 04 · OUTPUT ---------------- */}
         <motion.section
           style={{ ...s4, ...livePointer(active === 3) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-14"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
         >
           <motion.div style={{ x: glideFast }} className="mx-auto w-full max-w-6xl">
             <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
@@ -534,7 +534,7 @@ export function KineticMonolithTemplate() {
         {/* ---------------- 05 · UPLINK ---------------- */}
         <motion.section
           style={{ ...s5, ...livePointer(active === 4) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 py-20 md:px-14"
+          className="absolute inset-0 flex flex-col justify-center px-6 py-20 pb-24 md:px-14"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_1.05fr]">
             <div className={`${SLAB} p-7 md:p-9`}>

@@ -68,7 +68,7 @@ export function AppleSpatialTemplate() {
   const [menu, setMenu] = useState(false);
 
   const engine = useCameraEngine(SCENES.length, {
-    sensitivity: 0.00042,
+    sensitivity: 0.00018,
     depthMm: 6200,
   });
   const rig = useCameraRig({ tiltX: 6, tiltY: 9, lightMin: 12, lightMax: 88 });
@@ -246,7 +246,7 @@ export function AppleSpatialTemplate() {
         {/* ---------------- 01 · SPATIAL ---------------- */}
         <motion.section
           style={{ ...s1, ...livePointer(active === 0) }}
-          className="absolute inset-0 flex flex-col items-center justify-center px-6"
+          className="absolute inset-0 flex flex-col items-center justify-center px-6 pb-24 pt-20"
         >
           <span className="font-grotesk text-[10px] uppercase tracking-[0.5em] text-white/40">
             CHAPTER 01 — SPATIAL FIELD
@@ -335,7 +335,7 @@ export function AppleSpatialTemplate() {
         {/* ---------------- 02 · ARCHITECTURE ---------------- */}
         <motion.section
           style={{ ...s2, ...livePointer(active === 1) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-16"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-16"
         >
           <div className="mx-auto w-full max-w-6xl">
             <div className="flex items-end justify-between border-b border-white/10 pb-5">
@@ -573,7 +573,7 @@ export function AppleSpatialTemplate() {
         {/* ---------------- 04 · IMMERSION ---------------- */}
         <motion.section
           style={{ ...s4, ...livePointer(active === 3) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-16"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-16"
         >
           <div className="mx-auto w-full max-w-5xl">
             <div className="flex items-end justify-between pb-5">
@@ -624,7 +624,7 @@ export function AppleSpatialTemplate() {
         {/* ---------------- 05 · CONNECT ---------------- */}
         <motion.section
           style={{ ...s5, ...livePointer(active === 4) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 py-20 md:px-16"
+          className="absolute inset-0 flex flex-col justify-center px-6 py-20 pb-24 md:px-16"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_1.1fr]">
             <div className={`rounded-[28px] p-7 md:p-9 ${GLASS}`}>

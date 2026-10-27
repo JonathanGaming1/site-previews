@@ -92,12 +92,27 @@ export function ForgeAutomotiveTemplate() {
   // =========================================================================
   const rawProgress = useMotionValue(0); // 0 to 1 across 5 3D scenes
   const smoothProgress = useSpring(rawProgress, {
-    stiffness: 55,
-    damping: 20,
-    mass: 0.9,
+    stiffness: 48,
+    damping: 19,
+    mass: 0.95,
   });
 
   const touchStartY = useRef(0);
+  const snapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const clearSnapTimeout = () => {
+    if (snapTimeoutRef.current) clearTimeout(snapTimeoutRef.current);
+    snapTimeoutRef.current = null;
+  };
+
+  const scheduleSnap = () => {
+    clearSnapTimeout();
+    snapTimeoutRef.current = setTimeout(() => {
+      snapTimeoutRef.current = null;
+      const nearestScene = Math.round(rawProgress.get() * 4);
+      rawProgress.set(nearestScene / 4);
+    }, 220);
+  };
 
   useEffect(() => {
     const unsub = smoothProgress.on("change", (v) => {
@@ -109,12 +124,18 @@ export function ForgeAutomotiveTemplate() {
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      if (menuOpen) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        menuOpen ||
+        target?.closest(
+          "a,button,input,textarea,select,option,[role='slider'],[contenteditable='true'],[data-camera-interactive='true']",
+        )
+      ) return;
       e.preventDefault();
-      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1;
-      const delta = e.deltaY * unit * 0.00045;
+      const delta = e.deltaY * 0.00018;
       const next = Math.min(1, Math.max(0, rawProgress.get() + delta));
       rawProgress.set(next);
+      scheduleSnap();
     };
 
     const handleTouchStart = (e: TouchEvent) => {
@@ -122,12 +143,19 @@ export function ForgeAutomotiveTemplate() {
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (menuOpen) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        menuOpen ||
+        target?.closest(
+          "a,button,input,textarea,select,option,[role='slider'],[contenteditable='true'],[data-camera-interactive='true']",
+        )
+      ) return;
       const currentY = e.touches[0]?.clientY || 0;
       const diff = (touchStartY.current - currentY) * 0.0012;
       touchStartY.current = currentY;
       const next = Math.min(1, Math.max(0, rawProgress.get() + diff));
       rawProgress.set(next);
+      scheduleSnap();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -153,6 +181,7 @@ export function ForgeAutomotiveTemplate() {
     window.addEventListener("keydown", handleKeyDown);
 
     return () => {
+      clearSnapTimeout();
       window.removeEventListener("wheel", handleWheel);
       window.removeEventListener("touchstart", handleTouchStart);
       window.removeEventListener("touchmove", handleTouchMove);
@@ -469,7 +498,7 @@ export function ForgeAutomotiveTemplate() {
             z: s1Z,
             pointerEvents: s1Pointer as any,
           }}
-          className="absolute inset-0 flex flex-col items-center justify-center px-6"
+          className="absolute inset-0 flex flex-col items-center justify-center px-6 pb-24"
         >
           <div className="text-center mb-3 md:mb-5 max-w-3xl mx-auto">
             <h1
@@ -534,7 +563,7 @@ export function ForgeAutomotiveTemplate() {
             opacity: s2Opacity,
             pointerEvents: s2Pointer as any,
           }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-20 max-w-7xl mx-auto"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 md:px-20 max-w-7xl mx-auto"
         >
           <div className="flex items-end justify-between border-b border-white/10 pb-5 mb-8">
             <div>
@@ -597,7 +626,7 @@ export function ForgeAutomotiveTemplate() {
             opacity: s3Opacity,
             pointerEvents: s3Pointer as any,
           }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-20 max-w-7xl mx-auto"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 md:px-20 max-w-7xl mx-auto"
         >
           <div className="mb-6">
             <span className="text-[10px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-2">
@@ -731,7 +760,7 @@ export function ForgeAutomotiveTemplate() {
             opacity: s4Opacity,
             pointerEvents: s4Pointer as any,
           }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-20 max-w-6xl mx-auto"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 md:px-20 max-w-6xl mx-auto"
         >
           <div className="flex items-end justify-between mb-6">
             <div>
@@ -793,7 +822,7 @@ export function ForgeAutomotiveTemplate() {
             opacity: s5Opacity,
             pointerEvents: s5Pointer as any,
           }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-20 max-w-6xl mx-auto"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 md:px-20 max-w-6xl mx-auto"
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-[#060608]/90 border border-white/15 p-8 md:p-14">
             <div>

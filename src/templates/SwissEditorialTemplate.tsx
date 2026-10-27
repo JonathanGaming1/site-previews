@@ -60,7 +60,7 @@ export function SwissEditorialTemplate() {
   const [plateIdx, setPlateIdx] = useState(0);
 
   const engine = useCameraEngine(SCENES.length, {
-    sensitivity: 0.00045,
+    sensitivity: 0.00018,
     depthMm: 5400,
   });
   const rig = useCameraRig({ tiltX: 5, tiltY: 8, lightMin: 16, lightMax: 84 });
@@ -197,7 +197,7 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 01 · COVER ---------------- */}
         <motion.section
           style={{ ...s1, ...livePointer(active === 0) }}
-          className="absolute inset-0 flex items-center justify-center px-6"
+          className="absolute inset-0 flex items-center justify-center px-6 pb-24 pt-20"
         >
           {/* Architectural curtains */}
           <motion.div
@@ -275,7 +275,7 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 02 · SPREAD ---------------- */}
         <motion.section
           style={{ ...s2, ...livePointer(active === 1) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-14"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
         >
           <div className="mx-auto w-full max-w-6xl">
             <div className="flex items-end justify-between border-b border-white/12 pb-5">
@@ -357,7 +357,7 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 03 · INDEX ---------------- */}
         <motion.section
           style={{ ...s3, ...livePointer(active === 2) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-14"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[1.2fr_1fr]">
             <div>
@@ -436,7 +436,7 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 04 · ARCHIVE ---------------- */}
         <motion.section
           style={{ ...s4, ...livePointer(active === 3) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-14"
+          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
         >
           <motion.div style={{ x: archiveSlide }} className="mx-auto w-full max-w-5xl">
             <div className="flex items-end justify-between pb-5">
@@ -467,7 +467,7 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 05 · COLOPHON ---------------- */}
         <motion.section
           style={{ ...s5, ...livePointer(active === 4) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 py-20 md:px-14"
+          className="absolute inset-0 flex flex-col justify-center px-6 py-20 pb-24 md:px-14"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_1.05fr]">
             <div className={`${WALL} p-7 md:p-9`}>

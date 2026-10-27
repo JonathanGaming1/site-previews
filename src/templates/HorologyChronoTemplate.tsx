@@ -1,28 +1,20 @@
 "use client";
 
 /**
- * 03 — SWISS CHRONOGRAPH MECHANICAL VAULT
- * =======================================
- * Locked viewport, virtual wheel, zero scrollbar. This world is a dark obsidian
- * and brushed-gold mechanical vault: chapter 01 frames a giant chronograph dial
- * the camera flies straight through its centre; chapter 02 rotates interlocking
- * gears past the lens; chapter 03 is a live calibre configurator; chapters 04/05
- * close in the heritage hall and the atelier.
+ * 03 — OBSIDIAN VIP PENTHOUSE & 3D GALLERY
+ * A smoked-bronze architectural gallery for private commissions, lit by a
+ * user-controlled studio rig and navigated through five Z-space rooms.
  */
 
 import React, { useState } from "react";
-import { motion, useTransform, type MotionValue } from "framer-motion";
+import { motion, useMotionTemplate, useTransform } from "framer-motion";
 import { useSite } from "@/components/SiteProvider";
-import { Magnetic } from "@/templates/motion";
 import { formatNis, parsePrice, waLink } from "@/templates/shared";
 import {
   CameraStage,
   ChapterBar,
   FaqLedger,
-  HudScrubber,
   LockedViewport,
-  MagneticCursor,
-  SceneMenu,
   StageLight,
   livePointer,
   useCameraEngine,
@@ -32,691 +24,194 @@ import {
 } from "@/templates/wheel";
 
 const SCENES: CameraScene[] = [
-  { code: "01", label: "מנגנון" },
-  { code: "02", label: "סיבוכים" },
-  { code: "03", label: "כיול" },
-  { code: "04", label: "מורשת" },
-  { code: "05", label: "אטלייה" },
+  { code: "01", label: "הפנטהאוז" },
+  { code: "02", label: "תאורה" },
+  { code: "03", label: "הגלריה" },
+  { code: "04", label: "קונסיירז׳" },
+  { code: "05", label: "החומרים" },
 ];
 
-const GOLD = "#C9A227";
-const CHAMPAGNE = "#E7D7A8";
-const PANEL =
-  "border border-[#C9A227]/22 bg-[#0b0a09]/80 backdrop-blur-xl shadow-[inset_0_1px_0_0_rgba(231,215,168,0.12)]";
-
-const CASES = [
-  {
-    id: "OBSIDIAN",
-    label: "אובסידיאן שחור",
-    swatch: "linear-gradient(150deg,#1c1c20,#08080a)",
-  },
-  {
-    id: "BRUSHED GOLD",
-    label: "זהב מוברש",
-    swatch: `linear-gradient(150deg,${CHAMPAGNE},#8a6d2c)`,
-  },
-  {
-    id: "DARK TITANIUM",
-    label: "טיטניום כהה",
-    swatch: "linear-gradient(150deg,#70747d,#2b2e33)",
-  },
-];
-
-const MOVEMENTS = [
-  { id: "MANUAL", label: "מנגנון ידני", reserve: 48, factor: 0.92 },
-  { id: "CHRONOGRAPH", label: "כרונוגרף אוטומטי", reserve: 72, factor: 1 },
-  { id: "TOURBILLON", label: "טורביון", reserve: 96, factor: 1.34 },
-];
-
-const STRAPS = ["עור תנין", "זהב מוברש", "גומי משיי"];
-
-/** A real toothed gear: teeth, rim, hub and a 60-step split-seconds scale. */
-function GearDial({
-  rot,
-  teeth,
-  size,
-  color,
-  opacity = 1,
-  ticks = true,
-}: {
-  rot: MotionValue<number>;
-  teeth: number;
-  size: number;
-  color: string;
-  opacity?: number;
-  ticks?: boolean;
-}) {
-  const center = size / 2;
-  const toothWidth = size * 0.06;
-
-  return (
-    <motion.div
-      aria-hidden="true"
-      style={{ rotate: rot }}
-      className="pointer-events-none"
-    >
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {Array.from({ length: teeth }).map((_, index) => (
-          <rect
-            key={index}
-            x={center - toothWidth / 2}
-            y={size * 0.02}
-            width={toothWidth}
-            height={size * 0.1}
-            fill={color}
-            opacity={opacity * 0.85}
-            transform={`rotate(${(index * 360) / teeth} ${center} ${center})`}
-          />
-        ))}
-        <circle
-          cx={center}
-          cy={center}
-          r={size * 0.42}
-          fill="none"
-          stroke={color}
-          strokeOpacity={opacity * 0.55}
-          strokeWidth="1.4"
-        />
-        <circle
-          cx={center}
-          cy={center}
-          r={size * 0.34}
-          fill="none"
-          stroke={color}
-          strokeOpacity={opacity * 0.2}
-        />
-        <circle
-          cx={center}
-          cy={center}
-          r={size * 0.1}
-          fill="none"
-          stroke={color}
-          strokeOpacity={opacity * 0.6}
-          strokeWidth="1.4"
-        />
-        {ticks
-          ? Array.from({ length: 60 }).map((_, index) =>
-              index % 5 === 0 ? (
-                <line
-                  key={index}
-                  x1={center}
-                  y1={size * 0.08}
-                  x2={center}
-                  y2={size * 0.15}
-                  stroke={color}
-                  strokeOpacity={opacity * 0.4}
-                  transform={`rotate(${index * 6} ${center} ${center})`}
-                />
-              ) : null,
-            )
-          : null}
-      </svg>
-    </motion.div>
-  );
-}
+const GOLD = "#C8A97E";
+const GLASS = "border border-[#C8A97E]/20 bg-[#171411]/65 shadow-[inset_0_1px_0_rgba(255,240,215,0.12)] backdrop-blur-2xl";
+const MOODS = [
+  { id: "gold", label: "Ambient Gold", detail: "אור ענברי רך", tint: "#D5A95F", wash: "rgba(186,131,58,0.19)" },
+  { id: "titanium", label: "Midnight Titanium", detail: "אור טיטניום קר", tint: "#A7B6C8", wash: "rgba(105,145,184,0.18)" },
+  { id: "crimson", label: "Crimson Studio", detail: "אור ארגמן עמוק", tint: "#D17470", wash: "rgba(166,52,53,0.19)" },
+] as const;
 
 export function HorologyChronoTemplate() {
   const { data, editsFor } = useSite();
   const info = data.businessInfo;
   const hero = data.hero;
-  const services = data.services?.length ? data.services : [];
+  const services = data.services ?? [];
   const reviews = data.reviews ?? [];
   const faq = data.faq ?? [];
-  const timeline = data.processTimeline ?? [];
-  const benefits = data.benefits ?? [];
+  const [moodIndex, setMoodIndex] = useState(0);
+  const [serviceIndex, setServiceIndex] = useState(0);
+  const [guestName, setGuestName] = useState("");
+  const [visitDate, setVisitDate] = useState("");
+  const [visitWindow, setVisitWindow] = useState("Evening / 18:00—21:00");
+  const [comparison, setComparison] = useState(52);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const [caseIdx, setCaseIdx] = useState(1);
-  const [movementIdx, setMovementIdx] = useState(1);
-  const [strapIdx, setStrapIdx] = useState(0);
-  const [serviceIdx, setServiceIdx] = useState(0);
-  const [menu, setMenu] = useState(false);
-
-  const engine = useCameraEngine(SCENES.length, {
-    sensitivity: 0.00044,
-    depthMm: 7200,
-  });
-  const rig = useCameraRig({ tiltX: 8, tiltY: 11, lightMin: 14, lightMax: 86 });
+  const mood = MOODS[moodIndex];
+  const engine = useCameraEngine(SCENES.length, { sensitivity: 0.00018, depthMm: 7600 });
+  const rig = useCameraRig({ tiltX: 7, tiltY: 10, lightMin: 14, lightMax: 86 });
   const { progress, active, jump } = engine;
-
-  const s1 = useSceneTrack(progress, {
-    enter: -0.06,
-    peak: 0,
-    exit: 0.32,
-    fromScale: 0.78,
-    zoom: 2.6,
-    depth: 600,
-    tiltX: 7,
-    blur: 0,
-  });
-  const s2 = useSceneTrack(progress, {
-    enter: 0.17,
-    peak: 0.3,
-    exit: 0.52,
-    fromScale: 0.52,
-    zoom: 2.1,
-    depth: 720,
-    tiltX: 9,
-    blur: 0,
-  });
-  const s3 = useSceneTrack(progress, {
-    enter: 0.45,
-    peak: 0.57,
-    exit: 0.75,
-    fromScale: 0.56,
-    zoom: 1.95,
-    depth: 640,
-    tiltX: 7,
-    blur: 26,
-  });
-  const s4 = useSceneTrack(progress, {
-    enter: 0.67,
-    peak: 0.79,
-    exit: 0.93,
-    fromScale: 0.6,
-    zoom: 1.85,
-    depth: 580,
-    tiltX: 5,
-    blur: 22,
-  });
-  const s5 = useSceneTrack(progress, {
-    enter: 0.85,
-    peak: 0.96,
-    exit: 1.12,
-    fromScale: 0.64,
-    zoom: 1.6,
-    depth: 540,
-    tiltX: 4,
-    blur: 18,
-    opacityRange: [0.85, 0.96, 1.12],
-    opacityValues: [0, 1, 1],
-  });
-
-  /* The movement: rotation is driven by camera depth, so gears advance
-     while the camera flies forward instead of looping on a timer. */
-  const dialRot = useTransform(progress, [0, 1], [0, 300]);
-  const gearARot = useTransform(progress, [0, 1], [0, 260]);
-  const gearBRot = useTransform(progress, [0, 1], [0, -196]);
-  const gearCRot = useTransform(progress, [0, 1], [0, 148]);
-  const ringY = useTransform(progress, [0.15, 0.56], [0, 42]);
-  const counterY = useTransform(ringY, (value) => -value);
-  const slideX = useTransform(progress, [0.62, 1], ["9%", "-9%"]);
-
-  const chosenCase = CASES[caseIdx];
-  const chosenMovement = MOVEMENTS[movementIdx];
-  const base = parsePrice(services[serviceIdx]?.price) ?? 12800;
-  const estimate =
-    Math.round((base * chosenMovement.factor * (1 + caseIdx * 0.06)) / 100) * 100;
-
-  const waNumber = String(info.whatsapp || "").replace(/\D/g, "");
-  const specMessage =
-    `היי ${info.name}, בניתי מפרט כיול:\n` +
-    `• שירות: ${services[serviceIdx]?.title ?? "—"}\n` +
-    `• מנגנון: ${chosenMovement.label} (${chosenMovement.reserve} שעות)\n` +
-    `• מארז: ${chosenCase.label}\n` +
-    `• רצועה: ${STRAPS[strapIdx]}\n` +
-    `• אומדן: ${formatNis(estimate)}`;
+  const scenes = [
+    useSceneTrack(progress, { enter: -0.06, peak: 0, exit: 0.3, fromScale: 0.76, zoom: 1.85, depth: 540, tiltX: 5, blur: 0 }),
+    useSceneTrack(progress, { enter: 0.16, peak: 0.28, exit: 0.5, fromScale: 0.5, zoom: 1.9, depth: 650, tiltX: 7, blur: 0 }),
+    useSceneTrack(progress, { enter: 0.42, peak: 0.55, exit: 0.73, fromScale: 0.52, zoom: 1.85, depth: 590, tiltX: 6, blur: 20 }),
+    useSceneTrack(progress, { enter: 0.65, peak: 0.77, exit: 0.92, fromScale: 0.56, zoom: 1.75, depth: 540, tiltX: 5, blur: 18 }),
+    useSceneTrack(progress, { enter: 0.84, peak: 0.95, exit: 1.12, fromScale: 0.6, zoom: 1.55, depth: 500, tiltX: 4, blur: 16, opacityRange: [0.84, 0.95, 1.12], opacityValues: [0, 1, 1] }),
+  ];
+  const roomDrift = useTransform(progress, [0, 1], ["0%", "-8%"]);
+  const glow = useMotionTemplate`radial-gradient(700px circle at ${rig.lightX}% ${rig.lightY}%, ${mood.wash}, transparent 72%)`;
+  const whatsapp = String(info.whatsapp || "").replace(/\D/g, "");
+  const chosenService = services[serviceIndex];
+  const estimate = parsePrice(chosenService?.price);
+  const bookingMessage = `שלום ${info.name}, אשמח לתאם ביקור VIP בפנטהאוז.\nשם: ${guestName || "—"}\nתאריך מועדף: ${visitDate || "גמיש"}\nחלון זמן: ${visitWindow}\nתחום: ${chosenService?.title || "סיור פרטי"}`;
+  const heroImage = hero.backgroundImage || data.projects?.[0]?.afterImage;
 
   return (
-    <LockedViewport background="#07070A" text="#F3EFE6">
-      <StageLight
-        rig={rig}
-        tint="rgba(201,162,39,0.10)"
-        accent="rgba(231,215,168,0.045)"
-        size={820}
-      />
-      <MagneticCursor rig={rig} accent={GOLD} label="ATELIER" />
+    <LockedViewport background="#040405" text="#F3EEE6" style={{ "--penthouse-light": mood.tint } as React.CSSProperties}>
+      <StageLight rig={rig} tint={mood.wash} accent="rgba(200,169,126,0.045)" size={900} />
+      <motion.div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 transition-colors duration-700" style={{ background: glow }} />
 
-      <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between px-5 py-6 md:px-12">
-        <div className="flex items-baseline gap-4">
-          <span className="font-grotesk text-[11px] uppercase tracking-[0.42em]" style={{ color: CHAMPAGNE }}>
-            {info.name || "CHRONO"}
-          </span>
-          <span className="hidden font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/35 md:block">
-            GENÈVE · {info.address}
-          </span>
+      <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between border-b border-white/[0.07] px-5 py-5 md:px-12">
+        <button type="button" onClick={() => jump(0)} className="text-right">
+          <span className="block font-grotesk text-[10px] uppercase tracking-[0.42em]" style={{ color: GOLD }}>{info.name || "OBSIDIAN / PRIVATE OFFICE"}</span>
+          <span className="mt-1 block font-grotesk text-[8px] uppercase tracking-[0.3em] text-white/35">RAMAT GAN · PRIVATE RESIDENCE</span>
+        </button>
+        <div className="hidden items-center gap-7 md:flex">
+          {SCENES.slice(0, 4).map((scene, index) => (
+            <button key={scene.code} type="button" onClick={() => jump(index)} className={`font-grotesk text-[9px] uppercase tracking-[0.22em] transition-colors ${active === index ? "text-white" : "text-white/38 hover:text-white/80"}`}>
+              {scene.label}
+            </button>
+          ))}
         </div>
-
-        <button
-          type="button"
-          onClick={() => setMenu(true)}
-          className="font-grotesk text-[10px] uppercase tracking-[0.34em] text-white/70 hover:text-white"
-        >
-          COMPLICATIONS
+        <button type="button" onClick={() => setMenuOpen(!menuOpen)} className="border border-[#C8A97E]/35 px-4 py-2 font-grotesk text-[9px] uppercase tracking-[0.24em] text-[#C8A97E] hover:bg-[#C8A97E]/10">
+          {menuOpen ? "סגירה" : "PRIVATE ACCESS"}
         </button>
       </header>
 
-      <HudScrubber engine={engine} scenes={SCENES} accent={GOLD} />
-      <ChapterBar
-        engine={engine}
-        scenes={SCENES}
-        accent={GOLD}
-        hint="סובב גלגלת — המצלמה עוברת דרך לב הלוח [CHRONO]"
-      />
+      {menuOpen ? (
+        <nav className="fixed inset-x-4 top-20 z-50 border border-[#C8A97E]/25 bg-[#080808]/95 p-5 backdrop-blur-2xl md:inset-x-auto md:right-12 md:w-80">
+          {SCENES.map((scene, index) => (
+            <button key={scene.code} type="button" onClick={() => { jump(index); setMenuOpen(false); }} className="flex w-full items-center justify-between border-b border-white/10 py-3 text-right font-frank text-xl text-white/80 hover:text-[#C8A97E]">
+              <span className="font-grotesk text-[9px] tracking-[0.2em] text-[#C8A97E]">{scene.code}</span>{scene.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
-      <CameraStage rig={rig} perspective={1500} className="relative h-full w-full">
-        {/* ---------------- 01 · MOVEMENT ---------------- */}
-        <motion.section
-          style={{ ...s1, ...livePointer(active === 0) }}
-          className="absolute inset-0 flex items-center justify-center px-6"
-        >
-          <div className="absolute inset-0 flex items-center justify-center opacity-45">
-            <GearDial rot={dialRot} teeth={120} size={820} color={GOLD} opacity={0.5} />
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center opacity-25">
-            <GearDial rot={gearBRot} teeth={64} size={430} color={CHAMPAGNE} opacity={0.6} />
-          </div>
+      <ChapterBar engine={engine} scenes={SCENES} accent={GOLD} hint="סובב גלגלת · תנועה איטית דרך הגלריה הפרטית" />
 
-          <div className="relative z-10 max-w-3xl text-center">
-            <span className="font-grotesk text-[10px] uppercase tracking-[0.55em] text-white/40">
-              CHAPTER 01 — THE MOVEMENT
-            </span>
-            <h1
-              className="mt-6 font-frank text-4xl font-light leading-[1.06] tracking-tight text-white sm:text-6xl md:text-[5rem]"
-              {...editsFor("hero.headline")}
-            >
-              {hero.headline || info.tagline || "זמן הוא סיבוך מושלם"}
-            </h1>
-            <p
-              className="mx-auto mt-6 max-w-lg text-sm font-light leading-relaxed text-white/55"
-              {...editsFor("hero.subheadline")}
-            >
-              {hero.subheadline || info.description}
-            </p>
-            <Magnetic className="mt-8 flex justify-center" strength={0.36}>
-              <button
-                type="button"
-                onClick={() => jump(2)}
-                className="border px-9 py-4 font-grotesk text-[11px] uppercase tracking-[0.3em] transition-colors"
-                style={{ borderColor: GOLD, color: CHAMPAGNE }}
-              >
-                {hero.ctaText || "פתיחת מפרט כיול"}
-              </button>
-            </Magnetic>
-          </div>
-        </motion.section>
-
-        {/* ---------------- 02 · COMPLICATIONS ---------------- */}
-        <motion.section
-          style={{ ...s2, ...livePointer(active === 1) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-16"
-        >
-          <div className="mx-auto w-full max-w-6xl">
-            <div className="flex items-end justify-between border-b border-white/10 pb-5">
-              <div>
-                <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
-                  CHAPTER 02 — COMPLICATIONS
-                </span>
-                <h2 className="mt-3 font-frank text-3xl font-light md:text-5xl">
-                  סיבוכים ומלאכות יד
-                </h2>
+      <CameraStage rig={rig} perspective={1600} className="relative h-full w-full">
+        {/* 01 — Glass architecture / hero */}
+        <motion.section style={{ ...scenes[0], ...livePointer(active === 0) }} className="absolute inset-0 flex items-center justify-center px-5 pb-24 pt-24 md:px-16">
+          <motion.div style={{ y: roomDrift }} className="relative mx-auto grid w-full max-w-7xl items-center gap-8 md:grid-cols-[1fr_1.1fr]">
+            <div className="relative z-10 max-w-2xl">
+              <span className="font-grotesk text-[9px] uppercase tracking-[0.48em] text-[#C8A97E]/75">A PRIVATE WORLD · 01 / 05</span>
+              <h1 className="mt-5 font-frank text-4xl font-light leading-[1.18] tracking-tight text-white sm:text-6xl md:text-[4.6rem]" {...editsFor("hero.headline")}>
+                {hero.headline || info.tagline || "מרחב פרטי. סטנדרט אחר."}
+              </h1>
+              <p className="mt-5 max-w-xl text-sm font-light leading-[1.9] text-white/55 md:text-base" {...editsFor("hero.subheadline")}>
+                {hero.subheadline || info.description || "גלריה אדריכלית של חומרים, אור ושירות אישי — עד הפרט האחרון."}
+              </p>
+              <div className="mt-8 flex flex-wrap items-center gap-4">
+                <button type="button" onClick={() => jump(3)} className="border border-[#C8A97E]/70 bg-[#C8A97E]/10 px-7 py-3.5 font-grotesk text-[10px] uppercase tracking-[0.25em] text-[#E7D4B3] transition-colors hover:bg-[#C8A97E]/20">תיאום אירוח פרטי</button>
+                <span className="font-grotesk text-[9px] uppercase tracking-[0.22em] text-white/35">BY APPOINTMENT · {info.address}</span>
               </div>
-              <span className="hidden font-grotesk text-[10px] uppercase tracking-[0.28em] text-white/35 md:block">
-                {services.length || 4} COMPLICATIONS
-              </span>
-            </div>
-
-            <div className="mt-7 grid gap-5 lg:grid-cols-[1fr_1.25fr]">
-              <div className="relative flex items-center justify-center" style={{ perspective: 1400, transformStyle: "preserve-3d" }}>
-                <GearDial rot={gearARot} teeth={44} size={300} color={CHAMPAGNE} opacity={0.85} />
-                <div className="absolute">
-                  <GearDial rot={gearCRot} teeth={26} size={150} color={GOLD} opacity={0.9} ticks={false} />
-                </div>
-              </div>
-
-              <motion.div
-                style={{ rotateY: ringY, transformStyle: "preserve-3d" }}
-                className="grid gap-3 md:grid-cols-2"
-              >
-                {(services.length ? services : []).slice(0, 4).map((service, index) => (
-                  <motion.div
-                    key={index}
-                    style={{ rotateY: counterY, z: index % 2 === 0 ? 120 : -60 }}
-                    className={`${PANEL} p-5`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-grotesk text-[9px] uppercase tracking-[0.3em] text-white/35">
-                        N° {String(index + 1).padStart(2, "0")}
-                      </span>
-                      <span className="font-grotesk text-[11px]" style={{ color: GOLD }}>
-                        {service.price || "בהתאמה"}
-                      </span>
-                    </div>
-                    <h3
-                      className="mt-3 font-frank text-xl font-light text-white md:text-2xl"
-                      {...editsFor(`services.${index}.title`)}
-                    >
-                      {service.title}
-                    </h3>
-                    <p
-                      className="mt-2 text-[11px] leading-relaxed text-white/50"
-                      {...editsFor(`services.${index}.description`)}
-                    >
-                      {service.description}
-                    </p>
-                  </motion.div>
-                ))}
-              </motion.div>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* ---------------- 03 · CALIBRE CONFIGURATOR ---------------- */}
-        <motion.section
-          style={{ ...s3, ...livePointer(active === 2) }}
-          data-camera-ui="true"
-          className="absolute inset-0 flex flex-col justify-center overflow-y-auto px-6 py-24 md:px-16"
-        >
-          <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.3fr_1fr]">
-            <div className={`${PANEL} p-7 md:p-9`}>
-              <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
-                CHAPTER 03 — CALIBRE CONFIGURATOR
-              </span>
-              <h2 className="mt-3 font-frank text-3xl font-light md:text-4xl">
-                הרכיבו את המנגנון
-              </h2>
-
-              <div className="mt-7 space-y-6">
-                <div>
-                  <span className="font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/45">
-                    שירות / סיבוך
-                  </span>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {(services.length ? services : []).slice(0, 4).map((service, index) => {
-                      const on = serviceIdx === index;
-                      return (
-                        <button
-                          key={index}
-                          type="button"
-                          onClick={() => setServiceIdx(index)}
-                          className={`border px-4 py-2 text-xs transition-all ${
-                            on ? "text-white" : "border-white/12 text-white/50 hover:border-white/35"
-                          }`}
-                          style={on ? { borderColor: GOLD, background: "rgba(201,162,39,0.14)" } : undefined}
-                        >
-                          {service.title}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/45">
-                    מארז
-                  </span>
-                  <div className="mt-3 flex gap-4">
-                    {CASES.map((item, index) => {
-                      const on = caseIdx === index;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setCaseIdx(index)}
-                          className="flex flex-col items-center gap-2"
-                        >
-                          <span
-                            className="block h-12 w-12 rounded-full transition-all"
-                            style={{
-                              background: item.swatch,
-                              boxShadow: on
-                                ? `0 0 0 2px ${GOLD}, 0 0 26px -6px ${GOLD}`
-                                : "0 0 0 1px rgba(255,255,255,0.14)",
-                            }}
-                          />
-                          <span
-                            className={`font-grotesk text-[9px] uppercase tracking-[0.2em] ${
-                              on ? "text-white" : "text-white/45"
-                            }`}
-                          >
-                            {item.id}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/45">
-                    מנגנון
-                  </span>
-                  <div className="mt-3 grid gap-2 md:grid-cols-3">
-                    {MOVEMENTS.map((item, index) => {
-                      const on = movementIdx === index;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => setMovementIdx(index)}
-                          className={`border px-4 py-3 text-right text-xs transition-all ${
-                            on ? "text-white" : "border-white/12 text-white/50"
-                          }`}
-                          style={on ? { borderColor: GOLD, background: "rgba(201,162,39,0.12)" } : undefined}
-                        >
-                          <span className="block font-grotesk text-[10px] tracking-[0.18em]">
-                            {item.label}
-                          </span>
-                          <span className="mt-1 block text-[10px] text-white/40">
-                            {item.reserve} שעות רזרבה
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/45">
-                    רצועה
-                  </span>
-                  <div className="mt-3 flex gap-2">
-                    {STRAPS.map((strap, index) => {
-                      const on = strapIdx === index;
-                      return (
-                        <button
-                          key={strap}
-                          type="button"
-                          onClick={() => setStrapIdx(index)}
-                          className={`border px-4 py-2 text-xs transition-all ${
-                            on ? "text-white" : "border-white/12 text-white/50"
-                          }`}
-                          style={on ? { borderColor: GOLD, background: "rgba(201,162,39,0.12)" } : undefined}
-                        >
-                          {strap}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+              <div className="mt-10 grid max-w-lg grid-cols-3 border-t border-white/10 pt-4">
+                {[["01", "אדריכלות"], ["02", "חומרים נדירים"], ["03", "קונסיירז׳ אישי"]].map(([number, label]) => <div key={number}><span className="block font-grotesk text-[9px] tracking-[0.2em] text-[#C8A97E]">{number}</span><span className="mt-2 block text-[11px] leading-relaxed text-white/55">{label}</span></div>)}
               </div>
             </div>
-
-            <div className={`${PANEL} flex flex-col justify-between p-7 md:p-9`}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <span className="font-grotesk text-[10px] uppercase tracking-[0.34em] text-white/40">
-                    CALIBRE SPEC
-                  </span>
-                  <p className="mt-4 font-frank text-4xl font-light text-white">
-                    {formatNis(estimate)}
-                  </p>
-                </div>
-                <div className="opacity-70">
-                  <GearDial rot={dialRot} teeth={36} size={110} color={GOLD} ticks={false} />
+            <div className="relative mx-auto h-[40vh] min-h-[270px] w-full max-w-[620px]" style={{ perspective: 1300, transformStyle: "preserve-3d" }}>
+              <div className="absolute inset-[10%_14%] border border-[#C8A97E]/25 bg-[#6D4C2D]/[0.08] shadow-[0_0_90px_rgba(172,125,67,0.09)]" style={{ transform: "translateZ(-120px) rotateY(-11deg)" }} />
+              <div className="absolute inset-[4%_8%] border border-white/15 bg-white/[0.025]" style={{ transform: "translateZ(0px) rotateY(8deg)" }} />
+              <div className="absolute inset-[15%_2%_2%_20%] overflow-hidden border border-[#C8A97E]/35 bg-gradient-to-br from-[#4a392a]/80 via-[#171513] to-[#09090a]" style={{ transform: "translateZ(85px) rotateY(-4deg)" }}>
+                {heroImage ? <img src={heroImage} alt="אדריכלות הפנטהאוז" className="h-full w-full object-cover opacity-50 mix-blend-luminosity" /> : null}
+                <div className="absolute inset-0 bg-gradient-to-r from-[#040405]/45 via-transparent to-[#040405]/25" />
+                <div className="absolute inset-x-6 bottom-6 border-t border-[#C8A97E]/35 pt-3">
+                  <span className="font-grotesk text-[8px] uppercase tracking-[0.34em] text-[#C8A97E]">THE OBSIDIAN RESIDENCE</span>
+                  <p className="mt-2 font-frank text-2xl font-light text-white">אור, חומר, שקט.</p>
                 </div>
               </div>
-
-              <dl className="mt-7 space-y-3 text-sm">
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <dt className="text-white/45">מארז</dt>
-                  <dd className="text-white/85">{chosenCase.label}</dd>
-                </div>
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <dt className="text-white/45">מנגנון</dt>
-                  <dd style={{ color: CHAMPAGNE }}>{chosenMovement.label}</dd>
-                </div>
-                <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                  <dt className="text-white/45">רצועה</dt>
-                  <dd className="text-white/85">{STRAPS[strapIdx]}</dd>
-                </div>
-              </dl>
-
-              <a
-                href={waNumber ? waLink(waNumber, specMessage) : undefined}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-8 block border py-4 text-center font-grotesk text-[11px] uppercase tracking-[0.3em]"
-                style={{ borderColor: GOLD, background: "rgba(201,162,39,0.16)", color: CHAMPAGNE }}
-              >
-                שליחת מפרט לאטלייה
-              </a>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* ---------------- 04 · HERITAGE ---------------- */}
-        <motion.section
-          style={{ ...s4, ...livePointer(active === 3) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 md:px-16"
-        >
-          <motion.div style={{ x: slideX }} className="mx-auto w-full max-w-6xl">
-            <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
-              CHAPTER 04 — HERITAGE
-            </span>
-            <h2 className="mt-3 font-frank text-3xl font-light md:text-5xl">
-              ארבעה עשורים של דיוק
-            </h2>
-
-            <div className="mt-8 grid gap-4 md:grid-cols-3">
-              {(timeline.length
-                ? timeline.slice(0, 3)
-                : benefits.slice(0, 3)
-              ).map((step, index) => (
-                <div key={index} className={`${PANEL} p-6`}>
-                  <span className="font-grotesk text-[10px] tracking-[0.3em]" style={{ color: GOLD }}>
-                    {String(index + 1).padStart(2, "0")} / 04
-                  </span>
-                  <h3
-                    className="mt-3 font-frank text-xl font-light text-white"
-                    {...editsFor(
-                      timeline.length
-                        ? `processTimeline.${index}.title`
-                        : `benefits.${index}.title`,
-                    )}
-                  >
-                    {(step as { title: string }).title}
-                  </h3>
-                  <p className="mt-2 text-[11px] leading-relaxed text-white/50">
-                    {(step as { description?: string }).description}
-                  </p>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-9 grid gap-6 md:grid-cols-[1.4fr_1fr]">
-              <div className="flex gap-6">
-                {reviews.slice(0, 2).map((review, index) => (
-                  <div key={index} className="max-w-xs border-t border-[#C9A227]/40 pt-4">
-                    <p className="font-frank text-lg font-light text-white/85" {...editsFor(`reviews.${index}.text`)}>
-                      “{review.text}”
-                    </p>
-                    <span className="font-grotesk text-[9px] uppercase tracking-[0.28em]" style={{ color: GOLD }}>
-                      — {review.author}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="text-left">
-                <span className="font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/40">
-                  RATING
-                </span>
-                <p className="font-frank text-5xl font-light text-white">
-                  {info.googleRating || "4.9"}
-                  <span style={{ color: GOLD }}>★</span>
-                </p>
-                <span className="font-grotesk text-[10px] uppercase tracking-[0.24em] text-white/40">
-                  {info.reviewsCount || reviews.length || 0} ביקורות מאומתות
-                </span>
-              </div>
+              <div className="absolute right-0 top-[8%] h-[1px] w-24 bg-[#C8A97E]/70" />
+              <div className="absolute bottom-[4%] left-[4%] h-20 w-[1px] bg-[#C8A97E]/55" />
             </div>
           </motion.div>
         </motion.section>
 
-        {/* ---------------- 05 · ATELIER ---------------- */}
-        <motion.section
-          style={{ ...s5, ...livePointer(active === 4) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 py-20 md:px-16"
-        >
-          <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_1.05fr]">
-            <div className={`${PANEL} p-7 md:p-9`}>
-              <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
-                CHAPTER 05 — THE ATELIER
-              </span>
-              <h2 className="mt-3 font-frank text-4xl font-light leading-tight md:text-5xl">
-                {hero.ctaText || "קביעת פגישה פרטית"}
-              </h2>
-
-              <div className="mt-7 space-y-3 text-sm text-white/55">
-                <p {...editsFor("businessInfo.address")}>{info.address}</p>
-                <p {...editsFor("businessInfo.openingHours")}>{info.openingHours}</p>
-                <p className="font-grotesk text-xs uppercase tracking-[0.24em]" style={{ color: CHAMPAGNE }}>
-                  {info.phone}
-                </p>
-              </div>
-
-              <div className="mt-8 flex flex-wrap gap-3">
-                <a
-                  href={waNumber ? waLink(waNumber, `היי ${info.name}, אשמח לפגישה באטלייה.`) : undefined}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="border px-7 py-3.5 font-grotesk text-[11px] uppercase tracking-[0.28em]"
-                  style={{ borderColor: GOLD, background: "rgba(201,162,39,0.16)", color: CHAMPAGNE }}
-                >
-                  פגישה בוואטסאפ
-                </a>
-                {info.phone ? (
-                  <a
-                    href={`tel:${info.phone}`}
-                    className="border border-white/15 px-7 py-3.5 font-grotesk text-[11px] uppercase tracking-[0.28em] text-white/80"
-                  >
-                    חיוג ישיר
-                  </a>
-                ) : null}
+        {/* 02 — Interactive lighting studio */}
+        <motion.section style={{ ...scenes[1], ...livePointer(active === 1) }} className="absolute inset-0 flex items-center px-5 pb-24 pt-24 md:px-16">
+          <div className="mx-auto grid w-full max-w-6xl gap-8 md:grid-cols-[0.8fr_1.2fr]">
+            <div>
+              <span className="font-grotesk text-[9px] uppercase tracking-[0.45em] text-[#C8A97E]/70">LIGHTING ATELIER · 02 / 05</span>
+              <h2 className="mt-5 font-frank text-4xl font-light leading-[1.2] text-white md:text-6xl">האור משנה<br />את כל החוויה.</h2>
+              <p className="mt-5 max-w-md text-sm leading-[1.9] text-white/50">שלוש סצנות תאורה אדריכליות. בחרו גוון, והחלל כולו מתכוונן סביבכם בזמן אמת.</p>
+              <div className="mt-8 space-y-2">
+                {MOODS.map((item, index) => <button key={item.id} type="button" aria-pressed={moodIndex === index} onClick={() => setMoodIndex(index)} className={`flex w-full items-center justify-between border px-4 py-3 text-right transition-colors ${moodIndex === index ? "border-[#C8A97E]/60 bg-white/[0.06]" : "border-white/10 hover:border-white/25"}`}><span><span className="block font-grotesk text-[10px] uppercase tracking-[0.19em] text-white/85">{item.label}</span><span className="mt-1 block text-[10px] text-white/40">{item.detail}</span></span><span className="h-5 w-8 border border-white/25" style={{ background: item.tint, boxShadow: moodIndex === index ? `0 0 26px ${item.tint}55` : undefined }} /></button>)}
               </div>
             </div>
+            <motion.div animate={{ borderColor: `${mood.tint}88` }} transition={{ duration: 0.5 }} className="relative min-h-[320px] overflow-hidden border bg-[#09090A] p-6 md:min-h-[440px] md:p-9">
+              <motion.div animate={{ background: `radial-gradient(ellipse at 72% 14%, ${mood.wash}, transparent 62%)` }} transition={{ duration: 0.65 }} className="absolute inset-0" />
+              <div className="absolute inset-[12%_8%] border border-white/10 bg-white/[0.015]" style={{ transform: "perspective(900px) rotateY(-8deg)" }} />
+              <div className="absolute inset-[20%_16%_12%_20%] border border-white/15 bg-gradient-to-br from-white/[0.07] via-[#181514]/70 to-black/70" style={{ transform: "perspective(800px) rotateY(6deg) translateZ(40px)" }} />
+              <div className="absolute inset-y-[18%] right-[29%] w-[1px] bg-white/15" />
+              <div className="absolute bottom-[12%] left-[16%] right-[16%] h-[1px] bg-white/15" />
+              <div className="absolute bottom-8 right-8"><span className="font-grotesk text-[8px] uppercase tracking-[0.34em]" style={{ color: mood.tint }}>LIVE LIGHT STUDY</span><p className="mt-2 font-frank text-3xl font-light text-white">{mood.label}</p></div>
+            </motion.div>
+          </div>
+        </motion.section>
 
-            <div
-              data-camera-ui="true"
-              className={`${PANEL} max-h-[64vh] overflow-y-auto p-7 md:p-9`}
-            >
-              <span className="font-grotesk text-[10px] uppercase tracking-[0.34em] text-white/40">
-                SERVICE LEDGER
-              </span>
-              <h3 className="mt-3 font-frank text-2xl font-light md:text-3xl">
-                שאלות האטלייה
-              </h3>
-              <FaqLedger
-                items={faq}
-                accent={GOLD}
-                className="mt-5"
-                questionClassName="font-frank text-base font-light text-white md:text-xl"
-                answerClassName="text-xs leading-relaxed text-white/55"
-              />
+        {/* 03 — Tilted architectural bento gallery */}
+        <motion.section style={{ ...scenes[2], ...livePointer(active === 2) }} className="absolute inset-0 flex items-center px-5 pb-24 pt-24 md:px-16">
+          <div className="mx-auto w-full max-w-6xl">
+            <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-4"><div><span className="font-grotesk text-[9px] uppercase tracking-[0.45em] text-[#C8A97E]/70">MATERIAL GALLERY · 03 / 05</span><h2 className="mt-3 font-frank text-3xl font-light leading-[1.2] text-white md:text-5xl">פרטים שנועדו להישאר.</h2></div><span className="text-[10px] tracking-[0.18em] text-white/35">הטו את המבט · גלו את השכבות</span></div>
+            <motion.div style={{ rotateX: rig.rotateX, rotateY: rig.rotateY, transformStyle: "preserve-3d" }} className="mt-6 grid h-[48vh] min-h-[310px] grid-cols-2 grid-rows-2 gap-3 md:grid-cols-4 md:gap-4">
+              <article className={`${GLASS} relative col-span-2 row-span-2 flex flex-col justify-end overflow-hidden p-5 md:p-8`} style={{ transform: "translateZ(55px)" }}><div className="absolute inset-0 bg-gradient-to-br from-[#826044]/40 via-[#211b16]/30 to-[#09090a]" /><div className="absolute inset-0 bg-[linear-gradient(117deg,transparent_28%,rgba(255,236,206,0.12)_29%,transparent_30%)]" /><div className="relative"><span className="font-grotesk text-[8px] uppercase tracking-[0.34em] text-[#C8A97E]">01 / SMOKED BRONZE</span><h3 className="mt-2 font-frank text-2xl font-light text-white md:text-4xl">זכוכית מעושנת</h3><p className="mt-2 max-w-sm text-xs leading-[1.8] text-white/55">עומק חומרי שמשתנה בכל זווית ובכל שעה ביום.</p></div></article>
+              <article className={`${GLASS} relative flex flex-col justify-end overflow-hidden p-4 md:p-5`} style={{ transform: "translateZ(25px)" }}><div className="absolute inset-0 bg-gradient-to-br from-[#4a4034] via-[#201d19] to-[#080809]" /><div className="absolute inset-y-0 left-1/3 w-[1px] bg-[#C8A97E]/30" /><div className="relative"><span className="font-grotesk text-[8px] tracking-[0.28em] text-[#C8A97E]">02 / SATIN METAL</span><h3 className="mt-2 font-frank text-lg font-light text-white md:text-xl">מתכת סאטן</h3></div></article>
+              <article className={`${GLASS} relative flex flex-col justify-end overflow-hidden p-4 md:p-5`} style={{ transform: "translateZ(75px)" }}><div className="absolute inset-0 bg-gradient-to-br from-[#5b513f] via-[#211e19] to-[#09090a]" /><div className="absolute inset-x-0 top-1/3 h-[1px] bg-white/20" /><div className="relative"><span className="font-grotesk text-[8px] tracking-[0.28em] text-[#C8A97E]">03 / PRIVATE LIGHT</span><h3 className="mt-2 font-frank text-lg font-light text-white md:text-xl">אור נסתר</h3></div></article>
+            </motion.div>
+          </div>
+        </motion.section>
+
+        {/* 04 — Concierge booking console */}
+        <motion.section style={{ ...scenes[3], ...livePointer(active === 3) }} data-camera-ui="true" className="absolute inset-0 flex items-center overflow-y-auto px-5 pb-24 pt-24 md:px-16">
+          <div className="mx-auto grid w-full max-w-6xl gap-7 md:grid-cols-[1fr_0.8fr]">
+            <div className="py-2"><span className="font-grotesk text-[9px] uppercase tracking-[0.45em] text-[#C8A97E]/70">PRIVATE CONCIERGE · 04 / 05</span><h2 className="mt-5 font-frank text-4xl font-light leading-[1.2] text-white md:text-6xl">הביקור שלכם.<br />בקצב שלכם.</h2><p className="mt-5 max-w-lg text-sm leading-[1.9] text-white/50">הקונסיירז׳ הפרטי יכין עבורכם סיור אוצרות, פגישת חומרים או הצעת פרויקט דיסקרטית.</p><div className="mt-8 grid grid-cols-2 gap-3">{[["01", "סיור פרטי"], ["02", "פגישת חומרים"], ["03", "הצעת פרויקט"], ["04", "אירוח VIP"]].map(([number, title]) => <div key={number} className="border-t border-[#C8A97E]/30 pt-3"><span className="font-grotesk text-[8px] tracking-[0.25em] text-[#C8A97E]">{number}</span><p className="mt-2 text-xs text-white/65">{title}</p></div>)}</div></div>
+            <form className={`${GLASS} p-5 md:p-7`} onSubmit={(event) => { event.preventDefault(); if (whatsapp) window.open(waLink(whatsapp, bookingMessage), "_blank", "noopener,noreferrer"); }}>
+              <span className="font-grotesk text-[9px] uppercase tracking-[0.34em] text-[#C8A97E]">REQUEST A PRIVATE VISIT</span>
+              <label className="mt-5 block text-[10px] text-white/45">שם לאירוח<input value={guestName} onChange={(event) => setGuestName(event.target.value)} autoComplete="name" className="mt-2 w-full border border-white/15 bg-black/35 px-3 py-3 text-sm text-white outline-none focus:border-[#C8A97E]/70" placeholder="השם שלכם" /></label>
+              <label className="mt-4 block text-[10px] text-white/45">תאריך מועדף<input type="date" value={visitDate} onChange={(event) => setVisitDate(event.target.value)} className="mt-2 w-full border border-white/15 bg-black/35 px-3 py-3 text-sm text-white [color-scheme:dark] outline-none focus:border-[#C8A97E]/70" /></label>
+              <label className="mt-4 block text-[10px] text-white/45">חלון אירוח<select value={visitWindow} onChange={(event) => setVisitWindow(event.target.value)} className="mt-2 w-full border border-white/15 bg-[#100f0e] px-3 py-3 text-sm text-white outline-none focus:border-[#C8A97E]/70"><option>Morning / 09:00—12:00</option><option>Afternoon / 13:00—17:00</option><option>Evening / 18:00—21:00</option></select></label>
+              <label className="mt-4 block text-[10px] text-white/45">תחום עניין<select value={serviceIndex} onChange={(event) => setServiceIndex(Number(event.target.value))} className="mt-2 w-full border border-white/15 bg-[#100f0e] px-3 py-3 text-sm text-white outline-none focus:border-[#C8A97E]/70"><option value={0}>סיור אדריכלי פרטי</option>{services.map((service, index) => <option key={index} value={index}>{service.title}</option>)}</select></label>
+              <button type="submit" className="mt-6 w-full border border-[#C8A97E]/70 bg-[#C8A97E]/15 px-5 py-3.5 font-grotesk text-[10px] uppercase tracking-[0.25em] text-[#E7D4B3] hover:bg-[#C8A97E]/25">שליחת בקשת אירוח</button>
+              <p className="mt-3 text-center text-[9px] leading-relaxed text-white/35">{estimate ? `החל מ־${formatNis(estimate)} · ` : ""}הבקשה מועברת ישירות לצוות הפרטי.</p>
+            </form>
+          </div>
+        </motion.section>
+
+        {/* 05 — Split material comparison studio */}
+        <motion.section style={{ ...scenes[4], ...livePointer(active === 4) }} className="absolute inset-0 flex items-center px-5 pb-24 pt-24 md:px-16">
+          <div className="mx-auto w-full max-w-6xl"><div className="flex flex-wrap items-end justify-between gap-4"><div><span className="font-grotesk text-[9px] uppercase tracking-[0.45em] text-[#C8A97E]/70">MATERIAL STUDY · 05 / 05</span><h2 className="mt-3 font-frank text-3xl font-light leading-[1.2] text-white md:text-5xl">בין חומר גלם ליצירה.</h2></div><p className="max-w-sm text-xs leading-[1.8] text-white/45">גררו את המחוון כדי לחשוף את שכבת הגימור והאור.</p></div>
+            <div className="relative mt-7 h-[42vh] min-h-[260px] overflow-hidden border border-[#C8A97E]/25 bg-[#15120f]" aria-label="השוואת חומר וגימור">
+              <div className="absolute inset-0 bg-[linear-gradient(145deg,#191715_0%,#514536_48%,#0d0d0e_100%)]" />
+              <div className="absolute inset-[12%_18%] border border-white/15 bg-white/[0.025]" style={{ transform: "perspective(900px) rotateY(-8deg)" }} />
+              <div className="absolute inset-y-[12%] left-[28%] w-[1px] bg-white/15" />
+              <div className="absolute inset-y-[12%] left-[55%] w-[1px] bg-white/15" />
+              <div className="absolute inset-0 bg-gradient-to-br from-[#C8A97E]/25 via-transparent to-transparent" style={{ clipPath: `inset(0 ${100 - comparison}% 0 0)` }} />
+              <div className="absolute inset-y-0 z-10 w-px bg-[#E1C49A]" style={{ left: `${comparison}%` }}><span className="absolute left-1/2 top-1/2 block h-12 w-3 -translate-x-1/2 -translate-y-1/2 border border-[#E1C49A] bg-[#080808]" /></div>
+              <input aria-label="השוואת חומר וגימור" type="range" min="8" max="92" value={comparison} onChange={(event) => setComparison(Number(event.target.value))} className="absolute inset-0 z-20 h-full w-full cursor-ew-resize opacity-0" />
+              <span className="absolute bottom-4 right-4 z-10 border border-white/15 bg-black/55 px-3 py-2 font-grotesk text-[8px] uppercase tracking-[0.2em] text-white/75">RAW MATERIAL</span><span className="absolute bottom-4 left-4 z-10 border border-[#C8A97E]/45 bg-black/60 px-3 py-2 font-grotesk text-[8px] uppercase tracking-[0.2em] text-[#E1C49A]">ATELIER FINISH</span>
             </div>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-4"><div className="flex gap-6 text-[10px] text-white/45"><span>{info.phone}</span><span>{info.address}</span></div><div className="font-frank text-lg text-white/70">{reviews[0]?.text || "אירוח פרטי בתיאום מראש"}</div></div>
+            <FaqLedger items={faq.slice(0, 2)} accent={GOLD} className="mt-4 grid gap-x-8 md:grid-cols-2" questionClassName="font-frank text-base font-light leading-relaxed text-white md:text-lg" answerClassName="text-xs leading-[1.8] text-white/50" columns={2} />
           </div>
         </motion.section>
       </CameraStage>
-
-      <SceneMenu
-        open={menu}
-        onClose={() => setMenu(false)}
-        scenes={SCENES}
-        engine={engine}
-        accent={GOLD}
-        brand={info.name || "CHRONO"}
-        footerLeft={info.phone}
-        footerRight={info.address}
-      />
     </LockedViewport>
   );
 }
