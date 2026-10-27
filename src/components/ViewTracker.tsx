@@ -3,38 +3,18 @@
 import { useEffect, useRef } from "react";
 import posthog from "posthog-js";
 import { useSite } from "@/components/SiteProvider";
-import { postToDiscord } from "@/lib/webhook";
 
 /* ------------------------------------------------------------------ */
-/* Production credentials — hardcoded defaults so analytics always     */
-/* works, even when a business JSON does not specify its own endpoint. */
+/* PostHog — public project key only. Every webhook secret now lives   */
+/* in the Cloudflare Pages environment, never in this bundle.          */
 /* ------------------------------------------------------------------ */
 
-const DEFAULT_DISCORD_WEBHOOK_URL =
-  "https://discord.com/api/webhooks/1563231187646947397/6GlOTjlvAzjFbHjBkHegPCjptCQZiUGwTFbib4jEWzeffaHcQ8Y15RDv-BIxyXG_JkZV";
 const DEFAULT_POSTHOG_KEY = "phc_AkDuMC253gZyg4HHGWyvGi63zYRSdZEoF5taihDvehV9";
 const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
 const ADMIN_KEY = "yam2026";
 const ADMIN_FLAG = "agency_is_admin";
-
-interface TrackerEndpoint {
-  posthogKey: string;
-  posthogHost: string;
-  discordUrl: string;
-}
-
-/** PostHog may be overridden per business; the Discord destination is always
- * the single production entry webhook. */
-function resolveEndpoint(data: {
-  posthogKey?: string;
-  posthogHost?: string;
-}): TrackerEndpoint {
-  return {
-    posthogKey: (data.posthogKey || DEFAULT_POSTHOG_KEY).trim(),
-    posthogHost: (data.posthogHost || DEFAULT_POSTHOG_HOST).trim(),
-    discordUrl: DEFAULT_DISCORD_WEBHOOK_URL,
-  };
-}
+const LAST_VISIT_PREFIX = "last_visit_";
+const VISIT_WINDOW_MS = 30 * 60 * 1000;
 
 let posthogInitialized = false;
 
@@ -58,16 +38,16 @@ function initPostHog(key: string, host: string): void {
 /** Stamp the admin flag as early as possible when the secret key is present. */
 function stampAdminFlag(): boolean {
   if (typeof window === "undefined") return false;
-  const params = new URLSearchParams(window.location.search);
-  const key = params.get("key");
-  if (key === ADMIN_KEY) {
-    try {
+  try {
+    const key = new URLSearchParams(window.location.search).get("key");
+    if (key === ADMIN_KEY) {
       localStorage.setItem(ADMIN_FLAG, "true");
-    } catch {
-      /* private mode */
+      return true;
     }
+    return localStorage.getItem(ADMIN_FLAG) === "true";
+  } catch {
+    return false;
   }
-  return Boolean(key);
 }
 
 function deviceLabel(): string {
@@ -88,57 +68,49 @@ function deviceLabel(): string {
 export function AnalyticsBootstrap() {
   useEffect(() => {
     stampAdminFlag();
-    const endpoint = resolveEndpoint({});
-    initPostHog(endpoint.posthogKey, endpoint.posthogHost);
+    initPostHog(DEFAULT_POSTHOG_KEY, DEFAULT_POSTHOG_HOST);
   }, []);
   return null;
 }
 
 /**
- * `ViewTracker` — mounted inside the site provider. PostHog owns every click
- * and interaction. Discord receives exactly ONE quiet entry alert per demo
- * session, and never for the admin / ?key= previews.
+ * `ViewTracker` — PostHog owns every click and interaction. Discord receives
+ * a single quiet entry alert per demo, sent by `/api/track` on the server with
+ * a per-IP 30-minute cooldown. No webhook URL exists in this bundle.
  */
 export function ViewTracker() {
   const { data, isAdmin, mounted, slug, remoteLoaded } = useSite();
   const sentRef = useRef(false);
 
   useEffect(() => {
-    // Wait for the real business JSON so the Discord alert never names the
-    // bundled fallback instead of the visitor's actual demo.
+    // Wait for the real business JSON so the alert never names the bundled
+    // fallback instead of the visitor's actual demo.
     if (!mounted || !remoteLoaded || isAdmin || sentRef.current) return;
 
-    const params = new URLSearchParams(window.location.search);
-
-    // Admin previews never message Discord. The flag persists per browser.
-    const hasKey = stampAdminFlag();
-    if (hasKey) return;
-    try {
-      if (localStorage.getItem(ADMIN_FLAG) === "true") return;
-    } catch {
-      /* private mode */
-    }
+    // Admin previews never notify Discord. The flag persists per browser.
+    if (stampAdminFlag()) return;
 
     const storeSlug = slug ?? data.slug ?? "default";
-    const visitKey = `visited_${storeSlug}`;
+    const visitKey = LAST_VISIT_PREFIX + storeSlug;
 
+    // Client-side 30-minute guard: no request at all for repeat visitors.
     try {
-      if (sessionStorage.getItem(visitKey)) return;
+      const lastVisit = Number(localStorage.getItem(visitKey));
+      if (Number.isFinite(lastVisit) && lastVisit > 0) {
+        if (Date.now() - lastVisit < VISIT_WINDOW_MS) return;
+      }
     } catch {
-      /* private mode */
+      /* private mode — fall through and let the edge cooldown decide */
     }
 
     sentRef.current = true;
     try {
-      sessionStorage.setItem(visitKey, "1");
+      localStorage.setItem(visitKey, String(Date.now()));
     } catch {
       /* best effort */
     }
 
-    const endpoint = resolveEndpoint({});
-    // Guarantee PostHog is live even if the layout bootstrap effect has not
-    // run yet; the module-level guard makes this idempotent.
-    initPostHog(endpoint.posthogKey, endpoint.posthogHost);
+    initPostHog(DEFAULT_POSTHOG_KEY, DEFAULT_POSTHOG_HOST);
 
     // Group every PostHog event under this demo business.
     try {
@@ -152,16 +124,24 @@ export function ViewTracker() {
       /* noop */
     }
 
-    const currentUrl =
-      typeof window !== "undefined" ? window.location.href : "";
-    const content = [
-      "**כניסה חדשה לאתר הדגמה**",
-      `עסק: ${data.businessInfo.name} (${storeSlug})`,
-      `תבנית: ${data.templateId} | מכשיר: ${deviceLabel()}`,
-      `קישור: ${currentUrl}`,
-    ].join("\n");
-
-    void postToDiscord(endpoint.discordUrl, { content });
+    try {
+      void fetch("/api/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        keepalive: true,
+        body: JSON.stringify({
+          slug: storeSlug,
+          businessName: data.businessInfo?.name ?? "",
+          templateId: data.templateId,
+          device: deviceLabel(),
+          url: window.location.href,
+          isAdmin: false,
+        }),
+      });
+    } catch {
+      /* the alert is best-effort and must never affect the page */
+    }
   }, [data, isAdmin, mounted, remoteLoaded, slug]);
 
   return null;

@@ -15,9 +15,8 @@ import {
 } from "lucide-react";
 import {
   clone,
-  makeInitialBackup,
   normalizeTemplate,
-  SITES_RAW_BASE,
+  REPO_NAME,
   SITE_OVERRIDE_PREFIX,
   useSite,
 } from "@/components/SiteProvider";
@@ -28,14 +27,11 @@ import {
 } from "@/types/site";
 
 /* ------------------------------------------------------------------ */
-/* n8n bridge — no GitHub token, no AI key, ever.                      */
-/* A hidden form POSTs to n8n with a named top-level window target,    */
-/* which browsers allow even from HTTPS → HTTP (no CORS/mixed block).  */
-/* n8n keeps the GitHub + Groq credentials server-side.                */
+/* Server-side admin API — no GitHub token, no AI key, no n8n, no      */
+/* popups. The browser only talks to our own /api/admin route.         */
 /* ------------------------------------------------------------------ */
 
-const N8N_BRIDGE_URL = "http://100.127.219.21:5678/webhook/site-editor";
-const BRIDGE_WINDOW = "n8n_bridge_popup";
+const ADMIN_KEY = "yam2026";
 
 const COLOR_PRESETS: {
   name: string;
@@ -54,10 +50,20 @@ type Status = {
   message?: string;
 };
 
-/** Site JSON without heavy meta fields (used for AI payloads + checkpoints). */
+type AdminAction = "manual_save" | "ai_edit" | "recall";
+
+interface AdminPayload {
+  action: AdminAction;
+  slug: string;
+  updatedData?: Partial<SiteData>;
+  prompt?: string;
+  target?: "initial";
+  checkpointId?: string;
+}
+
+/** Site JSON without heavy meta fields (what we send to the server). */
 function stripHeavy(data: SiteData): Partial<SiteData> {
   const {
-    slug: _slug,
     checkpoints: _checkpoints,
     initialBackup: _initialBackup,
     ...light
@@ -90,25 +96,18 @@ function withEnforcedMeta(
     n8nEditWebhookUrl: base.n8nEditWebhookUrl,
     checkoutUrl: base.checkoutUrl,
     trackingWebhookUrl: base.trackingWebhookUrl,
-    checkpoints: base.checkpoints ?? [],
-    initialBackup: base.initialBackup,
+    checkpoints: Array.isArray(incoming.checkpoints)
+      ? clone(incoming.checkpoints)
+      : (base.checkpoints ?? []),
+    initialBackup: incoming.initialBackup
+      ? clone(incoming.initialBackup)
+      : base.initialBackup,
   };
   merged.templateId = normalizeTemplate(merged.templateId);
   return merged;
 }
 
-function pushCheckpoint(data: SiteData, label: string): SiteData {
-  const rest = clone(stripHeavy(data) as SiteData);
-  const cp: Checkpoint = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    label,
-    timestamp: new Date().toISOString(),
-    data: rest as unknown as Record<string, unknown>,
-  };
-  return { ...data, checkpoints: [...(data.checkpoints ?? []), cp] };
-}
-
-/** Guard against arbitrary postMessage payloads: only accept site-shaped data. */
+/** Guard against malformed server payloads: only accept site-shaped data. */
 function asSiteData(raw: unknown): Partial<SiteData> | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const candidate = raw as Partial<SiteData>;
@@ -123,33 +122,23 @@ function asSiteData(raw: unknown): Partial<SiteData> | null {
   return candidate;
 }
 
-function timestampedLabel(prefix: string): string {
-  return `${prefix} — ${new Date().toLocaleString("he-IL", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  })}`;
-}
+const ERROR_TEXT: Record<string, string> = {
+  forbidden: "מפתח הניהול שגוי — פתחו את האתר עם ?key=yam2026",
+  invalid_slug: "כתובת העסק חסרה או אינה תקינה",
+  invalid_site_data: "נתוני האתר אינם תקינים",
+  empty_prompt: "כתבו הוראה לפני השליחה",
+  site_not_found: "לא נמצא קובץ האתר ב-public/sites ב-GitHub",
+  restore_target_missing: "הגרסה המבוקשת לא נמצאה בקובץ",
+  missing_env: "חסרים משתני סביבה בשרת — GITHUB_TOKEN או GROQ_API_KEY",
+  invalid_json: "השרת לא הצליח לקרוא את הבקשה",
+};
 
-function bridgeFormTarget(): HTMLIFrameElement {
-  const existing = document.getElementById(
-    "n8n-bridge-frame",
-  ) as HTMLIFrameElement | null;
-  if (existing) return existing;
-  const frame = document.createElement("iframe");
-  frame.id = "n8n-bridge-frame";
-  frame.name = BRIDGE_WINDOW;
-  frame.title = "n8n bridge";
-  frame.style.position = "fixed";
-  frame.style.width = "1px";
-  frame.style.height = "1px";
-  frame.style.opacity = "0";
-  frame.style.pointerEvents = "none";
-  frame.style.border = "0";
-  frame.style.left = "-9999px";
-  document.body.appendChild(frame);
-  return frame;
+function explainError(reason: string, hint?: string): string {
+  if (ERROR_TEXT[reason]) return ERROR_TEXT[reason];
+  if (reason.startsWith("groq_")) return "עריכת ה-AI נכשלה בשרת — נסו שוב";
+  if (reason.startsWith("github_read_")) return "לא ניתן לקרוא את הקובץ מ-GitHub";
+  if (reason.startsWith("github_write_")) return "GitHub דחה את השמירה — בדקו הרשאות טוקן";
+  return hint ? `${hint} (${reason})` : `הפעולה נכשלה: ${reason}`;
 }
 
 export function AdminToolbar() {
@@ -173,279 +162,161 @@ export function AdminToolbar() {
     dataRef.current = data;
   }, [data]);
 
-  const bridgeCleanup = useRef<(() => void) | null>(null);
-  useEffect(
-    () => () => {
-      bridgeCleanup.current?.();
-    },
-    [],
-  );
-
   if (!mounted || !isAdmin) return null;
 
   const targetSlug = slug ?? data.slug ?? "default";
+  const sending = status.kind === "sending";
 
-  const writeOverride = (value: SiteData) => {
+  /** Persist server truth immediately: drop the stale override, replace the
+   * React state, then mirror the fresh snapshot back to localStorage. */
+  const persist = (next: SiteData) => {
     try {
-      localStorage.setItem(
-        SITE_OVERRIDE_PREFIX + targetSlug,
-        JSON.stringify(value),
-      );
+      localStorage.removeItem(SITE_OVERRIDE_PREFIX + targetSlug);
     } catch {
       /* storage disabled */
     }
-  };
-
-  const applySyncedSite = (raw: unknown): boolean => {
-    const candidate = asSiteData(raw);
-    if (!candidate) return false;
-    const merged = withEnforcedMeta(dataRef.current, candidate);
-    replaceData(merged);
-    writeOverride(merged);
-    return true;
-  };
-
-  const syncFromGithub = async (attempt = 0) => {
+    replaceData(next);
     try {
-      const res = await fetch(
-        `${SITES_RAW_BASE}/${targetSlug}.json?t=${Date.now()}`,
-        { cache: "no-store" },
+      localStorage.setItem(
+        SITE_OVERRIDE_PREFIX + targetSlug,
+        JSON.stringify(next),
       );
-      if (res.ok) {
-        const raw = (await res.json()) as unknown;
-        if (applySyncedSite(raw)) {
-          setStatus({
-            kind: "ok",
-            message: "n8n סיים — האתר סונכרן מ-GitHub",
-          });
-          return;
-        }
-      }
     } catch {
-      /* retry below */
+      /* storage disabled — the live state still holds */
     }
-    if (attempt < 2) {
-      window.setTimeout(() => {
-        void syncFromGithub(attempt + 1);
-      }, 1800);
-      return;
-    }
-    setStatus({
-      kind: "error",
-      message: "n8n סיים, אך לא ניתן היה לקרוא את הגרסה מ-GitHub",
-    });
   };
 
   /**
-   * sendToN8nBridge — the zero-key handoff.
-   * 1. Persist the updated site locally (instant 0ms feedback).
-   * 2. Build a hidden HTML form into a named, centered popup window so the
-   *    browser treats it as a top-level navigation (no CORS, no mixed-content
-   *    fetch failure). n8n holds the GitHub + Groq credentials.
-   * 3. Listen for a postMessage and poll `popup.closed`; when n8n finishes we
-   *    re-sync the JSON straight from GitHub.
+   * callAdmin — single HTTPS request to our Cloudflare Function. The function
+   * holds GITHUB_TOKEN + GROQ_API_KEY, commits the JSON, and returns the new
+   * site so the screen updates with no refresh.
    */
-  const sendToN8nBridge = (payloadObject: Record<string, unknown>) => {
-      bridgeCleanup.current?.();
-
-      const updated =
-        (payloadObject.updatedData as SiteData | undefined) ??
-        (payloadObject.restoredData as SiteData | undefined) ??
-        (payloadObject.currentData as SiteData | undefined) ??
-        dataRef.current;
-
-      // Step 1 — instant local persistence, before any network hop.
-      writeOverride(updated);
-      setStatus({
-        kind: "sending",
-        message: "נפתח גשר n8n — אין צורך במפתחות API",
+  const callAdmin = async (payload: AdminPayload): Promise<SiteData> => {
+    let res: Response;
+    try {
+      res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          key: ADMIN_KEY,
+          repo: REPO_NAME,
+          ...payload,
+        }),
       });
+    } catch {
+      throw new Error("לא ניתן להגיע לשרת השמירה — בדקו את החיבור");
+    }
 
-      // Step 2 — centered popup + hidden form.
-      const width = 420;
-      const height = 260;
-      const left = Math.max(
-        0,
-        Math.round((window.screenX || 0) + (window.outerWidth - width) / 2),
-      );
-      const top = Math.max(
-        0,
-        Math.round((window.screenY || 0) + (window.outerHeight - height) / 2),
-      );
+    let parsed: Record<string, unknown> | null = null;
+    try {
+      parsed = (await res.json()) as Record<string, unknown>;
+    } catch {
+      parsed = null;
+    }
 
-      let popup: Window | null = null;
-      let fallbackFrame: HTMLIFrameElement | null = null;
+    if (!res.ok || parsed?.ok !== true) {
+      const reason =
+        typeof parsed?.error === "string" ? parsed.error : `HTTP ${res.status}`;
+      const hint = typeof parsed?.hint === "string" ? parsed.hint : undefined;
+      throw new Error(explainError(reason, hint));
+    }
 
-      try {
-        popup = window.open(
-          "",
-          BRIDGE_WINDOW,
-          `popup=yes,width=${width},height=${height},left=${left},top=${top}`,
-        );
-      } catch {
-        popup = null;
-      }
-
-      if (popup) {
-        try {
-          popup.document.write(
-            '<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><title>גשר n8n</title></head><body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#0b0a08;color:#e7dcc4;font-family:system-ui,sans-serif;font-size:13px">מעביר את השינויים ל-n8n…</body></html>',
-          );
-          popup.document.close();
-        } catch {
-          /* the popup may already be navigating */
-        }
-      } else {
-        fallbackFrame = bridgeFormTarget();
-      }
-
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = N8N_BRIDGE_URL;
-      form.target = BRIDGE_WINDOW;
-      form.encType = "application/x-www-form-urlencoded";
-      form.acceptCharset = "UTF-8";
-      form.style.display = "none";
-
-      const payloadInput = document.createElement("input");
-      payloadInput.type = "hidden";
-      payloadInput.name = "payload";
-      payloadInput.value = JSON.stringify(payloadObject);
-      form.appendChild(payloadInput);
-      document.body.appendChild(form);
-
-      try {
-        form.submit();
-      } catch {
-        setStatus({
-          kind: "error",
-          message: "הדפדפן חסם את פתיחת גשר n8n — נסו שוב",
-        });
-      }
-      window.setTimeout(() => form.remove(), 0);
-
-      // Step 3 — wait for n8n, then sync from GitHub.
-      let pollTimer = 0;
-      let watchdog = 0;
-      let syncing = false;
-
-      const cleanup = () => {
-        window.removeEventListener("message", onMessage);
-        window.clearInterval(pollTimer);
-        window.clearTimeout(watchdog);
-        if (fallbackFrame) fallbackFrame.onload = null;
-        if (bridgeCleanup.current === cleanup) bridgeCleanup.current = null;
-      };
-
-      const finishAndSync = () => {
-        if (syncing) return;
-        syncing = true;
-        cleanup();
-        setStatus({
-          kind: "sending",
-          message: "n8n מסיים — מסנכרן את הגרסה מ-GitHub",
-        });
-        window.setTimeout(() => {
-          void syncFromGithub(0);
-        }, 1400);
-      };
-
-      const onMessage = (event: MessageEvent) => {
-        if (popup && event.source !== popup) return;
-        const payload = event.data;
-        if (!payload || typeof payload !== "object") return;
-        const envelope = payload as Record<string, unknown>;
-        const site =
-          asSiteData(envelope.siteData) ??
-          asSiteData(envelope.updatedData) ??
-          asSiteData(envelope.data) ??
-          asSiteData(envelope);
-        if (site && applySyncedSite(site)) {
-          setStatus({
-            kind: "ok",
-            message: "השינוי התקבל מ-n8n ונשמר מקומית",
-          });
-          cleanup();
-          return;
-        }
-        if (envelope.ok === true || envelope.success === true) {
-          finishAndSync();
-        }
-      };
-
-      window.addEventListener("message", onMessage);
-
-      if (popup) {
-        pollTimer = window.setInterval(() => {
-          if (popup?.closed) finishAndSync();
-        }, 650);
-      } else if (fallbackFrame) {
-        fallbackFrame.onload = () => finishAndSync();
-      }
-
-      watchdog = window.setTimeout(() => {
-        if (!syncing) finishAndSync();
-      }, 120000);
-
-      bridgeCleanup.current = cleanup;
+    const candidate = asSiteData(parsed?.updatedData);
+    if (!candidate) {
+      throw new Error("השרת לא החזיר את נתוני האתר המעודכנים");
+    }
+    return withEnforcedMeta(dataRef.current, candidate);
   };
 
-  const handleSave = () => {
-    const next = pushCheckpoint(
-      clone(data),
-      timestampedLabel("שמירה ידנית"),
-    );
-    replaceData(next);
-    sendToN8nBridge({
-      action: "manual_save",
-      slug: targetSlug,
-      updatedData: next,
-    });
+  const handleSave = async () => {
+    if (sending) return;
+    setStatus({ kind: "sending", message: "שומר ל-GitHub דרך השרת…" });
+    const snapshot = stripHeavy(data);
+    try {
+      const next = await callAdmin({
+        action: "manual_save",
+        slug: targetSlug,
+        updatedData: snapshot,
+      });
+      persist(next);
+      setStatus({
+        kind: "ok",
+        message: "נשמר ל-GitHub · נקודת שמירה חדשה נוצרה",
+      });
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "השמירה נכשלה",
+      });
+    }
   };
 
-  const handleAiSubmit = () => {
+  const handleAiSubmit = async () => {
     const instruction = prompt.trim();
-    if (!instruction) return;
-    sendToN8nBridge({
-      action: "ai_edit",
-      slug: targetSlug,
-      prompt: instruction,
-      currentData: stripHeavy(data),
-    });
-    setPrompt("");
+    if (!instruction || sending) return;
     setAiOpen(false);
+    setStatus({ kind: "sending", message: "ה-AI עורך את האתר בשרת…" });
+    try {
+      const next = await callAdmin({
+        action: "ai_edit",
+        slug: targetSlug,
+        prompt: instruction,
+        updatedData: stripHeavy(data),
+      });
+      persist(next);
+      setPrompt("");
+      setStatus({ kind: "ok", message: "עריכת ה-AI נשמרה ל-GitHub" });
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "עריכת ה-AI נכשלה",
+      });
+    }
   };
 
-  const handleRecallInitial = () => {
+  const handleRecallInitial = async () => {
+    if (sending) return;
     if (!data.initialBackup) {
       setStatus({ kind: "error", message: "אין גיבוי ראשוני זמין" });
       return;
     }
-    const restored = withEnforcedMeta(
-      data,
-      clone(data.initialBackup) as Partial<SiteData>,
-    );
-    replaceData(restored);
     setCpOpen(false);
-    sendToN8nBridge({
-      action: "recall",
-      slug: targetSlug,
-      restoredData: restored,
-    });
+    setStatus({ kind: "sending", message: "משחזר את הגרסה הראשונה…" });
+    try {
+      const next = await callAdmin({
+        action: "recall",
+        slug: targetSlug,
+        target: "initial",
+      });
+      persist(next);
+      setStatus({ kind: "ok", message: "הגרסה הראשונה שוחזרה" });
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "השחזור נכשל",
+      });
+    }
   };
 
-  const handleRestoreCheckpoint = (cp: Checkpoint) => {
-    const restored = withEnforcedMeta(
-      data,
-      clone(cp.data) as Partial<SiteData>,
-    );
-    replaceData(restored);
+  const handleRestoreCheckpoint = async (cp: Checkpoint) => {
+    if (sending) return;
     setCpOpen(false);
-    sendToN8nBridge({
-      action: "recall",
-      slug: targetSlug,
-      restoredData: restored,
-    });
+    setStatus({ kind: "sending", message: `משחזר: ${cp.label}` });
+    try {
+      const next = await callAdmin({
+        action: "recall",
+        slug: targetSlug,
+        checkpointId: cp.id,
+      });
+      persist(next);
+      setStatus({ kind: "ok", message: "נקודת השמירה שוחזרה" });
+    } catch (error) {
+      setStatus({
+        kind: "error",
+        message: error instanceof Error ? error.message : "השחזור נכשל",
+      });
+    }
   };
 
   if (barDown) return <ExpandPill onExpand={() => setBarDown(false)} />;
@@ -549,7 +420,8 @@ export function AdminToolbar() {
             <button
               type="button"
               onClick={() => setAiOpen(true)}
-              className="border border-[#d4af37]/40 bg-[#d4af37]/10 px-3.5 py-2 text-[12px] font-semibold text-[#efd797] transition hover:bg-[#d4af37]/20"
+              disabled={sending}
+              className="border border-[#d4af37]/40 bg-[#d4af37]/10 px-3.5 py-2 text-[12px] font-semibold text-[#efd797] transition hover:bg-[#d4af37]/20 disabled:opacity-50"
             >
               בקש שינוי מ-AI
             </button>
@@ -557,10 +429,10 @@ export function AdminToolbar() {
             <button
               type="button"
               onClick={handleSave}
-              disabled={status.kind === "sending"}
+              disabled={sending}
               className="inline-flex items-center gap-1.5 border border-emerald-400/40 bg-emerald-400/10 px-3.5 py-2 text-[12px] font-semibold text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-50"
             >
-              {status.kind === "sending" ? (
+              {sending ? (
                 <Loader2
                   className="h-3.5 w-3.5 animate-spin"
                   aria-hidden="true"
@@ -613,7 +485,7 @@ export function AdminToolbar() {
                     <button
                       type="button"
                       onClick={handleRecallInitial}
-                      disabled={!data.initialBackup}
+                      disabled={!data.initialBackup || sending}
                       className="mb-2 flex w-full items-center justify-between gap-3 border border-[#d4af37]/40 bg-[#d4af37]/10 px-3 py-2.5 text-right transition hover:bg-[#d4af37]/20 disabled:opacity-40"
                     >
                       <span>
@@ -635,7 +507,8 @@ export function AdminToolbar() {
                           key={cp.id}
                           type="button"
                           onClick={() => handleRestoreCheckpoint(cp)}
-                          className="flex w-full items-center justify-between gap-3 border border-white/8 bg-white/[0.03] px-3 py-2 text-right transition hover:bg-white/[0.08]"
+                          disabled={sending}
+                          className="flex w-full items-center justify-between gap-3 border border-white/8 bg-white/[0.03] px-3 py-2 text-right transition hover:bg-white/[0.08] disabled:opacity-50"
                         >
                           <span>
                             <span className="block text-[11px] font-semibold text-white/80">
@@ -743,7 +616,7 @@ export function AdminToolbar() {
             setPrompt={setPrompt}
             onClose={() => setAiOpen(false)}
             onSubmit={handleAiSubmit}
-            sending={status.kind === "sending"}
+            sending={sending}
           />
         )}
       </AnimatePresence>
@@ -782,8 +655,8 @@ function AiEditModal({
           <div>
             <h2 className="text-lg font-bold text-white">בקש שינוי מ-AI</h2>
             <p className="mt-1 text-[11px] leading-relaxed text-white/40">
-              ההוראה נשלחת ל-n8n, שמפעיל את המודל, מעדכן את GitHub ומחזיר את
-              הגרסה החדשה — בלי מפתח API בדפדפן.
+              ההוראה נשלחת לשרת שלנו, שמפעיל את המודל, מעדכן את GitHub ומחזיר את
+              הגרסה החדשה — בלי שום מפתח API בדפדפן.
             </p>
           </div>
           <button

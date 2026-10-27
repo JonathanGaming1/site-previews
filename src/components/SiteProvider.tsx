@@ -20,7 +20,7 @@ const ADMIN_KEY = "yam2026";
 /** localStorage prefix for the admin's instant, 0ms local override. */
 export const SITE_OVERRIDE_PREFIX = "site_override_";
 
-/** Raw GitHub JSON base used by the admin bridge to re-sync after n8n. */
+/** Raw GitHub JSON base kept for emergency read-only re-syncs. */
 export const SITES_RAW_BASE = GITHUB_RAW_BASE;
 
 export const REPO_OWNER = "JonathanGaming1";
@@ -117,6 +117,10 @@ function hydrateSite(
   const base = clone(siteDataJson as unknown as SiteData);
   const merged = { ...base, ...clone(remote) } as SiteData;
   merged.templateId = normalizeTemplate(remote.templateId ?? base.templateId);
+  // Legacy webhook fields are never used by the client and must never carry
+  // a live URL into React state (or the exported site JSON).
+  merged.n8nEditWebhookUrl = "";
+  merged.trackingWebhookUrl = "";
   if (slug) merged.slug = slug;
   merged.checkpoints = merged.checkpoints ?? [];
   if (!merged.initialBackup) merged.initialBackup = makeInitialBackup(merged);
@@ -131,6 +135,8 @@ function hydrateSite(
         mergedLocal.templateId = normalizeTemplate(
           local.templateId ?? merged.templateId,
         );
+        mergedLocal.n8nEditWebhookUrl = "";
+        mergedLocal.trackingWebhookUrl = "";
         mergedLocal.checkpoints = mergedLocal.checkpoints ?? merged.checkpoints;
         if (!mergedLocal.initialBackup) {
           mergedLocal.initialBackup = merged.initialBackup;

@@ -3,8 +3,8 @@
   "slug": "demo-mvp9vhf7-r8ch4",
   "templateId": "apple-spatial",
   "isDemo": true,
-  "n8nEditWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
-  "trackingWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
+  "n8nEditWebhookUrl": "",
+  "trackingWebhookUrl": "",
   "checkoutUrl": "/checkout?site=demo-mvp9vhf7-r8ch4",
   "theme": {
     "primaryColor": "#c59b27",
@@ -109,8 +109,8 @@
     "slug": "demo-mvp9vhf7-r8ch4",
     "templateId": "luxury-dark",
     "isDemo": true,
-    "n8nEditWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
-    "trackingWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
+    "n8nEditWebhookUrl": "",
+    "trackingWebhookUrl": "",
     "checkoutUrl": "/checkout?site=demo-mvp9vhf7-r8ch4",
     "theme": {
       "primaryColor": "#c59b27",
@@ -221,8 +221,8 @@
         "slug": "demo-mvp9vhf7-r8ch4",
         "templateId": "luxury-dark",
         "isDemo": true,
-        "n8nEditWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
-        "trackingWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
+        "n8nEditWebhookUrl": "",
+        "trackingWebhookUrl": "",
         "checkoutUrl": "/checkout?site=demo-mvp9vhf7-r8ch4",
         "theme": {
           "primaryColor": "#c59b27",

@@ -5,7 +5,7 @@
   "engine": "freebuff",
   "templateId": "swiss-editorial",
   "isDemo": true,
-  "n8nEditWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
+  "n8nEditWebhookUrl": "",
   "checkoutUrl": "/checkout?site=demo-mvqfqh9i-oqh8h",
   "theme": {
     "primaryColor": "#e2e8f0",
@@ -112,7 +112,7 @@
     "engine": "freebuff",
     "templateId": "swiss-editorial",
     "isDemo": true,
-    "n8nEditWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
+    "n8nEditWebhookUrl": "",
     "checkoutUrl": "/checkout?site=demo-mvqfqh9i-oqh8h",
     "theme": {
       "primaryColor": "#e2e8f0",
@@ -225,7 +225,7 @@
         "engine": "freebuff",
         "templateId": "swiss-editorial",
         "isDemo": true,
-        "n8nEditWebhookUrl": "http://100.127.219.21:5678/webhook/site-editor",
+        "n8nEditWebhookUrl": "",
         "checkoutUrl": "/checkout?site=demo-mvqfqh9i-oqh8h",
         "theme": {
           "primaryColor": "#e2e8f0",

@@ -2,7 +2,7 @@
   "businessId": "biz-mvp5oi3c",
   "templateId": "apple-spatial",
   "isDemo": true,
-  "n8nEditWebhookUrl": "http://localhost:5678/webhook/site-editor",
+  "n8nEditWebhookUrl": "",
   "checkoutUrl": "/checkout",
   "trackingWebhookUrl": "http://localhost:5678/webhook/site-editor",
   "theme": {
@@ -106,7 +106,7 @@
     "businessId": "biz-mvp5oi3c",
     "templateId": "warm-boutique",
     "isDemo": true,
-    "n8nEditWebhookUrl": "http://localhost:5678/webhook/site-editor",
+    "n8nEditWebhookUrl": "",
     "checkoutUrl": "/checkout",
     "trackingWebhookUrl": "http://localhost:5678/webhook/site-editor",
     "theme": {
