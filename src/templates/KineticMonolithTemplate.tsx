@@ -1,1006 +1,618 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion, useTransform } from "framer-motion";
-import { X } from "lucide-react";
+/**
+ * 04 — KINETIC MONOLITH / NVIDIA OMNIVERSE CORRIDOR
+ * ================================================
+ * Locked viewport, virtual wheel, zero scrollbar. This world is a dark
+ * liquid-chrome corridor: the wheel glides the camera horizontally and
+ * diagonally past monolithic slabs, telemetry waveforms respond to the live
+ * quote in real time, and chapter 05 is the uplink chamber.
+ */
+
+import React, { useMemo, useState } from "react";
+import { motion, useTransform } from "framer-motion";
 import { useSite } from "@/components/SiteProvider";
+import { Magnetic } from "@/templates/motion";
+import { formatNis, parsePrice, waLink } from "@/templates/shared";
 import {
-  EditorialHeadline,
-  FaqAccordion,
-  RatingBars,
-  formatNis,
-  parsePrice,
-  waLink,
-} from "@/templates/shared";
-import {
-  CameraPortal,
-  Magnetic,
-  Parallax,
-  SpecMark,
-  SpecularLight,
-  TiltStage,
-  useScrollVelocityRange,
-} from "@/templates/motion";
+  CameraStage,
+  ChapterBar,
+  FaqLedger,
+  HudScrubber,
+  LockedViewport,
+  MagneticCursor,
+  SceneMenu,
+  StageLight,
+  livePointer,
+  useCameraEngine,
+  useCameraRig,
+  useSceneTrack,
+  type CameraScene,
+} from "@/templates/wheel";
 
-/* ------------------------------------------------------------------ */
-/* KINETIC / MONOLITH                                                  */
-/* Carbon #090A0D, liquid chrome, oversized kinetic Hebrew type, a     */
-/* capability ticker, a waveform package modulator and a horizontal    */
-/* gliding monolith deck with precision deck controls.                 */
-/* ------------------------------------------------------------------ */
-
-const CHROME =
-  "linear-gradient(168deg, #ffffff 0%, #b9bfca 22%, #5a606b 44%, #eef2f7 58%, #7d838f 78%, #3b4049 100%)";
-
-const NAV = [
-  { href: "#showroom", label: "שירותים", code: "01" },
-  { href: "#modulator", label: "מחשבון גל", code: "02" },
-  { href: "#process", label: "תהליך", code: "03" },
-  { href: "#work", label: "עבודות", code: "04" },
-  { href: "#contact", label: "יצירת קשר", code: "05" },
+const SCENES: CameraScene[] = [
+  { code: "01", label: "כניסה" },
+  { code: "02", label: "מודולים" },
+  { code: "03", label: "טלמטריה" },
+  { code: "04", label: "פלט" },
+  { code: "05", label: "שידור" },
 ];
 
-function ChromeText({
-  children,
-  className = "",
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <span
-      className={className}
-      style={{
-        background: CHROME,
-        WebkitBackgroundClip: "text",
-        backgroundClip: "text",
-        color: "transparent",
-      }}
-    >
-      {children}
-    </span>
-  );
-}
+const ACID = "#CDFF3D";
+const CHROME = "#E9F1FA";
+const CYAN = "#5BE1FF";
+const SLAB =
+  "relative border border-white/10 bg-gradient-to-b from-white/[0.09] via-white/[0.03] to-transparent backdrop-blur-md";
 
 export function KineticMonolithTemplate() {
   const { data, editsFor } = useSite();
-  const { businessInfo: b, hero, services, faq, reviews, projects = [], benefits = [] } = data;
+  const info = data.businessInfo;
+  const hero = data.hero;
+  const services = data.services?.length ? data.services : [];
+  const benefits = data.benefits ?? [];
+  const reviews = data.reviews ?? [];
+  const faq = data.faq ?? [];
 
-  const accent = data.theme.accentColor || "#c8ff4d";
-  const primary = data.theme.primaryColor || "#f2f4f6";
-
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [serviceIdx, setServiceIdx] = useState(0);
-  const [amplitude, setAmplitude] = useState(46);
-  const [deckIndex, setDeckIndex] = useState(0);
-  const deckRef = useRef<HTMLDivElement | null>(null);
-
-  // Oversized kinetic type warps with the velocity of the scroll.
-  const scrollVelocity = useScrollVelocityRange(1);
-  const typeSkew = useTransform(scrollVelocity, [-1, 1], [7, -7]);
-  const typeTrack = useTransform(scrollVelocity, [-1, 1], [0.06, -0.06]);
-
-  const deckItems = useMemo(
-    () =>
-      services.map((service, i) => ({
-        ...service,
-        image: projects[i]?.afterImage ?? hero.backgroundImage,
-        project: projects[i],
-      })),
-    [hero.backgroundImage, projects, services],
+  const [scopeIdx, setScopeIdx] = useState(0);
+  const [budget, setBudget] = useState(45);
+  const [urgency, setUrgency] = useState<"NORMAL" | "PRIORITY" | "CRITICAL">(
+    "PRIORITY",
   );
+  const [menu, setMenu] = useState(false);
 
-  const base = parsePrice(services[serviceIdx]?.price) ?? 9000;
-  const multiplier = 0.72 + (amplitude / 100) * 2.35;
-  const estimate = Math.round((base * multiplier) / 100) * 100;
-  const range = Math.round((estimate * 1.18) / 100) * 100;
-  const tier =
-    amplitude < 30 ? "POINT" : amplitude < 68 ? "ROOM" : "FULL SYSTEM";
-  const tierHe =
-    amplitude < 30 ? "נקודתי" : amplitude < 68 ? "חדר שלם" : "מערכת מלאה";
+  const engine = useCameraEngine(SCENES.length, {
+    sensitivity: 0.00046,
+    depthMm: 8800,
+  });
+  const rig = useCameraRig({ tiltX: 6, tiltY: 12, lightMin: 12, lightMax: 88 });
+  const { progress, active, jump } = engine;
 
-  const waveBars = useMemo(() => {
-    const bars = 40;
-    return Array.from({ length: bars }, (_, i) => {
-      const phase = (i / (bars - 1)) * Math.PI * 2;
-      const envelope = Math.sin((i / (bars - 1)) * Math.PI);
-      const frequency = 2 + amplitude / 14;
+  const s1 = useSceneTrack(progress, {
+    enter: -0.06,
+    peak: 0,
+    exit: 0.3,
+    fromScale: 0.72,
+    zoom: 2.2,
+    depth: 700,
+    tiltX: 6,
+    blur: 0,
+  });
+  const s2 = useSceneTrack(progress, {
+    enter: 0.16,
+    peak: 0.28,
+    exit: 0.5,
+    fromScale: 0.5,
+    zoom: 2.1,
+    depth: 780,
+    tiltX: 8,
+    blur: 0,
+  });
+  const s3 = useSceneTrack(progress, {
+    enter: 0.44,
+    peak: 0.56,
+    exit: 0.74,
+    fromScale: 0.55,
+    zoom: 1.95,
+    depth: 660,
+    tiltX: 7,
+    blur: 26,
+  });
+  const s4 = useSceneTrack(progress, {
+    enter: 0.66,
+    peak: 0.78,
+    exit: 0.92,
+    fromScale: 0.6,
+    zoom: 1.9,
+    depth: 600,
+    tiltX: 5,
+    blur: 22,
+  });
+  const s5 = useSceneTrack(progress, {
+    enter: 0.85,
+    peak: 0.96,
+    exit: 1.12,
+    fromScale: 0.64,
+    zoom: 1.6,
+    depth: 560,
+    tiltX: 4,
+    blur: 18,
+    opacityRange: [0.85, 0.96, 1.12],
+    opacityValues: [0, 1, 1],
+  });
+
+  /* Diagonal glide: the whole world slides sideways as the camera advances. */
+  const glide = useTransform(progress, [0, 1], ["16%", "-16%"]);
+  const glideSlow = useTransform(progress, [0, 1], ["6%", "-6%"]);
+  const glideFast = useTransform(progress, [0, 1], ["30%", "-30%"]);
+  const corridorTurn = useTransform(progress, [0, 1], [0, -26]);
+  const sheen = useTransform(progress, [0, 1], ["-40%", "140%"]);
+  const playhead = useTransform(progress, [0, 1], ["0%", "100%"]);
+
+  const scope = services[scopeIdx];
+  const base = parsePrice(scope?.price) ?? 6200;
+  const urgencyFactor =
+    urgency === "NORMAL" ? 1 : urgency === "PRIORITY" ? 1.14 : 1.3;
+  const estimate =
+    Math.round((base * (0.75 + budget / 90) * urgencyFactor) / 100) * 100;
+
+  /* Waveform physics: amplitude is a function of the live telemetry values. */
+  const bars = useMemo(() => {
+    const amplitude = 16 + (budget / 90) * 68;
+    return Array.from({ length: 44 }, (_, index) => {
       const wave =
-        Math.sin(phase * frequency + amplitude / 16) * 0.62 +
-        Math.sin(phase * (frequency * 1.7) + amplitude / 7) * 0.26;
-      return 5 + Math.abs(wave) * envelope * (12 + amplitude * 0.9);
+        Math.sin(index * 0.5 + budget * 0.05) * 0.5 +
+        Math.sin(index * 1.31) * 0.28;
+      return Math.max(6, Math.min(100, Math.round(14 + amplitude * (wave + 0.8))));
     });
-  }, [amplitude]);
+  }, [budget]);
 
-  const packageHref = waLink(
-    b.whatsapp,
-    [
-      `שלום, בניתי חבילה במחשבון הגל של ${b.name}.`,
-      `• שירות: ${services[serviceIdx]?.title ?? ""}`,
-      `• פרופיל: ${tier} / ${tierHe}`,
-      `• עוצמת גל: ${amplitude}%`,
-      `• הערכת השקעה: ${formatNis(estimate)}–${formatNis(range)}`,
-      "אשמח לפרטים מדויקים.",
-    ].join("\n"),
-  );
-
-  const scrollDeck = (nextIndex: number) => {
-    const items = deckRef.current?.querySelectorAll<HTMLElement>("[data-deck-item]");
-    if (!items?.length) return;
-    const clamped = (nextIndex + items.length) % items.length;
-    setDeckIndex(clamped);
-    items[clamped]?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    });
-  };
-
-  const tickerItems = [
-    b.category,
-    "LIQUID CHROME FINISH",
-    `${b.googleRating.toFixed(1)} / 5`,
-    "MONOLITHIC PRECISION",
-    b.address.split(",")[0] || b.address,
-    "BUILT TO OUTLAST",
-  ];
+  const waNumber = String(info.whatsapp || "").replace(/\D/g, "");
+  const specMessage =
+    `היי ${info.name}, בניתי טלמטריה למפרט:\n` +
+    `• מודול: ${scope?.title ?? "—"}\n` +
+    `• תקציב: ${budget} יח'\n` +
+    `• עדיפות: ${urgency}\n` +
+    `• אומדן: ${formatNis(estimate)}`;
 
   return (
-    <div
-      className="relative min-h-screen overflow-x-hidden pb-20 lg:pl-12"
-      style={{ background: "#090A0D", color: "rgba(242,244,246,0.72)" }}
-      dir="rtl"
-    >
+    <LockedViewport background="#040507" text="#EEF4FA">
+      <StageLight
+        rig={rig}
+        tint="rgba(205,255,61,0.08)"
+        accent="rgba(91,225,255,0.05)"
+        size={900}
+      />
+      <MagneticCursor rig={rig} accent={ACID} label="MONOLITH" />
+
+      {/* Chrome corridor walls — receding slabs the camera glides between */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0"
-        style={{
-          background:
-            "radial-gradient(55% 42% at 76% 0%, rgba(190,205,230,0.10), transparent 68%), radial-gradient(40% 40% at 4% 70%, rgba(200,255,77,0.045), transparent 70%)",
-        }}
-      />
-
-      {/* Brushed-metal key light sweeping the monolith as the cursor moves. */}
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[5]">
-        <SpecularLight color="rgba(200,255,77,0.10)" size={54} />
+        className="pointer-events-none absolute inset-0 overflow-hidden"
+        style={{ perspective: 1300, transformStyle: "preserve-3d" }}
+      >
+        <motion.div
+          style={{ rotateY: corridorTurn, transformStyle: "preserve-3d" }}
+          className="absolute inset-0"
+        >
+          <div
+            className="absolute right-0 top-0 h-full w-[18%] border-l border-white/10 bg-gradient-to-l from-white/[0.07] to-transparent"
+            style={{ transform: "translateZ(-180px)" }}
+          />
+          <motion.div
+            aria-hidden="true"
+            className="absolute inset-y-0 w-[600px] opacity-30"
+            style={{
+              x: sheen,
+              background: `linear-gradient(100deg, transparent, ${CHROME}22 45%, transparent)`,
+            }}
+          />
+          <div
+            className="absolute left-0 top-1/4 h-[52%] w-[14%] border-r border-white/10 bg-gradient-to-r from-white/[0.05] to-transparent"
+            style={{ transform: "translateZ(-320px)" }}
+          />
+        </motion.div>
       </div>
 
-      {/* ---------------- technical status strip ---------------- */}
-      <div className="fixed inset-x-0 top-0 z-[9510] flex h-8 items-center justify-between border-b border-white/10 bg-[#090A0D]/90 px-3 text-[7.5px] tracking-[0.26em] text-white/30 backdrop-blur-xl">
-        <span dir="ltr">TLV 32.0853 / 34.7818</span>
-        <span className="hidden sm:block" dir="ltr">
-          LIQUID CHROME SYSTEMS / MMXXVI
-        </span>
+      <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between px-5 py-6 md:px-12">
+        <div className="flex items-center gap-4">
+          <span
+            className="block h-3 w-3"
+            style={{ background: ACID, boxShadow: `0 0 18px ${ACID}` }}
+          />
+          <span className="font-grotesk text-[11px] uppercase tracking-[0.38em] text-white/75">
+            {info.name || "MONOLITH"}
+          </span>
+        </div>
+
+        <div className="hidden items-center gap-6 md:flex">
+          <span className="font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/35">
+            {info.address}
+          </span>
+          <span className="font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/35">
+            {info.phone}
+          </span>
+        </div>
+
         <button
           type="button"
-          onClick={() => setMenuOpen(true)}
-          className="flex items-center gap-2 text-white/55 transition hover:text-white"
-          aria-haspopup="dialog"
-          aria-expanded={menuOpen}
+          onClick={() => setMenu(true)}
+          className="font-grotesk text-[10px] uppercase tracking-[0.32em] text-white/70 hover:text-white"
         >
-          אינדקס
-          <span aria-hidden="true">+</span>
+          DECK INDEX
         </button>
-      </div>
+      </header>
 
-      {/* ---------------- vertical monolith rail ---------------- */}
-      <aside className="fixed bottom-0 left-0 top-8 z-[9400] hidden w-12 flex-col items-center justify-between border-r border-white/[0.09] bg-[#090A0D]/65 py-5 backdrop-blur lg:flex">
-        <span
-          className="text-[8px] tracking-[0.4em] text-white/25"
-          style={{ writingMode: "vertical-rl" }}
-          dir="ltr"
+      <HudScrubber engine={engine} scenes={SCENES} accent={ACID} />
+      <ChapterBar
+        engine={engine}
+        scenes={SCENES}
+        accent={ACID}
+        hint="סובב גלגלת — המצלמה גולשת בפרוזדור הכרום [GLIDE]"
+      />
+
+      <CameraStage rig={rig} perspective={1400} className="relative h-full w-full">
+        {/* ---------------- 01 · ENTRY ---------------- */}
+        <motion.section
+          style={{ ...s1, ...livePointer(active === 0) }}
+          className="absolute inset-0 flex items-center justify-center px-6"
         >
-          MONOLITH / 01
-        </span>
-        <div className="flex flex-col items-center gap-4">
-          {NAV.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className="group relative flex h-4 w-4 items-center justify-center"
-              aria-label={item.label}
-              title={item.label}
+          <motion.div style={{ x: glideSlow }} className="max-w-5xl text-center">
+            <span className="font-grotesk text-[10px] uppercase tracking-[0.55em] text-white/40">
+              CHAPTER 01 — CORRIDOR ENTRY
+            </span>
+            <h1
+              className="mt-6 font-frank text-[2.6rem] font-light uppercase leading-[0.98] tracking-tight text-white sm:text-7xl md:text-[6.4rem]"
+              {...editsFor("hero.headline")}
             >
-              <span className="h-1 w-1 bg-white/20 transition group-hover:bg-white/70" />
-              <span
-                className="pointer-events-none absolute left-6 whitespace-nowrap text-[8px] tracking-[0.2em] text-white/0 transition group-hover:text-white/50"
-                dir="rtl"
-              >
-                {item.label}
-              </span>
-            </a>
-          ))}
-        </div>
-        <span className="text-[8px] tracking-[0.3em] text-white/20" dir="ltr">
-          40.7
-        </span>
-      </aside>
-
-      {/* ---------------- full-screen slab index ---------------- */}
-      <AnimatePresence>
-        {menuOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100000] flex flex-col bg-[#090A0D]"
-            role="dialog"
-            aria-modal="true"
-            aria-label="אינדקס אתר"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-              <span className="text-[8.5px] tracking-[0.34em] text-white/35" dir="ltr">
-                SYSTEM INDEX / {b.name.toUpperCase()}
-              </span>
+              {hero.headline || info.name || "MONOLITH"}
+            </h1>
+            <div className="mx-auto mt-6 h-px w-40" style={{ background: ACID }} />
+            <p
+              className="mx-auto mt-6 max-w-xl text-sm font-light leading-relaxed text-white/55"
+              {...editsFor("hero.subheadline")}
+            >
+              {hero.subheadline || info.description}
+            </p>
+            <Magnetic className="mt-8 flex justify-center" strength={0.42}>
               <button
                 type="button"
-                onClick={() => setMenuOpen(false)}
-                className="flex h-9 w-9 items-center justify-center border border-white/15 text-white/60 transition hover:text-white"
-                aria-label="סגור אינדקס"
+                onClick={() => jump(1)}
+                className="px-9 py-4 font-grotesk text-[11px] uppercase tracking-[0.32em] text-black"
+                style={{ background: ACID }}
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                {hero.ctaText || "כניסה לדק המודולים"}
               </button>
+            </Magnetic>
+          </motion.div>
+        </motion.section>
+
+        {/* ---------------- 02 · MODULES ---------------- */}
+        <motion.section
+          style={{ ...s2, ...livePointer(active === 1) }}
+          className="absolute inset-0 flex flex-col justify-center px-6 md:px-14"
+        >
+          <motion.div style={{ x: glide }} className="w-full">
+            <div className="flex items-end justify-between border-b border-white/10 pb-5">
+              <div>
+                <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
+                  CHAPTER 02 — MODULE DECK
+                </span>
+                <h2 className="mt-3 font-frank text-3xl font-light uppercase md:text-5xl">
+                  דק המודולים
+                </h2>
+              </div>
+              <span className="hidden font-grotesk text-[10px] uppercase tracking-[0.28em] text-white/35 md:block">
+                {services.length || 4} SLABS · GLIDE ACTIVE
+              </span>
             </div>
-            <nav className="grid flex-1 grid-rows-5">
-              {NAV.map((item, i) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="group relative flex items-center justify-between overflow-hidden border-b border-white/[0.07] px-5 md:px-10"
+
+            <div
+              className="mt-6 flex gap-5 overflow-x-auto pb-2"
+              data-camera-ui="true"
+            >
+              {(services.length ? services : []).slice(0, 5).map((service, index) => (
+                <motion.div
+                  key={index}
+                  style={{ z: index % 2 === 0 ? 90 : -70, rotateY: counter(index) }}
+                  className={`${SLAB} min-w-[248px] flex-1 p-6`}
                 >
-                  <span className="relative z-10 flex items-baseline gap-5">
-                    <span className="text-[9px] tracking-[0.3em] text-white/25" dir="ltr">
-                      {item.code}
-                    </span>
-                    <span className="text-3xl font-light text-white/62 transition-colors group-hover:text-white md:text-6xl">
-                      {item.label}
-                    </span>
-                  </span>
-                  <span className="relative z-10 text-white/20 transition group-hover:text-white/60" aria-hidden="true">
-                    ←
-                  </span>
                   <span
-                    aria-hidden="true"
-                    className="absolute inset-y-0 right-0 w-0 transition-[width] duration-500 group-hover:w-full"
-                    style={{ background: "rgba(255,255,255,0.035)" }}
-                  />
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-[16vw] font-light leading-none text-white/[0.015] md:text-[9vw]">
-                    {String(i + 1).padStart(2, "0")}
+                    className="font-grotesk text-[10px] tracking-[0.34em]"
+                    style={{ color: ACID }}
+                  >
+                    SLAB / {String(index + 1).padStart(2, "0")}
                   </span>
-                </a>
+                  <h3
+                    className="mt-4 font-frank text-2xl font-light text-white"
+                    {...editsFor(`services.${index}.title`)}
+                  >
+                    {service.title}
+                  </h3>
+                  <p
+                    className="mt-3 text-[11px] leading-relaxed text-white/50"
+                    {...editsFor(`services.${index}.description`)}
+                  >
+                    {service.description}
+                  </p>
+                  <span className="mt-5 block font-grotesk text-[10px] uppercase tracking-[0.26em] text-white/70">
+                    {service.price || "בהתאמה"}
+                  </span>
+                </motion.div>
               ))}
-            </nav>
-            <div className="flex items-center justify-between px-5 py-4 text-[8px] tracking-[0.24em] text-white/25" dir="ltr">
-              <span>{b.phone}</span>
-              <span>KINETIC MONOLITH</span>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </motion.section>
 
-      {/* ---------------- hero monolith — isometric 3D telemetry portal ----------------
-          Scroll dollies the camera between the monolith slabs: they slide past
-          the lens in Z-space and the console resolves from between them. */}
-      <section id="top" className="relative z-10 overflow-hidden pt-24 md:pt-28">
-        <CameraPortal
-          heightVh={300}
-          perspective={1200}
-          zoom={3.7}
-          blurOut={20}
-          veilColor="rgba(9,10,13,0.94)"
-          hint={
-            <span className="flex flex-col items-center gap-3">
-              <SpecMark style={{ color: accent }}>SCROLL — ENTER THE SLAB</SpecMark>
-              <span className="block h-10 w-px" style={{ background: `linear-gradient(${accent}, transparent)` }} />
-            </span>
-          }
-          scene={
-            <div className="absolute inset-0 overflow-hidden">
-              {/* isometric monolith slabs at three camera depths */}
-              <Parallax depth={44} className="absolute inset-0">
-                <span className="absolute bottom-0 right-[8%] top-[10%] w-[16vw] border-x border-white/[0.07] bg-gradient-to-b from-white/[0.05] to-transparent" />
-                <span className="absolute bottom-0 left-[6%] top-[30%] w-[4vw] border-x border-white/[0.05]" />
-              </Parallax>
-              <Parallax depth={22} depthZ={80} className="absolute inset-0">
-                <span className="absolute bottom-0 right-[27%] top-[22%] w-[7vw] border-x border-white/[0.06] bg-gradient-to-b from-white/[0.03] to-transparent" />
-              </Parallax>
-              <Parallax depth={70} depthZ={180} className="absolute inset-0">
-                <span className="absolute bottom-0 left-[22%] top-[46%] w-[3vw] border-x border-white/[0.09] bg-gradient-to-b from-white/[0.04] to-transparent" />
-              </Parallax>
+        {/* ---------------- 03 · TELEMETRY ---------------- */}
+        <motion.section
+          style={{ ...s3, ...livePointer(active === 2) }}
+          data-camera-ui="true"
+          className="absolute inset-0 flex flex-col justify-center overflow-y-auto px-6 py-24 md:px-14"
+        >
+          <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.35fr_1fr]">
+            <div className={`${SLAB} p-7 md:p-9`}>
+              <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
+                CHAPTER 03 — LIVE TELEMETRY
+              </span>
+              <h2 className="mt-3 font-frank text-3xl font-light uppercase md:text-4xl">
+                טלמטריה חיה
+              </h2>
 
-              {/* electric GPU-style telemetry beams */}
-              <div aria-hidden="true" className="absolute inset-0">
-                {[18, 38, 58, 78].map((top, i) => (
-                  <span
-                    key={top}
-                    className="absolute inset-x-0 h-px animate-beam"
+              <div className="mt-7 flex h-28 items-end gap-1">
+                {bars.map((height, index) => (
+                  <motion.span
+                    key={index}
+                    animate={{ scaleY: [0.4, 1, 0.62] }}
+                    transition={{
+                      duration: 2.6,
+                      repeat: Infinity,
+                      delay: index * 0.03,
+                      ease: "easeInOut",
+                    }}
+                    className="block flex-1 origin-bottom"
                     style={{
-                      top: `${top}%`,
-                      background: `linear-gradient(90deg, transparent, ${accent}, transparent)`,
-                      animationDelay: `${i * 0.42}s`,
+                      height: `${height}%`,
+                      background: `linear-gradient(180deg, ${index % 7 === 0 ? ACID : CYAN}, transparent)`,
                     }}
                   />
                 ))}
-                <span
-                  className="absolute inset-0 animate-scanline opacity-30"
-                  style={{
-                    background: `linear-gradient(180deg, transparent, ${accent}22, transparent)`,
-                  }}
+              </div>
+              <div className="relative mt-2 h-px w-full bg-white/10">
+                <motion.span
+                  className="absolute -top-1 h-2.5 w-px"
+                  style={{ left: playhead, background: ACID }}
                 />
               </div>
 
-              {/* giant kinetic type that warps with scroll velocity */}
-              <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 overflow-hidden px-5">
-                <motion.p
-                  style={{ skewX: typeSkew, letterSpacing: typeTrack }}
-                  className="whitespace-nowrap text-center text-[clamp(4rem,15vw,13rem)] font-light leading-[0.86] tracking-[-0.05em] text-white/[0.07]"
-                  dir="ltr"
-                >
-                  MONOLITH
-                </motion.p>
-              </div>
-
-              <div className="absolute inset-x-0 top-24 text-center md:top-28">
-                <SpecMark style={{ color: accent }}>LIQUID CHROME / {b.name}</SpecMark>
-              </div>
-            </div>
-          }
-          pane={
-            <div
-              className="h-full w-full"
-              style={{
-                background:
-                  "linear-gradient(90deg, rgba(9,10,13,0.96), rgba(9,10,13,0.7) 62%, rgba(9,10,13,0.08))",
-              }}
-            >
-              <div
-                className="h-full w-full opacity-60"
-                style={{ background: CHROME, mixBlendMode: "overlay" }}
-              />
-            </div>
-          }
-          interior={
-            <>
-        <div className="relative mx-auto grid max-w-7xl items-center gap-10 px-5 pt-16 md:px-8 md:pt-20 lg:grid-cols-[1.35fr_0.65fr]">
-          <div>
-            <div className="mb-7 flex items-center gap-4">
-              <span className="text-[8.5px] tracking-[0.36em]" style={{ color: accent }} dir="ltr">
-                MONOLITH / N° 01
-              </span>
-              <span className="h-px w-16 bg-white/15" />
-              <span
-                className="text-[9px] tracking-[0.3em] text-white/30"
-                {...editsFor("businessInfo.category")}
-              >
-                {b.category}
-              </span>
-            </div>
-
-            <h1
-              className="text-[clamp(3rem,7vw,6.5rem)] font-light leading-[0.98] tracking-[-0.045em]"
-              style={{ color: "#f2f4f6" }}
-              {...editsFor("hero.headline")}
-            >
-              <EditorialHeadline text={hero.headline} />
-            </h1>
-
-            <div className="mt-9 grid max-w-2xl gap-7 border-t border-white/10 pt-6 sm:grid-cols-[1fr_auto]">
-              <p
-                className="max-w-md text-[12.5px] leading-[2] text-white/36"
-                {...editsFor("hero.subheadline")}
-              >
-                {hero.subheadline}
-              </p>
-              <div className="flex flex-col items-start gap-3">
-                <Magnetic strength={0.26}>
-                  <a
-                    href="#showroom"
-                    className="group flex items-center gap-4 px-6 py-3 text-[11px] font-bold tracking-[0.1em] text-[#090A0D]"
-                    style={{ background: accent }}
-                  >
-                    {hero.ctaText}
-                    <span className="transition-transform group-hover:-translate-x-1" aria-hidden="true">
-                      ←
-                    </span>
-                  </a>
-                </Magnetic>
-                <a
-                  href={`tel:${b.phone}`}
-                  className="text-[10px] tracking-[0.16em] text-white/35 transition hover:text-white/75"
-                  dir="ltr"
-                >
-                  {b.phone}
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* vertical hero slab */}
-          <motion.div
-            initial={{ opacity: 0, y: 28 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 1, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-            className="relative mx-auto w-full max-w-[300px] lg:max-w-none"
-          >
-            {/* hovering telemetry beams + levitating 3D monolith card */}
-            <TiltStage
-              intensity={9}
-              glareColor={`color-mix(in srgb, ${accent} 20%, transparent)`}
-              className="relative"
-            >
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-x-6 top-0 h-px animate-beam"
-              style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }}
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute -inset-x-6 bottom-0 h-px animate-beam"
-              style={{ background: `linear-gradient(90deg, transparent, ${accent}, transparent)`, animationDelay: "1.2s" }}
-            />
-            <div className="relative border border-white/12 p-1.5">
-              <div className="relative h-[50vh] overflow-hidden md:h-[62vh]">
-                {hero.backgroundImage ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={hero.backgroundImage}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      style={{ filter: "saturate(0.45) contrast(1.12) brightness(0.8)" }}
-                    />
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          "linear-gradient(180deg, rgba(9,10,13,0.1), rgba(9,10,13,0.82))",
-                      }}
-                    />
-                  </>
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-white/[0.03]">
-                    <span className="text-[9px] tracking-[0.4em] text-white/25" dir="ltr">
-                      MONOLITH
-                    </span>
-                  </div>
-                )}
-                <ChromeText className="absolute right-3 top-3 text-[10vw] font-light leading-none tracking-tighter md:text-[5vw]">
-                  01
-                </ChromeText>
-                <div className="absolute inset-x-3 bottom-3 border-t border-white/15 pt-3">
-                  <p className="text-[8px] tracking-[0.3em] text-white/35" dir="ltr">
-                    ACOUSTIC SCULPTURE
-                  </p>
-                  <p className="mt-1 text-sm font-light text-white/80">{b.name}</p>
-                  <p className="mt-1 text-[9.5px] text-white/32">{b.tagline.slice(0, 48)}</p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-2 flex items-center justify-between text-[7.5px] tracking-[0.24em] text-white/22" dir="ltr">
-              <span>CARBON / {primary.toUpperCase()}</span>
-              <span>Ø {String(b.reviewsCount).padStart(3, "0")}</span>
-            </div>
-            </TiltStage>
-          </motion.div>
-        </div>
-
-        {/* capability ticker */}
-        <div className="relative z-10 mt-14 overflow-hidden border-y border-white/[0.08] py-2.5 ticker">
-          <div className="ticker-track items-center text-[9px] tracking-[0.3em] text-white/32">
-            {[...tickerItems, ...tickerItems].map((item, i) => (
-              <span key={i} className="inline-flex items-center whitespace-nowrap">
-                <span className="px-6">{item}</span>
-                <span style={{ color: primary }}>—</span>
-              </span>
-            ))}
-          </div>
-        </div>
-            </>
-          }
-        />
-      </section>
-
-      {/* ---------------- horizontal gliding deck ---------------- */}
-      <section id="showroom" className="relative z-10 py-20 md:py-28">
-        <div className="mx-auto mb-7 flex max-w-7xl flex-wrap items-end justify-between gap-4 px-5 md:px-8">
-          <div>
-            <p className="text-[8.5px] tracking-[0.36em]" style={{ color: accent }} dir="ltr">
-              SHOWROOM DECK / N° 02
-            </p>
-            <h2
-              className="mt-3 text-[clamp(2rem,4vw,3.4rem)] font-light leading-[1.05] tracking-[-0.035em]"
-              style={{ color: "#f2f4f6" }}
-            >
-              מודולים שנעים
-              <br />
-              על פס אחד.
-            </h2>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => scrollDeck(deckIndex + 1)}
-              className="flex h-10 w-10 items-center justify-center border border-white/15 text-white/55 transition hover:border-white/40 hover:text-white"
-              aria-label="הקודם"
-            >
-              →
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollDeck(deckIndex - 1)}
-              className="flex h-10 w-10 items-center justify-center border border-white/15 text-white/55 transition hover:border-white/40 hover:text-white"
-              aria-label="הבא"
-            >
-              ←
-            </button>
-            <span className="mr-2 text-[9px] tracking-[0.24em] text-white/28" dir="ltr">
-              {String(deckIndex + 1).padStart(2, "0")} / {String(deckItems.length).padStart(2, "0")}
-            </span>
-          </div>
-        </div>
-
-        <div
-          ref={deckRef}
-          className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-5 md:px-[max(1.25rem,calc((100vw-80rem)/2+2rem))]"
-          style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.16) transparent" }}
-          dir="rtl"
-        >
-          {deckItems.map((item, i) => (
-            <article
-              key={i}
-              data-deck-item
-              className="group relative min-w-[84vw] shrink-0 snap-center border border-white/10 md:min-w-[440px]"
-            >
-              <div className="relative h-[52vh] overflow-hidden md:h-[60vh]">
-                {item.image ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={item.image}
-                      alt={item.title}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-[1200ms] group-hover:scale-[1.03]"
-                      style={{ filter: "saturate(0.4) contrast(1.1) brightness(0.82)" }}
-                    />
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          "linear-gradient(180deg, rgba(9,10,13,0.15), rgba(9,10,13,0.9))",
-                      }}
-                    />
-                  </>
-                ) : (
-                  <div className="h-full bg-white/[0.03]" />
-                )}
-
-                <ChromeText className="absolute right-4 top-3 text-6xl font-light leading-none md:text-8xl">
-                  {String(i + 1).padStart(2, "0")}
-                </ChromeText>
-
-                <div className="absolute inset-x-4 bottom-4">
-                  <h3
-                    className="text-2xl font-light leading-[1.2] text-white/90"
-                    {...editsFor(`services.${i}.title`)}
-                  >
-                    {item.title}
-                  </h3>
-                  <div className="mt-3 flex items-end justify-between gap-4 border-t border-white/15 pt-3">
-                    <p
-                      className="max-w-[70%] text-[11px] leading-[1.8] text-white/42"
-                      {...editsFor(`services.${i}.description`)}
-                    >
-                      {item.description}
-                    </p>
-                    <span
-                      className="shrink-0 text-[11px] text-white/60"
-                      {...editsFor(`services.${i}.price`)}
-                    >
-                      {item.price}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3 text-[7.5px] tracking-[0.24em] text-white/22" dir="ltr">
-                <span>MODULE / {String(i + 1).padStart(2, "0")}</span>
-                <span>{item.project?.title ?? "MONOLITH SERIES"}</span>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {/* deck progress */}
-        <div className="mx-auto mt-3 flex max-w-7xl gap-1.5 px-5 md:px-8">
-          {deckItems.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => scrollDeck(i)}
-              aria-label={`מודול ${i + 1}`}
-              className="h-px flex-1 transition-colors"
-              style={{ background: i === deckIndex ? accent : "rgba(255,255,255,0.12)" }}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* ---------------- waveform modulator ---------------- */}
-      <section id="modulator" className="relative z-10 border-y border-white/[0.08]">
-        <div className="mx-auto max-w-7xl px-5 py-20 md:px-8 md:py-28">
-          <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <p className="text-[8.5px] tracking-[0.36em]" style={{ color: accent }} dir="ltr">
-                WAVE MODULATOR / N° 03
-              </p>
-              <h2
-                className="mt-3 text-[clamp(2rem,4vw,3.4rem)] font-light leading-[1.05] tracking-[-0.035em]"
-                style={{ color: "#f2f4f6" }}
-              >
-                גררו את הגל.
-                <br />
-                החבילה מתכווננת.
-              </h2>
-            </div>
-            <p className="max-w-sm text-[11px] leading-[1.95] text-white/34">
-              כל תנועה של הידית מעצבת מחדש את צורת הגל ומחשבת את היקף הפרויקט
-              וההשקעה בזמן אמת.
-            </p>
-          </div>
-
-          <div className="grid gap-8 lg:grid-cols-[1.4fr_0.8fr]">
-            <div className="border border-white/10 bg-white/[0.02] p-5 md:p-7">
-              {/* live waveform */}
-              <div className="relative h-[220px] overflow-hidden border border-white/[0.07] bg-[#07080b] px-2 py-3">
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0 opacity-30"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)",
-                    backgroundSize: "40px 30px",
-                  }}
-                />
-                <svg viewBox="0 0 560 180" className="relative h-full w-full" role="img" aria-label="גל acoustic חי">
-                  <defs>
-                    <linearGradient id="waveChrome" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0" stopColor={accent} stopOpacity="0.95" />
-                      <stop offset="1" stopColor={accent} stopOpacity="0.16" />
-                    </linearGradient>
-                  </defs>
-                  <line x1="0" y1="90" x2="560" y2="90" stroke="rgba(255,255,255,0.08)" strokeDasharray="2 6" />
-                  {waveBars.map((height, i) => (
-                    <motion.rect
-                      key={i}
-                      x={8 + i * 13.6}
-                      width={6}
-                      initial={false}
-                      animate={{ height, y: 90 - height / 2 }}
-                      transition={{ type: "spring", stiffness: 170, damping: 20 }}
-                      fill={i % 6 === 0 ? accent : "url(#waveChrome)"}
-                      opacity={i % 6 === 0 ? 1 : 0.65}
-                    />
-                  ))}
-                </svg>
-                <div className="absolute right-3 top-2 flex items-center gap-2 text-[7.5px] tracking-[0.28em] text-white/25" dir="ltr">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full" style={{ background: accent }} />
-                  LIVE SIGNAL
-                </div>
-                <div className="absolute bottom-2 left-3 text-[7.5px] tracking-[0.24em] text-white/20" dir="ltr">
-                  40 BANDS / 20Hz—20kHz
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-[8.5px] tracking-[0.3em] text-white/32">01 / עוצמת היקף</span>
-                  <span className="text-[11px] tabular-nums" style={{ color: accent }} dir="ltr">
-                    {amplitude}% · {tier}
+              <div className="mt-8 space-y-6">
+                <div>
+                  <span className="font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/45">
+                    מודול
                   </span>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(services.length ? services : []).slice(0, 4).map((service, index) => {
+                      const on = scopeIdx === index;
+                      return (
+                        <button
+                          key={index}
+                          type="button"
+                          onClick={() => setScopeIdx(index)}
+                          className={`border px-4 py-2 text-xs transition-all ${
+                            on ? "text-black" : "border-white/12 text-white/55 hover:border-white/35"
+                          }`}
+                          style={on ? { background: ACID, borderColor: ACID } : undefined}
+                        >
+                          {service.title}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={amplitude}
-                  onChange={(event) => setAmplitude(Number(event.target.value))}
-                  className="kinetic-range mt-2 w-full"
-                  style={{ ["--range-accent" as string]: accent }}
-                  aria-label="עוצמת הגל והיקף הפרויקט"
-                />
-                <div className="mt-0 flex justify-between text-[7.5px] tracking-[0.2em] text-white/22" dir="ltr">
-                  <span>POINT</span>
-                  <span>ROOM</span>
-                  <span>FULL SYSTEM</span>
-                </div>
-              </div>
 
-              <div className="mt-7 border-t border-white/[0.08] pt-4">
-                <p className="text-[8.5px] tracking-[0.28em] text-white/28">02 / מודול</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {services.map((service, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setServiceIdx(i)}
-                      aria-pressed={serviceIdx === i}
-                      className="border px-3 py-1.5 text-[10px] transition-colors"
-                      style={{
-                        borderColor:
-                          serviceIdx === i ? accent : "rgba(255,255,255,0.12)",
-                        color: serviceIdx === i ? "#f2f4f6" : "rgba(242,244,246,0.42)",
-                      }}
-                    >
-                      {service.title}
-                    </button>
-                  ))}
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-grotesk text-[10px] uppercase tracking-[0.3em] text-white/45">
+                      היקף / יחידות
+                    </span>
+                    <span className="font-grotesk text-sm" style={{ color: ACID }}>
+                      {budget}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={5}
+                    max={90}
+                    value={budget}
+                    onChange={(event) => setBudget(Number(event.target.value))}
+                    className="kinetic-range mt-3"
+                    style={{ "--range-accent": ACID } as React.CSSProperties}
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  {(["NORMAL", "PRIORITY", "CRITICAL"] as const).map((level) => {
+                    const on = urgency === level;
+                    return (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() => setUrgency(level)}
+                        className={`border px-3 py-3 font-grotesk text-[10px] uppercase tracking-[0.18em] transition-all ${
+                          on ? "text-black" : "border-white/12 text-white/50"
+                        }`}
+                        style={on ? { background: ACID, borderColor: ACID } : undefined}
+                      >
+                        {level}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
-            <aside className="flex flex-col justify-between border border-white/10 bg-white/[0.025] p-6 md:p-8" aria-live="polite">
+            <div className={`${SLAB} flex flex-col justify-between p-7 md:p-9`}>
               <div>
-                <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
-                  <span className="text-[8.5px] tracking-[0.3em] text-white/28" dir="ltr">
-                    PACKAGE ESTIMATE
-                  </span>
-                  <span className="text-[8px] tracking-[0.2em]" style={{ color: accent }}>
-                    {tier}
-                  </span>
-                </div>
-                <p className="mt-5 text-[8.5px] tracking-[0.26em] text-white/25">PROJECTED INVESTMENT</p>
-                <p className="mt-2 text-[clamp(2rem,3.2vw,2.9rem)] font-light leading-none tracking-tight" style={{ color: "#f2f4f6" }} dir="ltr">
+                <span className="font-grotesk text-[10px] uppercase tracking-[0.34em] text-white/40">
+                  OUTPUT ESTIMATE
+                </span>
+                <p className="mt-5 font-frank text-5xl font-light text-white">
                   {formatNis(estimate)}
                 </p>
-                <p className="mt-1 text-[11px] text-white/28" dir="ltr">
-                  up to {formatNis(range)}
-                </p>
-                <dl className="mt-7 space-y-3 border-t border-white/[0.08] pt-4 text-[10.5px]">
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-white/28">מודול</dt>
-                    <dd className="text-white/72">{services[serviceIdx]?.title}</dd>
+                <dl className="mt-7 space-y-3 text-sm">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <dt className="text-white/45">מודול</dt>
+                    <dd className="text-white/85">{scope?.title ?? "—"}</dd>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-white/28">פרופיל</dt>
-                    <dd className="text-white/72">{tierHe}</dd>
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <dt className="text-white/45">היקף</dt>
+                    <dd className="text-white/85">{budget} יח'</dd>
                   </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <dt className="text-white/28">רזולוציה</dt>
-                    <dd className="text-white/72" dir="ltr">
-                      {Math.round(60 + amplitude * 1.8)} dpi
-                    </dd>
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <dt className="text-white/45">עדיפות</dt>
+                    <dd style={{ color: ACID }}>{urgency}</dd>
                   </div>
                 </dl>
               </div>
+
               <a
-                href={packageHref}
+                href={waNumber ? waLink(waNumber, specMessage) : undefined}
                 target="_blank"
-                rel="noopener noreferrer"
-                className="mt-8 flex items-center justify-between px-5 py-3.5 text-[11px] font-bold text-[#090A0D]"
-                style={{ background: accent }}
+                rel="noreferrer"
+                className="mt-8 block py-4 text-center font-grotesk text-[11px] uppercase tracking-[0.3em] text-black"
+                style={{ background: ACID }}
               >
-                שליחת החבילה לוואטסאפ
-                <span aria-hidden="true">←</span>
+                שידור המפרט בוואטסאפ
               </a>
-            </aside>
+            </div>
           </div>
-        </div>
-      </section>
+        </motion.section>
 
-      {/* ---------------- monolithic process slabs ---------------- */}
-      <section id="process" className="relative z-10 mx-auto max-w-7xl px-5 py-20 md:px-8 md:py-28">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[8.5px] tracking-[0.36em]" style={{ color: accent }} dir="ltr">
-              SYSTEM PHASES / N° 04
-            </p>
-            <h2 className="mt-3 text-[clamp(2rem,4vw,3.4rem)] font-light leading-[1.05] tracking-[-0.035em]" style={{ color: "#f2f4f6" }}>
-              שלבים כמונוליתים.
+        {/* ---------------- 04 · OUTPUT ---------------- */}
+        <motion.section
+          style={{ ...s4, ...livePointer(active === 3) }}
+          className="absolute inset-0 flex flex-col justify-center px-6 md:px-14"
+        >
+          <motion.div style={{ x: glideFast }} className="mx-auto w-full max-w-6xl">
+            <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
+              CHAPTER 04 — OUTPUT
+            </span>
+            <h2 className="mt-3 font-frank text-3xl font-light uppercase md:text-5xl">
+              מה יוצא מהפרוזדור
             </h2>
-          </div>
-          <span className="text-[8px] tracking-[0.28em] text-white/22" dir="ltr">
-            {benefits.length} ADVANTAGES / 4 PHASES
-          </span>
-        </div>
 
-        <div className="grid gap-px bg-white/[0.08] md:grid-cols-4">
-          {(data.processTimeline?.length
-            ? data.processTimeline
-            : benefits.slice(0, 4).map((benefit) => ({
-                title: benefit.title,
-                description: benefit.description,
-              }))
-          )
-            .slice(0, 4)
-            .map((phase, i) => (
-              <article
-                key={`${phase.title}-${i}`}
-                className={`group relative flex min-h-[360px] flex-col justify-between bg-[#090A0D] p-6 md:min-h-[440px] md:p-7 ${
-                  i === 1 ? "md:mt-10" : i === 3 ? "md:-mt-6" : ""
-                }`}
-              >
-                <ChromeText className="text-5xl font-light leading-none">
-                  {String(i + 1).padStart(2, "0")}
-                </ChromeText>
-                <div>
-                  <p className="mb-4 h-px w-10" style={{ background: accent }} />
-                  <h3 className="text-xl font-light leading-[1.25]" style={{ color: "#f2f4f6" }}>
-                    {phase.title}
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              {(benefits.length
+                ? benefits.slice(0, 3)
+                : services.slice(0, 3)
+              ).map((item, index) => (
+                <div key={index} className={`${SLAB} p-6`}>
+                  <span
+                    className="font-grotesk text-[10px] tracking-[0.32em]"
+                    style={{ color: ACID }}
+                  >
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <h3
+                    className="mt-3 font-frank text-xl font-light text-white"
+                    {...editsFor(
+                      benefits.length
+                        ? `benefits.${index}.title`
+                        : `services.${index}.title`,
+                    )}
+                  >
+                    {(item as { title: string }).title}
                   </h3>
-                  <p className="mt-3 text-[11.5px] leading-[1.95] text-white/36">
-                    {phase.description}
+                  <p
+                    className="mt-2 text-[11px] leading-relaxed text-white/50"
+                    {...editsFor(
+                      benefits.length
+                        ? `benefits.${index}.description`
+                        : `services.${index}.description`,
+                    )}
+                  >
+                    {(item as { description?: string }).description}
                   </p>
                 </div>
-                <span className="mt-8 text-[7.5px] tracking-[0.3em] text-white/20" dir="ltr">
-                  PHASE / {String(i + 1).padStart(2, "0")}
-                </span>
-              </article>
-            ))}
-        </div>
-      </section>
-
-      {/* ---------------- work chrome strips ---------------- */}
-      {projects.length > 0 && (
-        <section id="work" className="relative z-10 border-y border-white/[0.08]">
-          <div className="mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
-            <div className="mb-7 flex items-end justify-between">
-              <h2 className="text-2xl font-light tracking-tight md:text-4xl" style={{ color: "#f2f4f6" }}>
-                ארכיון מודולים
-              </h2>
-              <span className="text-[8px] tracking-[0.3em] text-white/22" dir="ltr">
-                FIELD RECORDS / {String(projects.length).padStart(2, "0")}
-              </span>
-            </div>
-            <div className="grid gap-4 md:grid-cols-12">
-              {projects.slice(0, 3).map((project, i) => (
-                <figure
-                  key={i}
-                  className={`group relative border border-white/10 ${
-                    i === 0 ? "md:col-span-7" : "md:col-span-5"
-                  }`}
-                >
-                  <div className="relative h-[30vh] overflow-hidden md:h-[38vh]">
-                    {project.afterImage && (
-                      <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={project.afterImage}
-                          alt={project.title}
-                          loading="lazy"
-                          className="h-full w-full object-cover transition-transform duration-[1200ms] group-hover:scale-[1.03]"
-                          style={{ filter: "saturate(0.45) contrast(1.08) brightness(0.85)" }}
-                        />
-                        <div
-                          aria-hidden="true"
-                          className="absolute inset-0"
-                          style={{
-                            background:
-                              "linear-gradient(180deg, transparent 50%, rgba(9,10,13,0.85))",
-                          }}
-                        />
-                      </>
-                    )}
-                    <figcaption className="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
-                      <span className="text-lg font-light text-white/88">{project.title}</span>
-                      <span className="text-[7.5px] tracking-[0.26em] text-white/28" dir="ltr">
-                        R—{String(i + 1).padStart(3, "0")}
-                      </span>
-                    </figcaption>
-                  </div>
-                  <p className="px-4 py-3 text-[10.5px] leading-relaxed text-white/32">
-                    {project.description}
-                  </p>
-                </figure>
               ))}
             </div>
-          </div>
-        </section>
-      )}
 
-      {/* ---------------- reviews ledger ---------------- */}
-      <section className="relative z-10 mx-auto max-w-7xl px-5 py-16 md:px-8 md:py-20">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <span className="text-[8.5px] tracking-[0.36em]" style={{ color: accent }} dir="ltr">
-            SIGNAL FEEDBACK / N° 05
-          </span>
-          <span className="flex items-center gap-3 text-[10px] text-white/35">
-            {b.googleRating.toFixed(1)} / 5
-            <RatingBars rating={b.googleRating} color={accent} />
-          </span>
-        </div>
-        <ul>
-          {reviews.slice(0, 3).map((review, i) => (
-            <li
-              key={i}
-              className="grid grid-cols-[2.5rem_1fr_auto] items-baseline gap-4 border-t border-white/[0.08] py-5"
-            >
-              <span className="text-[8px] tracking-[0.24em] text-white/22" dir="ltr">
-                {String(i + 1).padStart(2, "0")}
+            <div className="mt-8 flex flex-wrap gap-6 border-t border-white/10 pt-6">
+              {reviews.slice(0, 3).map((review, index) => (
+                <div key={index} className="max-w-xs">
+                  <p className="font-frank text-base font-light text-white/80" {...editsFor(`reviews.${index}.text`)}>
+                    “{review.text}”
+                  </p>
+                  <span className="font-grotesk text-[9px] uppercase tracking-[0.28em]" style={{ color: ACID }}>
+                    — {review.author}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        </motion.section>
+
+        {/* ---------------- 05 · UPLINK ---------------- */}
+        <motion.section
+          style={{ ...s5, ...livePointer(active === 4) }}
+          className="absolute inset-0 flex flex-col justify-center px-6 py-20 md:px-14"
+        >
+          <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_1.05fr]">
+            <div className={`${SLAB} p-7 md:p-9`}>
+              <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
+                CHAPTER 05 — UPLINK
               </span>
-              <div>
-                <p className="text-[12px] font-medium text-white/75" {...editsFor(`reviews.${i}.author`)}>
-                  {review.author}
-                </p>
-                <p className="mt-1 max-w-2xl text-[11.5px] leading-[1.9] text-white/34" {...editsFor(`reviews.${i}.text`)}>
-                  {review.text}
+              <h2 className="mt-3 font-frank text-4xl font-light uppercase leading-tight md:text-5xl">
+                {hero.ctaText || "פתחו שידור"}
+              </h2>
+
+              <div className="mt-7 space-y-3 text-sm text-white/55">
+                <p {...editsFor("businessInfo.address")}>{info.address}</p>
+                <p {...editsFor("businessInfo.openingHours")}>{info.openingHours}</p>
+                <p className="font-grotesk text-xs uppercase tracking-[0.26em]" style={{ color: ACID }}>
+                  {info.phone} · {info.googleRating || "4.9"}★
                 </p>
               </div>
-              <span className="text-[9px] tabular-nums text-white/30" dir="ltr">
-                {review.rating}.0
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
 
-      {/* ---------------- FAQ + contact slab ---------------- */}
-      <section className="relative z-10 mx-auto max-w-7xl px-5 pb-20 md:px-8">
-        <div className="grid gap-10 lg:grid-cols-[1fr_1.15fr]">
-          <div>
-            <p className="text-[8.5px] tracking-[0.36em]" style={{ color: accent }} dir="ltr">
-              CONSOLE / N° 06
-            </p>
-            <h2 className="mt-3 text-2xl font-light leading-[1.2] md:text-3xl" style={{ color: "#f2f4f6" }}>
-              שאלות מהשטח.
-            </h2>
-            <div className="mt-6">
-              <FaqAccordion
+              <div className="mt-8 flex flex-wrap gap-3">
+                <a
+                  href={waNumber ? waLink(waNumber, `היי ${info.name}, אשמח לפתוח שידור.`) : undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-7 py-3.5 font-grotesk text-[11px] uppercase tracking-[0.3em] text-black"
+                  style={{ background: ACID }}
+                >
+                  שידור בוואטסאפ
+                </a>
+                {info.phone ? (
+                  <a
+                    href={`tel:${info.phone}`}
+                    className="border border-white/15 px-7 py-3.5 font-grotesk text-[11px] uppercase tracking-[0.3em] text-white/80"
+                  >
+                    חיוג ישיר
+                  </a>
+                ) : null}
+              </div>
+            </div>
+
+            <div
+              data-camera-ui="true"
+              className={`${SLAB} max-h-[64vh] overflow-y-auto p-7 md:p-9`}
+            >
+              <span className="font-grotesk text-[10px] uppercase tracking-[0.34em] text-white/40">
+                SYSTEM LOG
+              </span>
+              <h3 className="mt-3 font-frank text-2xl font-light md:text-3xl">
+                שאלות מערכת
+              </h3>
+              <FaqLedger
                 items={faq}
-                classes={{
-                  card: "border-b border-white/[0.08]",
-                  button:
-                    "flex w-full items-center justify-between gap-4 py-4 text-right text-[11.5px] text-white/72",
-                  icon: "h-3.5 w-3.5 text-white/30",
-                  answer: "pb-4 text-[11px] leading-[1.9] text-white/36",
-                }}
+                accent={ACID}
+                className="mt-5"
+                questionClassName="font-frank text-base font-light text-white md:text-xl"
+                answerClassName="text-xs leading-relaxed text-white/55"
               />
             </div>
           </div>
+        </motion.section>
+      </CameraStage>
 
-          <div id="contact" className="relative flex flex-col justify-between overflow-hidden border border-white/12 bg-white/[0.025] p-7 md:p-10">
-            <ChromeText className="pointer-events-none absolute -left-4 -top-10 text-[10rem] font-light leading-none opacity-[0.05]">
-              05
-            </ChromeText>
-            <div>
-              <p className="text-[8.5px] tracking-[0.3em] text-white/28">CONTACT / MONOLITH</p>
-              <h2 className="mt-4 text-[clamp(1.7rem,3vw,2.6rem)] font-light leading-[1.15] tracking-[-0.03em]" style={{ color: "#f2f4f6" }}>
-                {b.description}
-              </h2>
-              <div className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-[10px] tracking-[0.14em] text-white/32">
-                <span>{b.address}</span>
-                <span>{b.openingHours}</span>
-                <a href={`tel:${b.phone}`} dir="ltr" className="hover:text-white/75">
-                  {b.phone}
-                </a>
-              </div>
-            </div>
-            <div className="mt-8 flex flex-wrap gap-2">
-              <a
-                href={packageHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-1 items-center justify-between px-5 py-3.5 text-[11px] font-bold text-[#090A0D]"
-                style={{ background: accent }}
-              >
-                וואטסאפ ישיר
-                <span aria-hidden="true">←</span>
-              </a>
-              <a
-                href={`tel:${b.phone}`}
-                className="border border-white/15 px-5 py-3.5 text-[11px] text-white/60 transition hover:text-white"
-              >
-                שיחה
-              </a>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <footer className="relative z-10 border-t border-white/[0.08] px-5 py-7 text-center text-[7.5px] tracking-[0.34em] text-white/18" dir="ltr">
-        {b.name.toUpperCase()} · KINETIC MONOLITH SYSTEM · {b.address.toUpperCase()}
-      </footer>
-    </div>
+      <SceneMenu
+        open={menu}
+        onClose={() => setMenu(false)}
+        scenes={SCENES}
+        engine={engine}
+        accent={ACID}
+        brand={info.name || "MONOLITH"}
+        footerLeft={info.phone}
+        footerRight={info.address}
+      />
+    </LockedViewport>
   );
 }
+
+/** Counter-rotation so a slab always faces the lens while the deck glides. */
+function counter(index: number) {
+  return index % 2 === 0 ? 6 : -6;
+}
+
+export default KineticMonolithTemplate;

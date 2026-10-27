@@ -1,937 +1,860 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
+/**
+ * 01 — FORGE DARK LUXURY ATELIER
+ * ==============================
+ * Zero native scrollbar. The viewport is locked (`fixed inset-0 w-screen
+ * h-screen overflow-hidden`) and the mouse wheel / touch swipe feeds a spring
+ * virtual progress value: the camera physically flies forward through 3D
+ * Z-space, passing *through* the centerpiece and into the next room.
+ *
+ * Nothing on this stage is a normal scrolling page: no scrollbar, no flat
+ * section stack, no icon-set clip art. HUD telemetry replaces the browser
+ * scrubber, the whole 3D rig tilts live with the mouse, studio rim light
+ * follows the cursor and the pointer itself is a magnetic precision ring.
+ */
+
+import React, { useState, useEffect, useRef } from "react";
+import {
+  motion,
+  useMotionValue,
+  useSpring,
+  useTransform,
+  AnimatePresence,
+} from "framer-motion";
 import { useSite } from "@/components/SiteProvider";
-import { BeforeAfterSlider } from "@/components/BeforeAfterSlider";
-import {
-  EditorialHeadline,
-  FaqAccordion,
-  RatingBars,
-  formatNis,
-  parsePrice,
-  waLink,
-} from "@/templates/shared";
-import type { LuxTheme } from "@/lib/luxtheme";
-import {
-  CameraPortal,
-  Magnetic,
-  Parallax,
-  SpecMark,
-  SpecularLight,
-  TiltStage,
-} from "@/templates/motion";
+import { waLink } from "@/templates/shared";
+import { useLockedViewport } from "@/templates/wheel";
 
-/* ------------------------------------------------------------------ */
-/* FORGE / DARK LUXURY ATELIER                                         */
-/* Obsidian #030303, British bespoke workshop restraint, a 3-point    */
-/* header, a masked studio photograph dissolving into the page, and a */
-/* three-stage specification commission desk.                          */
-/* ------------------------------------------------------------------ */
-
-const FINISHES = [
-  {
-    code: "01",
-    name: "Bespoke",
-    he: "בספוק",
-    multiplier: 1,
-    detail: "תפירה מלאה למידות, חומרים נבחרים וגימור יד.",
-  },
-  {
-    code: "02",
-    name: "Signature",
-    he: "סיגנצ'ור",
-    multiplier: 1.42,
-    detail: "שכבת גימור שנייה, מבחר חומרים מורחב ונגיעות אישיות.",
-  },
-  {
-    code: "03",
-    name: "Reserve",
-    he: "ריזרב",
-    multiplier: 1.95,
-    detail: "רזרבה מלאה של הסטודיו: עדיפות, פיקוח צמוד וליווי אישי.",
-  },
-] as const;
-
-const SCHEDULES = [
-  { name: "Flexible", he: "גמיש", months: 0, note: "הסטודיו קובע תאריך בנוחות העבודה" },
-  { name: "Season", he: "העונה הקרובה", months: 1, note: "פתיחה בתור בעונה הנוכחית" },
-  { name: "Priority", he: "עדיפות", months: 2, note: "מקום קדמי בתור הסטודיו" },
-] as const;
-
-const NAV_ITEMS = [
-  { href: "#atelier", label: "הסטודיו" },
-  { href: "#commission", label: "בניית מפרט" },
-  { href: "#work", label: "עבודות" },
-  { href: "#clients", label: "לקוחות" },
-  { href: "#contact", label: "יצירת קשר" },
-];
+const FORGE_FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=1900&q=85";
 
 export function ForgeAutomotiveTemplate() {
   const { data, editsFor } = useSite();
-  const { businessInfo: b, hero, services, faq, reviews, projects = [], benefits = [] } = data;
-
-  const accent = data.theme.accentColor || "#c59b27";
-  const primary = data.theme.primaryColor || "#f4efe6";
-
   const [menuOpen, setMenuOpen] = useState(false);
-  const [serviceIdx, setServiceIdx] = useState(0);
-  const [finishIdx, setFinishIdx] = useState(1);
-  const [scheduleIdx, setScheduleIdx] = useState(0);
+  const [selectedServiceIdx, setSelectedServiceIdx] = useState(0);
+  const [selectedTier, setSelectedTier] = useState<
+    "SIGNATURE" | "BESPOKE" | "RESERVE"
+  >("BESPOKE");
+  const [selectedTimeline, setSelectedTimeline] = useState<
+    "STANDARD" | "PRIORITY" | "VIP"
+  >("VIP");
+  const [sliderPos, setSliderPos] = useState(50);
+  const [activeScene, setActiveScene] = useState(0);
 
-  const base = useMemo(
-    () => parsePrice(services[serviceIdx]?.price) ?? 12000,
-    [services, serviceIdx],
+  useLockedViewport();
+
+  const info: any = data?.businessInfo || {};
+  const hero: any = data?.hero || {};
+  const hasServices = Array.isArray(data?.services) && data.services.length > 0;
+  const hasReviews = Array.isArray(data?.reviews) && data.reviews.length > 0;
+
+  const services = hasServices
+    ? data.services
+    : [
+        {
+          title: "הנדסת מפרט עילית",
+          description: "תכנון תלת-ממדי והתאמה מדויקת לדרישות הלקוח.",
+          price: "בהתאמה אישית",
+        },
+        {
+          title: "ביצוע בסטנדרט אטלייה",
+          description: "חומרי גלם נדירים וגימור ידני מוקפד ללא פשרות.",
+          price: "אחריות מלאה",
+        },
+        {
+          title: "פרויקטים מיוחדים VIP",
+          description: "ליווי אישי דיסקרטי מהסקיצה הראשונה ועד המסירה.",
+          price: "מפרט שמור",
+        },
+        {
+          title: "מעטפת שירות פרטית",
+          description: "זמינות מלאה ובקרת איכות רב-שנתית.",
+          price: "ליווי שנתי",
+        },
+      ];
+  const reviews = hasReviews ? data.reviews : [];
+
+  const serviceEdits = (index: number, field: "title" | "description") =>
+    hasServices ? editsFor(`services.${index}.${field}`) : {};
+  const reviewEdits = (index: number, field: "text") =>
+    hasReviews ? editsFor(`reviews.${index}.${field}`) : {};
+
+  const whatsappNumber = String(
+    info.whatsapp || String(info.phone || "").replace(/\D/g, "").replace(/^0/, "972"),
+  ).replace(/\D/g, "");
+  const whatsappLink = whatsappNumber ? `https://wa.me/${whatsappNumber}` : "#";
+
+  const heroImg = hero.backgroundImage || FORGE_FALLBACK_IMAGE;
+
+  // =========================================================================
+  // 1. VIRTUAL 3D CAMERA WHEEL ENGINE (NO NATIVE SCROLLBAR - LIKE FORGE)
+  // =========================================================================
+  const rawProgress = useMotionValue(0); // 0 to 1 across 5 3D scenes
+  const smoothProgress = useSpring(rawProgress, {
+    stiffness: 55,
+    damping: 20,
+    mass: 0.9,
+  });
+
+  const touchStartY = useRef(0);
+
+  useEffect(() => {
+    const unsub = smoothProgress.on("change", (v) => {
+      const idx = Math.min(4, Math.max(0, Math.round(v * 4)));
+      setActiveScene(idx);
+    });
+    return () => unsub();
+  }, [smoothProgress]);
+
+  useEffect(() => {
+    const handleWheel = (e: WheelEvent) => {
+      if (menuOpen) return;
+      e.preventDefault();
+      const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1;
+      const delta = e.deltaY * unit * 0.00045;
+      const next = Math.min(1, Math.max(0, rawProgress.get() + delta));
+      rawProgress.set(next);
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartY.current = e.touches[0]?.clientY || 0;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (menuOpen) return;
+      const currentY = e.touches[0]?.clientY || 0;
+      const diff = (touchStartY.current - currentY) * 0.0012;
+      touchStartY.current = currentY;
+      const next = Math.min(1, Math.max(0, rawProgress.get() + diff));
+      rawProgress.set(next);
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (menuOpen) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.isContentEditable ||
+          /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+      ) {
+        return;
+      }
+      if (e.key === "ArrowDown" || e.key === "PageDown") {
+        rawProgress.set(Math.min(1, rawProgress.get() + 0.25));
+      } else if (e.key === "ArrowUp" || e.key === "PageUp") {
+        rawProgress.set(Math.max(0, rawProgress.get() - 0.25));
+      }
+    };
+
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    window.addEventListener("touchstart", handleTouchStart, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("wheel", handleWheel);
+      window.removeEventListener("touchstart", handleTouchStart);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen, rawProgress]);
+
+  function jumpToScene(sceneIndex: number) {
+    rawProgress.set(sceneIndex / 4);
+  }
+
+  // =========================================================================
+  // 2. LIVE 3D MOUSE PARALLAX & CUSTOM CURSOR RIG
+  // =========================================================================
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const cursorX = useSpring(useMotionValue(-100), { stiffness: 400, damping: 28 });
+  const cursorY = useSpring(useMotionValue(-100), { stiffness: 400, damping: 28 });
+
+  const rigRotateX = useSpring(useTransform(mouseY, [-0.5, 0.5], [7, -7]), {
+    stiffness: 85,
+    damping: 22,
+  });
+  const rigRotateY = useSpring(useTransform(mouseX, [-0.5, 0.5], [-10, 10]), {
+    stiffness: 85,
+    damping: 22,
+  });
+  const lightX = useSpring(useTransform(mouseX, [-0.5, 0.5], [15, 85]), {
+    stiffness: 70,
+    damping: 20,
+  });
+  const lightY = useSpring(useTransform(mouseY, [-0.5, 0.5], [15, 85]), {
+    stiffness: 70,
+    damping: 20,
+  });
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      mouseX.set(e.clientX / window.innerWidth - 0.5);
+      mouseY.set(e.clientY / window.innerHeight - 0.5);
+      cursorX.set(e.clientX);
+      cursorY.set(e.clientY);
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [mouseX, mouseY, cursorX, cursorY]);
+
+  // =========================================================================
+  // 3. 3D Z-SPACE SCENE TRANSFORMS (CAMERA FLIES THROUGH EACH SCENE)
+  // =========================================================================
+  // SCENE 01: FORGE HERO STAGE (0.00 -> 0.25)
+  const s1Scale = useTransform(smoothProgress, [0, 0.22, 0.3], [1, 2.6, 4.2]);
+  const s1Opacity = useTransform(smoothProgress, [0, 0.18, 0.26], [1, 0.7, 0]);
+  const s1Z = useTransform(smoothProgress, [0, 0.28], [0, 700]);
+  const s1Pointer = activeScene === 0 ? "auto" : "none";
+
+  // SCENE 02: 3D MONOLITH SHOWROOM (0.20 -> 0.50)
+  const s2Scale = useTransform(smoothProgress, [0.14, 0.25, 0.42, 0.52], [0.45, 1, 1, 2.4]);
+  const s2Opacity = useTransform(smoothProgress, [0.16, 0.24, 0.42, 0.5], [0, 1, 1, 0]);
+  const s2Pointer = activeScene === 1 ? "auto" : "none";
+
+  // SCENE 03: BESPOKE 3-STAGE CONFIGURATOR (0.45 -> 0.75)
+  const s3Scale = useTransform(smoothProgress, [0.4, 0.5, 0.67, 0.77], [0.5, 1, 1, 2.3]);
+  const s3Opacity = useTransform(smoothProgress, [0.42, 0.5, 0.67, 0.75], [0, 1, 1, 0]);
+  const s3Pointer = activeScene === 2 ? "auto" : "none";
+
+  // SCENE 04: PRECISION SPLIT STUDIO SLIDER (0.70 -> 0.92)
+  const s4Scale = useTransform(smoothProgress, [0.65, 0.75, 0.88, 0.96], [0.5, 1, 1, 2.2]);
+  const s4Opacity = useTransform(smoothProgress, [0.67, 0.75, 0.88, 0.95], [0, 1, 1, 0]);
+  const s4Pointer = activeScene === 3 ? "auto" : "none";
+
+  // SCENE 05: PRIVATE VAULT & DIRECT DISPATCH (0.88 -> 1.00)
+  const s5Scale = useTransform(smoothProgress, [0.84, 0.94, 1], [0.55, 1, 1]);
+  const s5Opacity = useTransform(smoothProgress, [0.86, 0.94, 1], [0, 1, 1]);
+  const s5Pointer = activeScene === 4 ? "auto" : "none";
+
+  const zDepthReadout = useTransform(smoothProgress, (v) =>
+    `Z // -${String(Math.round(v * 4800)).padStart(4, "0")}MM`,
   );
-  const finish = FINISHES[finishIdx];
-  const schedule = SCHEDULES[scheduleIdx];
-  const low = Math.round((base * finish.multiplier) / 100) * 100;
-  const high = Math.round((low * (1 + schedule.months * 0.08)) / 100) * 100;
-  const reference = `${String(serviceIdx + 1).padStart(2, "0")}·${finish.code}·${String(
-    scheduleIdx + 1,
-  ).padStart(2, "0")}`;
 
-  const dispatchHref = waLink(
-    b.whatsapp,
-    [
-      `שלום, הגעתי לסטודיו של ${b.name}.`,
-      `• שירות: ${services[serviceIdx]?.title ?? ""}`,
-      `• רמת גימור: ${finish.name} / ${finish.he}`,
-      `• לוח זמנים: ${schedule.he}`,
-      `• מפרט: ${reference}`,
-      `• טווח השקעה צפוי: ${formatNis(low)}–${formatNis(high)}`,
-      "אשמח לתאם מדידה ופגישת אטלייה.",
-    ].join("\n"),
-  );
+  const specMessage =
+    `היי ${info.name || ""}, בניתי מפרט באתר:\n` +
+    `• מערכת: ${services[selectedServiceIdx]?.title || ""}\n` +
+    `• רמת גימור: ${selectedTier}\n` +
+    `• דחיפות: ${selectedTimeline}`;
 
-  const theme: LuxTheme = {
-    accent,
-    dark: true,
-    pageBg: "#030303",
-    surface: "rgba(255,255,255,0.035)",
-    border: "rgba(255,255,255,0.09)",
-    headline: "#f4efe6",
-    text: "rgba(244,239,230,0.72)",
-    muted: "rgba(244,239,230,0.42)",
-    fontSerif: "'Frank Ruhl Libre', serif",
-  };
-
-  const monogram = (b.name || "F").trim().charAt(0);
-  const city = b.address.split(",")[0]?.trim() || b.address;
+  const scenesList = [
+    { id: 0, code: "01", label: "SHOWROOM" },
+    { id: 1, code: "02", label: "CRAFT" },
+    { id: 2, code: "03", label: "CONFIGURE" },
+    { id: 3, code: "04", label: "PRECISION" },
+    { id: 4, code: "05", label: "COMMISSION" },
+  ];
 
   return (
     <div
-      className="relative min-h-screen overflow-x-hidden pb-24"
-      style={{ background: "#030303", color: theme.text }}
       dir="rtl"
+      data-camera-engine="true"
+      className="camera-cursor-hidden fixed inset-0 h-screen w-screen select-none overflow-hidden bg-[#030303] font-heebo text-[#F5F5F3]"
     >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-0"
+      {/* סמן עכבר מגנטי תלת-ממדי */}
+      <motion.div
+        style={{ x: cursorX, y: cursorY }}
+        className="pointer-events-none fixed top-0 left-0 z-50 hidden md:flex -translate-x-1/2 -translate-y-1/2 items-center justify-center"
+      >
+        <div className="w-9 h-9 rounded-full border border-white/25 flex items-center justify-center backdrop-blur-[2px]">
+          <div className="w-1 h-1 rounded-full bg-[#C59B27]" />
+        </div>
+      </motion.div>
+
+      {/* אלומת תאורת סטודיו חיה שעוקבת אחרי העכבר */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 z-0"
         style={{
-          background:
-            "radial-gradient(60% 45% at 50% -10%, rgba(197,155,39,0.07), transparent 65%), radial-gradient(50% 50% at 100% 100%, rgba(255,255,255,0.025), transparent 70%)",
+          background: useTransform(
+            [lightX, lightY],
+            ([lx, ly]: number[]) =>
+              `radial-gradient(750px circle at ${lx}% ${ly}%, rgba(255,255,255,0.075), rgba(197,155,39,0.03) 42%, transparent 75%)`,
+          ),
         }}
       />
 
-      {/* Cursor-tracked studio rim light — the whole showroom relights as the
-          mouse moves, on top of the static ambient gradient above. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0 z-[5]"
-      >
-        <SpecularLight
-          color={`color-mix(in srgb, ${accent} 13%, transparent)`}
-          size={56}
-        />
-      </div>
-
-      {/* ---------------- 3-point atelier header ---------------- */}
-      <header className="fixed inset-x-0 top-0 z-[9600] border-b border-white/[0.07] bg-[#030303]/85 backdrop-blur-xl">
-        <div className="mx-auto grid max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-5 py-3.5 md:px-8">
-          <div className="flex items-center gap-4 text-[10px] tracking-[0.24em] text-white/40" dir="ltr">
-            <a
-              href={waLink(b.whatsapp, `שלום ${b.name}, אשמח לפרטים.`)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="transition hover:text-white/90"
-            >
-              WHATSAPP
-            </a>
-            <a
-              href={`tel:${b.phone}`}
-              className="hidden transition hover:text-white/90 sm:inline"
-              dir="ltr"
-            >
-              {b.phone}
-            </a>
-          </div>
-
-          <a href="#top" className="flex items-center justify-center gap-3">
-            <span
-              className="flex h-8 w-8 items-center justify-center border text-[13px]"
-              style={{
-                borderColor: `color-mix(in srgb, ${accent} 55%, transparent)`,
-                color: accent,
-                transform: "skewX(-9deg)",
-                fontFamily: "'Frank Ruhl Libre', serif",
-              }}
-            >
-              <span style={{ transform: "skewX(9deg)" }}>{monogram}</span>
-            </span>
-            <span
-              className="hidden max-w-[220px] truncate text-[10px] tracking-[0.3em] text-white/75 sm:inline"
-              {...editsFor("businessInfo.name")}
-            >
-              {b.name}
-            </span>
-          </a>
-
-          <div className="justify-self-end" dir="ltr">
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-haspopup="dialog"
-              aria-expanded={menuOpen}
-              className="group flex items-center gap-3 text-[10px] tracking-[0.28em] text-white/55 transition hover:text-white"
-            >
-              <span>ניווט</span>
-              <span aria-hidden="true" style={{ color: accent }}>
-                =
-              </span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ---------------- full-screen velvet menu ---------------- */}
+      {/* תפריט מסך מלא (NAVIGATE =) */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35 }}
-            className="fixed inset-0 z-[100000] flex flex-col bg-[#030303]"
-            role="dialog"
-            aria-modal="true"
-            aria-label="תפריט ניווט"
+            initial={{ opacity: 0, clipPath: "inset(0 0 100% 0)" }}
+            animate={{ opacity: 1, clipPath: "inset(0 0 0% 0)" }}
+            exit={{ opacity: 0, clipPath: "inset(0 0 100% 0)" }}
+            transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+            className="fixed inset-0 z-50 bg-[#040404]/98 backdrop-blur-2xl flex flex-col justify-between p-8 md:p-16"
           >
-            <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6">
-              <span className="text-[10px] tracking-[0.32em] text-white/35">
-                {b.name.toUpperCase()} / ATELIER INDEX
+            <div className="flex items-center justify-between border-b border-white/10 pb-6">
+              <span className="text-[11px] font-mono tracking-[0.35em] text-white/40 uppercase">
+                {info.name || "FORGE ATELIER"}
               </span>
               <button
-                type="button"
                 onClick={() => setMenuOpen(false)}
-                className="flex h-10 w-10 items-center justify-center border border-white/12 text-white/70 transition hover:border-white/35 hover:text-white"
-                aria-label="סגור תפריט"
+                className="text-xs tracking-[0.3em] uppercase text-white/75 hover:text-white"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
+                סגור [×]
               </button>
             </div>
-            <nav className="mx-auto flex w-full max-w-7xl flex-1 flex-col justify-center px-6">
-              {NAV_ITEMS.map((item, i) => (
-                <motion.a
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMenuOpen(false)}
-                  initial={{ opacity: 0, y: 22 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.06 * i + 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  className="group grid grid-cols-[3.2rem_1fr_auto] items-baseline gap-5 border-b border-white/[0.06] py-5 md:py-6"
+
+            <div className="my-auto space-y-5 max-w-2xl">
+              {scenesList.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => {
+                    jumpToScene(s.id);
+                    setMenuOpen(false);
+                  }}
+                  className="w-full text-right group flex items-baseline gap-6 border-b border-white/[0.07] pb-4 hover:border-[#C59B27] transition-all"
                 >
-                  <span className="text-[10px] tracking-[0.3em] text-white/25" dir="ltr">
-                    {String(i + 1).padStart(2, "0")}
+                  <span className="font-mono text-xs text-[#C59B27]">{s.code}</span>
+                  <span className="font-frank text-3xl md:text-5xl font-light text-white group-hover:-translate-x-3 transition-transform">
+                    {s.label}
                   </span>
-                  <span
-                    className="text-3xl font-light text-white/65 transition-colors duration-500 group-hover:text-white md:text-5xl"
-                    style={{ fontFamily: "'Frank Ruhl Libre', serif", letterSpacing: "-0.015em" }}
-                  >
-                    {item.label}
-                  </span>
-                  <span className="text-white/20 transition group-hover:text-white/60" aria-hidden="true">
-                    ←
-                  </span>
-                </motion.a>
+                </button>
               ))}
-            </nav>
-            <div className="mx-auto flex w-full max-w-7xl flex-wrap items-end justify-between gap-3 px-6 pb-10 text-[10px] tracking-[0.2em] text-white/30">
-              <span>{b.address}</span>
-              <a href={`tel:${b.phone}`} dir="ltr" className="hover:text-white/70">
-                {b.phone}
-              </a>
+            </div>
+
+            <div className="flex items-center justify-between text-xs text-white/40 border-t border-white/10 pt-6">
+              <span>{info.phone}</span>
+              <span>{info.address}</span>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ---------------- hero: 3D camera portal into the showroom ----------------
-          The wheel does not scroll flat panels away — the camera dollies INTO
-          the centerpiece (the photograph scales, recedes and blurs past the
-          lens), two velvet panels part ways, and the headline resolves from
-          inside the car itself. */}
-      <section id="top" className="relative z-10 overflow-hidden">
-        <CameraPortal
-          heightVh={320}
-          perspective={1400}
-          zoom={3.9}
-          blurOut={24}
-          veilColor="rgba(3,3,3,0.95)"
-          hint={
-            <span className="flex flex-col items-center gap-3 text-white/30">
-              <SpecMark className="text-white/30">SCROLL — ENTER THE SHOWROOM</SpecMark>
-              <span
-                aria-hidden="true"
-                className="block h-10 w-px"
-                style={{ background: `linear-gradient(${accent}, transparent)` }}
-              />
-            </span>
-          }
-          scene={
-            <div className="absolute inset-0">
-              {/* multi-depth parallax: the gold bloom trails behind the car */}
-              <Parallax depth={34} className="absolute inset-0">
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "radial-gradient(46% 38% at 50% 52%, color-mix(in srgb, " +
-                      accent +
-                      " 16%, transparent), transparent 72%)",
-                  }}
-                />
-              </Parallax>
-
-              {hero.backgroundImage ? (
-                <Parallax depth={12} className="absolute inset-0">
-                  <TiltStage
-                    intensity={7}
-                    glareColor={`color-mix(in srgb, ${accent} 30%, transparent)`}
-                    className="absolute inset-0"
-                  >
-                    <div className="relative h-full w-full">
-                      {/* The photograph has no frame: a radial + linear mask
-                          melts it straight into the #030303 showroom floor. */}
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={hero.backgroundImage}
-                        alt=""
-                        className="h-full w-full object-cover"
-                        style={{
-                          filter: "saturate(0.72) contrast(1.08) brightness(0.88)",
-                          maskImage:
-                            "radial-gradient(ellipse 74% 66% at 50% 50%, black 40%, transparent 100%)",
-                          WebkitMaskImage:
-                            "radial-gradient(ellipse 74% 66% at 50% 50%, black 40%, transparent 100%)",
-                        }}
-                      />
-                    </div>
-                  </TiltStage>
-                </Parallax>
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <SpecMark className="text-white/25">FORGE / SHOWROOM</SpecMark>
-                </div>
-              )}
-
-              {/* Always-visible marque so the stage is never an empty plate */}
-              <div className="absolute inset-x-0 top-28 flex flex-col items-center gap-4 text-center">
-                <SpecMark className="text-white/32">{b.category}</SpecMark>
-                <p
-                  className="text-2xl font-light tracking-[-0.02em] text-white/70 md:text-3xl"
-                  style={{ fontFamily: "'Frank Ruhl Libre', serif" }}
-                >
-                  {b.name}
-                </p>
-              </div>
-            </div>
-          }
-          pane={
-            <div
-              className="h-full w-full"
-              style={{
-                background:
-                  "linear-gradient(90deg, rgba(3,3,3,0.97), rgba(3,3,3,0.76) 62%, rgba(3,3,3,0.1))",
-              }}
-            >
-              <div
-                className="h-full w-full opacity-70"
-                style={{
-                  backgroundImage:
-                    "repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 1px, transparent 1px 38px)",
-                  maskImage: "linear-gradient(90deg, black, transparent)",
-                  WebkitMaskImage: "linear-gradient(90deg, black, transparent)",
-                }}
-              />
-            </div>
-          }
-          interior={
-            <div className="flex h-full w-full items-center justify-center px-6">
-              <div className="max-w-3xl text-center">
-                <SpecMark style={{ color: accent }}>ATELIER INTERIOR</SpecMark>
-
-                <h1
-                  className="mt-7 text-[clamp(2.6rem,5.6vw,5.1rem)] font-light leading-[1.1] tracking-editorial"
-                  style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-                  {...editsFor("hero.headline")}
-                >
-                  <EditorialHeadline text={hero.headline} />
-                </h1>
-
-                <p
-                  className="mx-auto mt-7 max-w-xl text-[12.5px] leading-[2] text-white/42"
-                  {...editsFor("hero.subheadline")}
-                >
-                  {hero.subheadline}
-                </p>
-
-                <div className="mt-9 flex justify-center">
-                  <Magnetic strength={0.26}>
-                    <a
-                      href="#commission"
-                      className="group inline-flex items-center gap-3 border px-8 py-4 text-[11px] tracking-[0.22em] text-white/80 transition hover:bg-white/[0.04] hover:text-white"
-                      style={{ borderColor: `color-mix(in srgb, ${accent} 55%, transparent)` }}
-                    >
-                      {hero.ctaText}
-                      <span
-                        aria-hidden="true"
-                        className="transition-transform group-hover:-translate-x-1"
-                        style={{ color: accent }}
-                      >
-                        ←
-                      </span>
-                    </a>
-                  </Magnetic>
-                </div>
-
-                <div className="mt-12 grid grid-cols-3 gap-px border-t border-white/[0.08] pt-6 text-left">
-                  {[
-                    { mark: "FINISH", value: "BESPOKE" },
-                    { mark: "LEAD TIME", value: `${SCHEDULES[scheduleIdx].months + 4}W` },
-                    { mark: "STUDIO", value: city },
-                  ].map((spec) => (
-                    <div key={spec.mark} className="px-2">
-                      <SpecMark className="text-white/26">{spec.mark}</SpecMark>
-                      <p
-                        className="mt-2 truncate text-lg font-light text-white/70"
-                        dir="ltr"
-                        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-                      >
-                        {spec.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <p className="mt-7 text-[10px] leading-[2.1] tracking-[0.16em] text-white/32">
-                  {city} — עבודת יד, בקצב של אטלייה.
-                  <br />
-                  {b.openingHours}
-                </p>
-              </div>
-            </div>
-          }
-        />
-      </section>
-
-      {/* ---------------- services — ledger rows ---------------- */}
-      <section id="atelier" className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="mb-3 flex items-end justify-between border-b border-white/[0.08] pb-4">
-          <span className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-            ATELIER / 01
-          </span>
-          <h2
-            className="text-2xl font-light md:text-3xl"
-            style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
+      {/* =====================================================================
+          HEADER עליון מינימליסטי בסגנון FORGE AUTOMOTIVE
+         ===================================================================== */}
+      <header className="fixed top-0 inset-x-0 z-40 px-6 md:px-14 py-7 flex items-center justify-between">
+        <div className="flex items-center gap-6">
+          <a
+            href={whatsappLink}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[11px] font-mono tracking-[0.25em] uppercase text-white/60 hover:text-white transition-colors"
           >
-            מה נרקם בסטודיו
-          </h2>
+            WHATSAPP
+          </a>
+          {info.phone && (
+            <a
+              href={`tel:${info.phone}`}
+              className="hidden sm:inline-block text-[11px] font-mono tracking-[0.2em] text-white/45 hover:text-white transition-colors"
+            >
+              {info.phone}
+            </a>
+          )}
         </div>
-        <ul>
-          {services.map((service, i) => (
-            <li
-              key={i}
-              className="group grid grid-cols-[2.8rem_1fr] items-baseline gap-4 border-b border-white/[0.06] py-7 md:grid-cols-[4rem_1fr_auto]"
-            >
-              <span className="text-[10px] tracking-[0.3em] text-white/22" dir="ltr">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <div>
-                <h3
-                  className="text-xl font-light leading-[1.2] text-white/82 transition-colors group-hover:text-white md:text-2xl"
-                  style={{ fontFamily: "'Frank Ruhl Libre', serif" }}
-                  {...editsFor(`services.${i}.title`)}
-                >
-                  {service.title}
-                </h3>
-                <p
-                  className="mt-2 max-w-lg text-[12.5px] leading-[1.9] text-white/34"
-                  {...editsFor(`services.${i}.description`)}
-                >
-                  {service.description}
-                </p>
-              </div>
+
+        <button
+          onClick={() => jumpToScene(0)}
+          className="flex flex-col items-center group"
+        >
+          <svg width="28" height="16" viewBox="0 0 28 16" fill="none" className="mb-1.5">
+            <path d="M14 0L27 16H20.5L14 8L7.5 16H1L14 0Z" fill="white" />
+          </svg>
+          <span className="text-[10px] tracking-[0.4em] uppercase text-white/90">
+            {info.name || "FORGE"}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setMenuOpen(true)}
+          className="flex items-center gap-3 text-[11px] font-mono tracking-[0.28em] uppercase text-white/75 hover:text-white"
+        >
+          <span>NAVIGATE</span>
+          <span className="flex flex-col gap-1.5 w-5">
+            <span className="w-full h-[1px] bg-white" />
+            <span className="w-2/3 h-[1px] bg-[#C59B27] mr-auto" />
+          </span>
+        </button>
+      </header>
+
+      {/* =====================================================================
+          מחוון גלילה עתידני בצד המסך (HUD TELEMETRY SCRUBBER - במקום גלגלת רגילה!)
+         ===================================================================== */}
+      <aside className="fixed left-6 md:left-10 top-1/2 -translate-y-1/2 z-40 hidden sm:flex flex-col items-center gap-4">
+        <motion.span className="text-[9px] font-mono tracking-[0.25em] text-white/35 [writing-mode:vertical-rl] mb-2">
+          {zDepthReadout}
+        </motion.span>
+
+        <div className="flex items-center gap-2">
+          <div className="relative h-44 w-4">
+            {Array.from({ length: 21 }, (_, index) => index * 5).map((top, index) => (
               <span
-                className="col-start-2 mt-2 text-[11px] tracking-[0.1em] text-white/45 md:col-start-auto md:mt-0"
-                {...editsFor(`services.${i}.price`)}
-              >
-                {service.price}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* ---------------- 3-stage bespoke commission desk ---------------- */}
-      <section id="commission" className="relative z-10 border-y border-white/[0.08]">
-        <div className="mx-auto max-w-6xl px-6 py-20 md:py-28">
-          <div className="mb-10 flex flex-wrap items-end justify-between gap-3 border-b border-white/[0.08] pb-4">
-            <span className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-              COMMISSION / 02
-            </span>
-            <h2
-              className="text-2xl font-light md:text-3xl"
-              style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-            >
-              הרכבת מפרט אישי
-            </h2>
-          </div>
-
-          <div className="grid gap-px bg-white/[0.08] md:grid-cols-3">
-            {/* Stage 01 */}
-            <div className="bg-[#030303] p-5 md:p-6">
-              <p className="text-[9px] tracking-[0.34em]" dir="ltr" style={{ color: accent }}>
-                STAGE 01 / SERVICE
-              </p>
-              <h3 className="mb-5 mt-1.5 text-lg font-light" style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}>
-                בחירת שירות
-              </h3>
-              <div role="radiogroup" aria-label="בחירת שירות">
-                {services.map((service, i) => {
-                  const active = serviceIdx === i;
-                  return (
-                    <button
-                      key={i}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setServiceIdx(i)}
-                      className="flex w-full items-baseline justify-between gap-3 border-b px-1 py-3 text-right transition-colors"
-                      style={{
-                        borderColor: active
-                          ? `color-mix(in srgb, ${accent} 60%, transparent)`
-                          : "rgba(255,255,255,0.07)",
-                        color: active ? "#f4efe6" : "rgba(244,239,230,0.44)",
-                      }}
-                    >
-                      <span className="text-[12.5px]">{service.title}</span>
-                      <span
-                        className="text-[8px] tracking-[0.28em]"
-                        style={{ color: active ? accent : "rgba(255,255,255,0.2)" }}
-                        dir="ltr"
-                      >
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Stage 02 */}
-            <div className="bg-[#030303] p-5 md:p-6">
-              <p className="text-[9px] tracking-[0.34em]" dir="ltr" style={{ color: accent }}>
-                STAGE 02 / FINISH
-              </p>
-              <h3 className="mb-5 mt-1.5 text-lg font-light" style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}>
-                רמת גימור וחומרים
-              </h3>
-              <div role="radiogroup" aria-label="רמת גימור">
-                {FINISHES.map((option, i) => {
-                  const active = finishIdx === i;
-                  return (
-                    <button
-                      key={option.name}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setFinishIdx(i)}
-                      className="flex w-full flex-col items-start border-b px-1 py-2.5 text-right transition-colors"
-                      style={{
-                        borderColor: active
-                          ? `color-mix(in srgb, ${accent} 60%, transparent)`
-                          : "rgba(255,255,255,0.07)",
-                      }}
-                    >
-                      <span className="flex w-full items-baseline justify-between gap-2">
-                        <span className="text-[12.5px]" style={{ color: active ? "#f4efe6" : "rgba(244,239,230,0.44)" }}>
-                          {option.name}
-                          <span className="mr-2 text-[10px] text-white/30">{option.he}</span>
-                        </span>
-                        <span className="text-[8px] tracking-[0.28em]" style={{ color: active ? accent : "rgba(255,255,255,0.2)" }} dir="ltr">
-                          {option.code}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 text-[9.5px] leading-relaxed text-white/25">
-                        {option.detail}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Stage 03 */}
-            <div className="bg-[#030303] p-5 md:p-6">
-              <p className="text-[9px] tracking-[0.34em]" dir="ltr" style={{ color: accent }}>
-                STAGE 03 / TIMELINE
-              </p>
-              <h3 className="mb-5 mt-1.5 text-lg font-light" style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}>
-                לוחות זמנים
-              </h3>
-              <div role="radiogroup" aria-label="לוח זמנים">
-                {SCHEDULES.map((option, i) => {
-                  const active = scheduleIdx === i;
-                  return (
-                    <button
-                      key={option.name}
-                      type="button"
-                      role="radio"
-                      aria-checked={active}
-                      onClick={() => setScheduleIdx(i)}
-                      className="flex w-full flex-col items-start border-b px-1 py-3 text-right transition-colors"
-                      style={{
-                        borderColor: active
-                          ? `color-mix(in srgb, ${accent} 60%, transparent)`
-                          : "rgba(255,255,255,0.07)",
-                      }}
-                    >
-                      <span className="flex w-full items-baseline justify-between gap-2">
-                        <span className="text-[12.5px]" style={{ color: active ? "#f4efe6" : "rgba(244,239,230,0.44)" }}>
-                          {option.he}
-                        </span>
-                        <span className="text-[8px] tracking-[0.24em] text-white/25" dir="ltr">
-                          {option.name.toUpperCase()}
-                        </span>
-                      </span>
-                      <span className="mt-0.5 text-[9.5px] text-white/25">{option.note}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* live telemetry sheet */}
-          <div className="mt-px grid border border-white/[0.09] md:grid-cols-[1.5fr_1fr]">
-            <div className="p-6 md:p-8" aria-live="polite">
-              <div className="flex items-center justify-between border-b border-white/[0.07] pb-3">
-                <span className="text-[9px] tracking-[0.36em] text-white/30" dir="ltr">
-                  LIVE SPECIFICATION / {reference}
-                </span>
-                <span className="inline-flex items-center gap-2 text-[9px] tracking-[0.22em] text-white/35">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} />
-                  OPEN
-                </span>
-              </div>
-              <dl className="mt-5 grid gap-4 sm:grid-cols-3">
-                <div>
-                  <dt className="text-[8.5px] tracking-[0.28em] text-white/25">SERVICE</dt>
-                  <dd className="mt-1 text-[13px] text-white/82">{services[serviceIdx]?.title}</dd>
-                </div>
-                <div>
-                  <dt className="text-[8.5px] tracking-[0.28em] text-white/25">FINISH</dt>
-                  <dd className="mt-1 text-[13px] text-white/82">
-                    {finish.name} <span className="text-white/35">/ {finish.he}</span>
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-[8.5px] tracking-[0.28em] text-white/25">TIMELINE</dt>
-                  <dd className="mt-1 text-[13px] text-white/82">{schedule.he}</dd>
-                </div>
-              </dl>
-              <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-white/[0.07] pt-5">
-                <div>
-                  <p className="text-[8.5px] tracking-[0.3em] text-white/25">ESTIMATED COMMISSION</p>
-                  <p
-                    className="mt-1 text-3xl font-light tracking-tight md:text-4xl"
-                    style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-                    dir="ltr"
-                  >
-                    {formatNis(low)}
-                    <span className="text-white/28"> — {formatNis(high)}</span>
-                  </p>
-                </div>
-                <p className="max-w-[230px] text-[9.5px] leading-relaxed text-white/25">
-                  הערכה מבוססת על המפרט שנבחר. המחיר הסופי נקבע לאחר מדידה בסטודיו.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col justify-between gap-4 border-t border-white/[0.09] bg-white/[0.02] p-6 md:border-r md:border-t-0 md:p-8">
-              <div>
-                <p className="text-[9px] tracking-[0.3em] text-white/28">ATELIER DISPATCH</p>
-                <p className="mt-2 text-[12px] leading-[1.9] text-white/42">
-                  המפרט נשלח ישירות לוואטסאפ הסטודיו, עם כל שלוש הבחירות והערכת ההשקעה.
-                </p>
-              </div>
-              <a
-                href={dispatchHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group flex items-center justify-between border px-5 py-3.5 text-[11px] tracking-[0.16em] transition-colors"
+                key={top}
+                className="absolute right-0 block h-px"
                 style={{
-                  borderColor: `color-mix(in srgb, ${accent} 55%, transparent)`,
-                  color: primary,
+                  top: `${top}%`,
+                  width: index % 5 === 0 ? 12 : 5,
+                  background:
+                    index % 5 === 0
+                      ? "rgba(255,255,255,0.4)"
+                      : "rgba(255,255,255,0.16)",
                 }}
-              >
-                שליחת המפרט לסטודיו
-                <span
-                  className="transition-transform group-hover:-translate-x-1"
-                  style={{ color: accent }}
-                  aria-hidden="true"
-                >
-                  ←
-                </span>
-              </a>
-            </div>
+              />
+            ))}
           </div>
 
-          {/* draggable studio split comparison */}
-          <div className="mt-16 grid gap-8 lg:grid-cols-[1fr_2fr]">
-            <div>
-              <p className="text-[9px] tracking-[0.36em] text-white/28" dir="ltr">
-                STUDIO SPLIT / 03
-              </p>
-              <h3
-                className="mt-3 text-2xl font-light leading-[1.25] md:text-3xl"
-                style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-              >
-                לפני שהסטודיו נגע.
-                <br />
-                אחרי.
-              </h3>
-              <p className="mt-4 max-w-xs text-[11.5px] leading-[1.9] text-white/34">
-                גררו את הידית לאורך התצלום. אותו חדר, אותה אור — מלאכה אחרת.
-              </p>
-            </div>
-            <BeforeAfterSlider
-              theme={theme}
-              beforeImage={projects[0]?.beforeImage}
-              afterImage={projects[0]?.afterImage}
-              beforeLabel="לפני"
-              afterLabel="אחרי"
-              caption=""
+          <div className="relative h-44 w-[1px] bg-white/15 overflow-hidden">
+            <motion.div
+              style={{ scaleY: smoothProgress, transformOrigin: "top" }}
+              className="w-full h-full bg-[#C59B27]"
             />
           </div>
         </div>
-      </section>
 
-      {/* ---------------- process — vertical ledger ---------------- */}
-      <section id="work" className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="grid gap-10 lg:grid-cols-[1fr_2fr]">
-          <div className="lg:sticky lg:top-28 lg:self-start">
-            <p className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-              METHOD / 04
-            </p>
-            <h2
-              className="mt-4 text-3xl font-light leading-[1.2] md:text-4xl"
-              style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
+        <div className="flex flex-col gap-2.5 mt-2">
+          {scenesList.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => jumpToScene(s.id)}
+              className="group flex items-center gap-2"
+              title={s.label}
             >
-              סדר עבודה
-              <br />
-              של אטלייה.
-            </h2>
-            <p className="mt-5 max-w-xs text-[12px] leading-[1.9] text-white/34">
-              {b.description}
-            </p>
-          </div>
-          <div>
-            {(data.processTimeline?.length
-              ? data.processTimeline
-              : (services.length ? services : benefits).slice(0, 4).map((item, i) => ({
-                  title: item.title,
-                  description: item.description,
-                }))
-            )
-              .slice(0, 4)
-              .map((step, i) => (
-                <motion.div
-                  key={`${step.title}-${i}`}
-                  initial={{ opacity: 0, y: 18 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-80px" }}
-                  transition={{ duration: 0.6, delay: i * 0.05 }}
-                  className="grid grid-cols-[3rem_1fr] gap-4 border-t border-white/[0.08] py-7"
-                >
-                  <span
-                    className="text-[10px] tracking-[0.24em]"
-                    style={{ color: accent }}
-                    dir="ltr"
-                  >
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <div>
-                    <h3 className="text-lg font-light text-white/85" style={{ fontFamily: "'Frank Ruhl Libre', serif" }}>
-                      {step.title}
-                    </h3>
-                    <p className="mt-1.5 max-w-xl text-[12px] leading-[1.9] text-white/34">
-                      {step.description}
-                    </p>
-                  </div>
-                </motion.div>
-              ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ---------------- projects — cinematic strip ---------------- */}
-      {projects.length > 0 && (
-        <section className="relative z-10 border-y border-white/[0.08] py-16">
-          <div className="mx-auto mb-8 flex max-w-6xl items-end justify-between px-6">
-            <span className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-              COMMISSIONED / 05
-            </span>
-            <h2 className="text-2xl font-light md:text-3xl" style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}>
-              ארכיון העבודות
-            </h2>
-          </div>
-          <div className="flex snap-x snap-mandatory gap-4 overflow-x-auto px-6 pb-4 md:px-[max(1.5rem,calc((100vw-72rem)/2+1.5rem))]">
-            {projects.map((project, i) => (
-              <figure
-                key={i}
-                className="min-w-[84vw] shrink-0 snap-center border border-white/[0.08] md:min-w-[520px]"
+              <span
+                className={`text-[9px] font-mono transition-all ${
+                  activeScene === s.id
+                    ? "text-[#C59B27] scale-110"
+                    : "text-white/25 group-hover:text-white/60"
+                }`}
               >
-                {project.afterImage && (
-                  <div className="relative h-[34vh] overflow-hidden md:h-[46vh]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={project.afterImage}
-                      alt={project.title}
-                      loading="lazy"
-                      className="h-full w-full object-cover"
-                      style={{ filter: "saturate(0.8) brightness(0.9)" }}
-                    />
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-0"
-                      style={{
-                        background:
-                          "linear-gradient(180deg, transparent 50%, rgba(3,3,3,0.8) 100%)",
-                      }}
-                    />
-                  </div>
-                )}
-                <figcaption className="flex items-baseline justify-between gap-4 px-4 py-4">
-                  <span className="text-base font-light text-white/85" style={{ fontFamily: "'Frank Ruhl Libre', serif" }}>
-                    {project.title}
-                  </span>
-                  <span className="text-[9px] tracking-[0.3em] text-white/25" dir="ltr">
-                    NO. {String(i + 1).padStart(3, "0")}
-                  </span>
-                </figcaption>
-                {project.description && (
-                  <p className="px-4 pb-5 text-[11.5px] leading-relaxed text-white/35">
-                    {project.description}
-                  </p>
-                )}
-              </figure>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ---------------- clients — quote wall ---------------- */}
-      <section id="clients" className="relative z-10 mx-auto max-w-6xl px-6 py-24 md:py-32">
-        <div className="mb-8 flex items-center justify-between border-b border-white/[0.08] pb-4">
-          <span className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-            CLIENT BOOK / 06
-          </span>
-          <span className="flex items-center gap-3 text-[11px] text-white/45">
-            {b.googleRating.toFixed(1)} / 5
-            <RatingBars rating={b.googleRating} color={accent} />
-          </span>
-        </div>
-        <div className="grid gap-px bg-white/[0.07] md:grid-cols-3">
-          {reviews.slice(0, 3).map((review, i) => (
-            <figure key={i} className="flex flex-col justify-between bg-[#030303] p-7 md:p-8">
-              <blockquote
-                className="text-[15px] font-light leading-[1.85] text-white/72 md:text-base"
-                style={{ fontFamily: "'Frank Ruhl Libre', serif" }}
-                {...editsFor(`reviews.${i}.text`)}
-              >
-                “{review.text}”
-              </blockquote>
-              <figcaption className="mt-8 flex items-center justify-between text-[10px] tracking-[0.2em] text-white/35">
-                <span {...editsFor(`reviews.${i}.author`)}>{review.author}</span>
-                <span className="text-white/22" dir="ltr">
-                  {review.rating}.0
-                </span>
-              </figcaption>
-            </figure>
+                {s.code}
+              </span>
+            </button>
           ))}
         </div>
-      </section>
+      </aside>
 
-      {/* ---------------- FAQ + contact ---------------- */}
-      <section className="relative z-10 mx-auto max-w-5xl px-6 pb-20">
-        <div className="grid gap-10 lg:grid-cols-[1fr_1.4fr]">
-          <div>
-            <p className="text-[9px] tracking-[0.4em] text-white/28" dir="ltr">
-              ENQUIRIES / 07
-            </p>
-            <h2
-              className="mt-4 text-2xl font-light leading-[1.25] md:text-3xl"
-              style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
+      {/* סרגל תחתון של פרקים + חיווי גלגלת */}
+      <div className="fixed bottom-6 inset-x-6 md:inset-x-14 z-40 flex items-center justify-between pointer-events-none">
+        <div className="pointer-events-auto flex items-center gap-4 bg-black/60 backdrop-blur-md border border-white/10 px-4 py-2">
+          {scenesList.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => jumpToScene(s.id)}
+              className={`text-[10px] font-mono tracking-[0.2em] uppercase transition-colors ${
+                activeScene === s.id ? "text-[#C59B27]" : "text-white/35 hover:text-white/75"
+              }`}
             >
-              שאלות לפני
-              <br />
-              שמתחילים.
+              {s.code}
+            </button>
+          ))}
+        </div>
+
+        <div className="text-[10px] font-mono tracking-[0.28em] text-white/40 uppercase">
+          סובב גלגלת לטיסה בעומק החלל [3D SCROLL]
+        </div>
+      </div>
+
+      {/* =====================================================================
+          במת ה-3D המרכזית (5 סצנות תלת-ממדיות שנכנסות אחת לתוך השנייה!)
+         ===================================================================== */}
+      <motion.main
+        style={{
+          rotateX: rigRotateX,
+          rotateY: rigRotateY,
+          transformStyle: "preserve-3d",
+          perspective: "1400px",
+        }}
+        className="relative w-full h-full flex items-center justify-center"
+      >
+        {/* -----------------------------------------------------------------
+            SCENE 01: FORGE HERO SHOWROOM (כמו בצילום המסך של FORGE AUTOMOTIVE)
+           ----------------------------------------------------------------- */}
+        <motion.section
+          style={{
+            scale: s1Scale,
+            opacity: s1Opacity,
+            z: s1Z,
+            pointerEvents: s1Pointer as any,
+          }}
+          className="absolute inset-0 flex flex-col items-center justify-center px-6"
+        >
+          <div className="text-center mb-3 md:mb-5 max-w-3xl mx-auto">
+            <h1
+              className="font-frank font-light text-4xl sm:text-6xl md:text-[5.2rem] leading-[1.06] tracking-tight text-white"
+              {...editsFor("hero.headline")}
+            >
+              {hero.headline || info.name || "למי שמסרב לסטנדרט רגיל"}
+            </h1>
+          </div>
+
+          <div className="relative w-full max-w-5xl aspect-[16/8] flex items-center justify-center">
+            <div
+              className="w-full h-full relative overflow-hidden"
+              style={{
+                WebkitMaskImage:
+                  "radial-gradient(ellipse 76% 66% at 50% 50%, #000 42%, transparent 96%)",
+                maskImage:
+                  "radial-gradient(ellipse 76% 66% at 50% 50%, #000 42%, transparent 96%)",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={heroImg}
+                alt={info.name || "Hero"}
+                className="w-full h-full object-cover object-center contrast-[1.14] brightness-95"
+              />
+              <motion.div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background: useTransform(
+                    lightX,
+                    (lx) =>
+                      `linear-gradient(105deg, transparent ${Number(lx) - 22}%, rgba(255,255,255,0.16) ${lx}%, transparent ${Number(lx) + 22}%)`,
+                  ),
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="text-center max-w-md mx-auto mt-3 space-y-4">
+            <p
+              className="text-xs sm:text-sm text-white/55 font-light leading-relaxed"
+              {...editsFor("hero.subheadline")}
+            >
+              {hero.subheadline || info.description}
+            </p>
+            <button
+              onClick={() => jumpToScene(2)}
+              className="text-[11px] font-mono tracking-[0.28em] uppercase text-white border-b border-[#C59B27] pb-1.5 hover:text-[#C59B27] transition-colors"
+            >
+              {hero.ctaText || "כניסה לקונפיגורטור המפרט →"}
+            </button>
+          </div>
+        </motion.section>
+
+        {/* -----------------------------------------------------------------
+            SCENE 02: 3D MONOLITH SPECIFICATIONS
+           ----------------------------------------------------------------- */}
+        <motion.section
+          style={{
+            scale: s2Scale,
+            opacity: s2Opacity,
+            pointerEvents: s2Pointer as any,
+          }}
+          className="absolute inset-0 flex flex-col justify-center px-6 md:px-20 max-w-7xl mx-auto"
+        >
+          <div className="flex items-end justify-between border-b border-white/10 pb-5 mb-8">
+            <div>
+              <span className="text-[10px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-2">
+                CHAPTER 02 // BESPOKE ARCHITECTURE
+              </span>
+              <h2 className="font-frank text-3xl md:text-5xl font-light">
+                מפרטי עילית בהתאמה אישית
+              </h2>
+            </div>
+            <button
+              onClick={() => jumpToScene(2)}
+              className="text-[11px] font-mono tracking-[0.25em] text-[#C59B27] uppercase"
+            >
+              לשלב הקונפיגורטור [03] →
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {services.slice(0, 4).map((srv: any, idx: number) => (
+              <div
+                key={idx}
+                onClick={() => {
+                  setSelectedServiceIdx(idx);
+                  jumpToScene(2);
+                }}
+                className="cursor-pointer group bg-[#070708]/90 backdrop-blur-xl border border-white/10 hover:border-[#C59B27]/60 p-6 md:p-8 transition-all duration-300"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-mono text-[10px] tracking-[0.3em] text-white/35">
+                    UNIT // 0{idx + 1}
+                  </span>
+                  <span className="font-mono text-xs text-[#C59B27]">
+                    {srv.price || "בהתאמה אישית"}
+                  </span>
+                </div>
+                <h3
+                  className="font-frank text-2xl md:text-3xl font-light text-white mb-2 group-hover:text-[#C59B27] transition-colors"
+                  {...serviceEdits(idx, "title")}
+                >
+                  {srv.title}
+                </h3>
+                <p
+                  className="text-xs md:text-sm text-white/50 font-light leading-relaxed"
+                  {...serviceEdits(idx, "description")}
+                >
+                  {srv.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </motion.section>
+
+        {/* -----------------------------------------------------------------
+            SCENE 03: INTERACTIVE 3-STAGE AUTOMOTIVE CONFIGURATOR
+           ----------------------------------------------------------------- */}
+        <motion.section
+          style={{
+            scale: s3Scale,
+            opacity: s3Opacity,
+            pointerEvents: s3Pointer as any,
+          }}
+          className="absolute inset-0 flex flex-col justify-center px-6 md:px-20 max-w-7xl mx-auto"
+        >
+          <div className="mb-6">
+            <span className="text-[10px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-2">
+              CHAPTER 03 // COMMISSION CONFIGURATOR
+            </span>
+            <h2 className="font-frank text-3xl md:text-5xl font-light">
+              הרכבת מפרט פרויקט חי
             </h2>
           </div>
-          <FaqAccordion
-            items={faq}
-            classes={{
-              card: "border-b border-white/[0.07]",
-              button:
-                "flex w-full items-center justify-between gap-4 py-5 text-right text-[12.5px] text-white/78",
-              icon: "h-4 w-4 text-white/30",
-              answer: "pb-5 text-[11.5px] leading-[1.9] text-white/38",
-            }}
-          />
-        </div>
-      </section>
 
-      <footer id="contact" className="relative z-10 border-t border-white/[0.07] px-6 py-16 text-center">
-        <p
-          className="mx-auto max-w-4xl text-[clamp(1.8rem,4vw,3.2rem)] font-light leading-[1.3]"
-          style={{ fontFamily: "'Frank Ruhl Libre', serif", color: primary }}
-          {...editsFor("businessInfo.description")}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-8 space-y-4">
+              <div className="bg-[#060607] border border-white/10 p-5">
+                <div className="text-[10px] font-mono tracking-[0.25em] text-white/40 uppercase mb-3">
+                  STAGE 01 // בחירת מערכת
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  {services.slice(0, 4).map((srv: any, idx: number) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedServiceIdx(idx)}
+                      className={`text-right p-3 border text-xs transition-all ${
+                        selectedServiceIdx === idx
+                          ? "border-[#C59B27] bg-[#C59B27]/15 text-white"
+                          : "border-white/10 text-white/50 hover:border-white/30"
+                      }`}
+                    >
+                      {srv.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-[#060607] border border-white/10 p-5">
+                  <div className="text-[10px] font-mono tracking-[0.25em] text-white/40 uppercase mb-3">
+                    STAGE 02 // רמת גימור
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {(["SIGNATURE", "BESPOKE", "RESERVE"] as const).map((tier) => (
+                      <button
+                        key={tier}
+                        type="button"
+                        onClick={() => setSelectedTier(tier)}
+                        className={`p-2.5 border text-right font-mono text-xs transition-all ${
+                          selectedTier === tier
+                            ? "border-[#C59B27] bg-[#C59B27]/15 text-white"
+                            : "border-white/10 text-white/45"
+                        }`}
+                      >
+                        {tier} EDITION
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-[#060607] border border-white/10 p-5">
+                  <div className="text-[10px] font-mono tracking-[0.25em] text-white/40 uppercase mb-3">
+                    STAGE 03 // זמינות ביצוע
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {[
+                      { id: "STANDARD", label: "תכנון רגיל" },
+                      { id: "PRIORITY", label: "עדיפות גבוהה" },
+                      { id: "VIP", label: "מסלול VIP מיידי" },
+                    ].map((tl) => (
+                      <button
+                        key={tl.id}
+                        type="button"
+                        onClick={() => setSelectedTimeline(tl.id as any)}
+                        className={`p-2.5 border text-right text-xs transition-all ${
+                          selectedTimeline === tl.id
+                            ? "border-[#C59B27] bg-[#C59B27]/15 text-white"
+                            : "border-white/10 text-white/45"
+                        }`}
+                      >
+                        {tl.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="lg:col-span-4 bg-[#070709] border border-[#C59B27]/40 p-6 flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="text-[10px] font-mono tracking-[0.3em] text-[#C59B27] uppercase border-b border-white/10 pb-3">
+                  TELEMETRY SUMMARY
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/35">מערכת</div>
+                  <div className="font-frank text-2xl font-light">
+                    {services[selectedServiceIdx]?.title}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/35">מהדורה וגימור</div>
+                  <div className="font-mono text-sm text-[#C59B27]">{selectedTier}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] text-white/35">אומדן</div>
+                  <div className="font-frank text-xl">
+                    {services[selectedServiceIdx]?.price || "בהתאמה אישית"}
+                  </div>
+                </div>
+              </div>
+
+              <a
+                href={
+                  whatsappNumber
+                    ? waLink(whatsappNumber, specMessage)
+                    : undefined
+                }
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 block w-full text-center bg-white text-black hover:bg-[#C59B27] py-3.5 text-xs font-mono tracking-[0.22em] uppercase transition-colors"
+              >
+                שלח מפרט לוואטסאפ →
+              </a>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* -----------------------------------------------------------------
+            SCENE 04: BEFORE / AFTER STUDIO SPLIT COMPARISON
+           ----------------------------------------------------------------- */}
+        <motion.section
+          style={{
+            scale: s4Scale,
+            opacity: s4Opacity,
+            pointerEvents: s4Pointer as any,
+          }}
+          className="absolute inset-0 flex flex-col justify-center px-6 md:px-20 max-w-6xl mx-auto"
         >
-          {b.description}
-        </p>
-        <div className="mx-auto mt-10 flex max-w-3xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-[10px] tracking-[0.2em] text-white/35">
-          <span>{b.address}</span>
-          <span>{b.openingHours}</span>
-          <a href={`tel:${b.phone}`} dir="ltr" className="transition hover:text-white/80">
-            {b.phone}
-          </a>
-          <a
-            href={waLink(b.whatsapp, `שלום ${b.name}, אשמח לתאם פגישה באטלייה.`)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="border-b pb-1 transition hover:text-white/80"
-            style={{ borderColor: `color-mix(in srgb, ${accent} 50%, transparent)` }}
-          >
-            וואטסאפ
-          </a>
-        </div>
-        <p className="mt-10 text-[8px] tracking-[0.38em] text-white/16" dir="ltr">
-          {b.name.toUpperCase()} — BESPOKE ATELIER
-        </p>
-      </footer>
+          <div className="flex items-end justify-between mb-6">
+            <div>
+              <span className="text-[10px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-2">
+                CHAPTER 04 // VISUAL CALIBRATION
+              </span>
+              <h2 className="font-frank text-3xl md:text-5xl font-light">
+                השוואת רמת גימור חיה
+              </h2>
+            </div>
+            <span className="text-xs text-white/45">הזז את הסליידר להשוואה</span>
+          </div>
+
+          <div className="relative w-full aspect-[16/7.5] overflow-hidden border border-white/15">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={heroImg}
+              alt="After"
+              className="absolute inset-0 w-full h-full object-cover contrast-125"
+            />
+            <div
+              className="absolute inset-0 overflow-hidden"
+              style={{ clipPath: `inset(0 ${100 - sliderPos}% 0 0)` }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={heroImg}
+                alt="Before"
+                className="absolute inset-0 w-full h-full object-cover grayscale brightness-50"
+              />
+            </div>
+
+            <input
+              type="range"
+              min={5}
+              max={95}
+              value={sliderPos}
+              onChange={(e) => setSliderPos(Number(e.target.value))}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
+            />
+
+            <div
+              style={{ left: `${sliderPos}%` }}
+              className="pointer-events-none absolute top-0 bottom-0 w-[1px] bg-[#C59B27] z-20 flex items-center justify-center"
+            >
+              <div className="w-9 h-9 bg-black border border-[#C59B27] text-[10px] font-mono text-[#C59B27] flex items-center justify-center">
+                ↔
+              </div>
+            </div>
+          </div>
+        </motion.section>
+
+        {/* -----------------------------------------------------------------
+            SCENE 05: PRIVATE COMMISSION VAULT (CONTACT & REVIEWS)
+           ----------------------------------------------------------------- */}
+        <motion.section
+          style={{
+            scale: s5Scale,
+            opacity: s5Opacity,
+            pointerEvents: s5Pointer as any,
+          }}
+          className="absolute inset-0 flex flex-col justify-center px-6 md:px-20 max-w-6xl mx-auto"
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-[#060608]/90 border border-white/15 p-8 md:p-14">
+            <div>
+              <span className="text-[10px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-3">
+                CHAPTER 05 // PRIVATE COMMISSION
+              </span>
+              <h2 className="font-frank text-4xl md:text-6xl font-light leading-tight mb-6">
+                מוכנים להזמנה האישית שלכם?
+              </h2>
+              <p className="text-xs md:text-sm text-white/55 font-light mb-8">
+                {info.address} • {info.openingHours} • דירוג{" "}
+                {info.googleRating || "4.9"}★
+              </p>
+              <div className="flex flex-wrap gap-4">
+                <a
+                  href={whatsappLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-white text-black hover:bg-[#C59B27] px-8 py-4 text-xs font-mono tracking-[0.25em] uppercase transition-colors"
+                >
+                  פתיחת תיק לקוח בוואטסאפ
+                </a>
+                {info.phone && (
+                  <a
+                    href={`tel:${info.phone}`}
+                    className="border border-white/25 hover:border-white px-8 py-4 text-xs font-mono tracking-[0.25em] uppercase"
+                  >
+                    {info.phone}
+                  </a>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-5 border-r border-white/10 pr-8">
+              {(reviews.length > 0
+                ? reviews.slice(0, 2)
+                : [
+                    {
+                      author: "לקוח מאומת",
+                      text: "סטנדרט ביצוע שלא קיים בארץ. ירידה לפרטים הכי קטנים.",
+                    },
+                  ]
+              ).map((rev: any, i: number) => (
+                <div key={i} className="border-b border-white/10 pb-4">
+                  <p
+                    className="font-frank text-xl font-light text-white/85 mb-2"
+                    {...reviewEdits(i, "text")}
+                  >
+                    &ldquo;{rev.text}&rdquo;
+                  </p>
+                  <span className="text-[10px] font-mono tracking-widest text-[#C59B27] uppercase">
+                    — {rev.author}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.section>
+      </motion.main>
     </div>
   );
 }
+
+export default ForgeAutomotiveTemplate;

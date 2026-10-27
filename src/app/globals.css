@@ -10,12 +10,44 @@
 html {
   font-family: var(--font-heebo);
   scroll-behavior: smooth;
+  /* Zero-Scrollbar camera engine: the browser chrome scrollbar never shows. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 body {
   font-family: var(--font-heebo);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Locked-viewport 3D camera templates (all five art directions).
+   The viewport is owned by the virtual wheel engine: the document itself
+   never scrolls, natively or otherwise. */
+html[data-camera-engine="true"],
+html[data-camera-engine="true"] body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* The custom magnetic cursor replaces the native one on pointer devices. */
+html[data-camera-engine="true"] .camera-cursor-hidden,
+html[data-camera-engine="true"] .camera-cursor-hidden * {
+  cursor: none;
+}
+
+/* HUD telemetry rail — thin accent readout used by the wheel scrubber */
+.hud-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
 }
 
 /* Editorial serif for luxury headlines (load-bearing weight only) */
