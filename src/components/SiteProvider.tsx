@@ -6,28 +6,23 @@ import React, {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import type { SiteData, TemplateId, ThemeConfig } from "@/types/site";
 import { LEGACY_TEMPLATE_FALLBACK, TEMPLATE_OPTIONS } from "@/types/site";
 import siteDataJson from "@/data/siteData.json";
 
-const GITHUB_RAW_BASE =
-  "https://raw.githubusercontent.com/JonathanGaming1/site-previews/main/public/sites";
 /**
- * The admin key NEVER lives in this bundle. The browser only holds markers
- * that the SERVER set after a successful `login` exchange with /api/admin,
- * which returns an HttpOnly session cookie the JS can neither read nor forge.
+ * Admin authentication is 100% server-side: /api/auth sets an HttpOnly JWT
+ * cookie the browser can neither read nor forge. This bundle holds no
+ * password, no key and no localStorage authorization flag.
  */
-export const ADMIN_SESSION_MARKER = "agency_admin_session";
-export const ADMIN_FLAG = "agency_is_admin";
+const AUTH_ENDPOINT = "/api/auth";
+const SITE_ENDPOINT = "/api/site";
 
-/** localStorage prefix for the admin's instant, 0ms local override. */
+/** localStorage prefix for the admin's instant 0ms content override — it
+ * changes what the admin sees, never who is authorized. */
 export const SITE_OVERRIDE_PREFIX = "site_override_";
-
-/** Raw GitHub JSON base kept for emergency read-only re-syncs. */
-export const SITES_RAW_BASE = GITHUB_RAW_BASE;
 
 export const REPO_OWNER = "JonathanGaming1";
 export const REPO_NAME = "site-previews";
@@ -50,8 +45,8 @@ interface SiteContextValue {
   adminReady: boolean;
   isAdmin: boolean;
   mounted: boolean;
-  /** Exchange an admin key with the server for an HttpOnly session cookie. */
-  login: (key: string) => Promise<boolean>;
+  /** Re-check the server session after the login modal succeeds. */
+  refreshAuth: () => Promise<boolean>;
   /** Replace the whole data object in React state (used by AI sync / recall). */
   replaceData: (next: SiteData) => void;
   /** Returns props that enable click-to-edit (contentEditable) for admin users. */
@@ -181,171 +176,103 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
   const [slug, setSlug] = useState<string | null>(null);
   const [remoteLoaded, setRemoteLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const fetchedSlugRef = useRef<string | null>(null);
-
   const initialData = useMemo(() => seedSite(), []);
 
-  const callAuth = useCallback(
-    async (payload: Record<string, unknown>): Promise<boolean> => {
+  /** Ask the server whether this browser holds a valid admin_jwt cookie. */
+  const fetchAuth = useCallback(async (): Promise<boolean> => {
+    try {
+      const res = await fetch(AUTH_ENDPOINT, {
+        method: "GET",
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+      const parsed = (await res.json()) as { authenticated?: boolean };
+      return res.ok && parsed?.authenticated === true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  /** Read a business JSON through the private-GitHub proxy at the edge. */
+  const fetchSite = useCallback(
+    async (target: string): Promise<Partial<SiteData> | null> => {
       try {
-        const res = await fetch("/api/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-          credentials: "same-origin",
-          body: JSON.stringify(payload),
-        });
+        const res = await fetch(
+          `${SITE_ENDPOINT}?site=${encodeURIComponent(target)}`,
+          { cache: "no-store", credentials: "same-origin" },
+        );
+        if (!res.ok) return null;
         const parsed = (await res.json()) as {
           ok?: boolean;
-          authenticated?: boolean;
+          site?: Partial<SiteData>;
         };
-        return res.ok && parsed?.ok === true && parsed?.authenticated === true;
+        return parsed?.ok && parsed.site ? parsed.site : null;
       } catch {
-        return false;
+        return null;
       }
     },
     [],
   );
 
   /**
-   * Admin authentication is decided by the server, never by a string in the
-   * bundle: `?key=` is exchanged once for an HttpOnly session cookie, and a
-   * returning browser is confirmed with `whoami` before any data loads.
+   * Boot — resolve the business slug, then fetch auth and site data together.
+   * Dynamic content comes from GET /api/site (the edge reads the private repo
+   * with GITHUB_TOKEN); the deploy-time /sites/{slug}.json copy is only a
+   * resilience fallback, and the bundled JSON is the last resort.
    */
   useEffect(() => {
     let cancelled = false;
 
-    const finish = (authenticated: boolean) => {
-      if (cancelled) return;
-      try {
-        if (authenticated) {
-          sessionStorage.setItem(ADMIN_SESSION_MARKER, "true");
-          localStorage.setItem(ADMIN_FLAG, "true");
-        } else {
-          sessionStorage.removeItem(ADMIN_SESSION_MARKER);
-          localStorage.removeItem(ADMIN_FLAG);
-        }
-      } catch {
-        /* storage disabled — the server cookie still decides */
+    const resolveSlug = (): string | null => {
+      const params = new URLSearchParams(window.location.search);
+      const fromQuery = params.get("site");
+      if (fromQuery && fromQuery.trim()) {
+        return fromQuery.trim().replace(/[^a-zA-Z0-9_-]/g, "");
       }
-      setIsAdmin(authenticated);
-      setAdminReady(true);
-      setMounted(true);
+      const match = window.location.pathname.match(/^\/p\/([a-zA-Z0-9_-]+)/);
+      return match ? match[1] : null;
     };
 
-    const params = new URLSearchParams(window.location.search);
-    const key = params.get("key");
+    const staticFallback = async (
+      target: string,
+    ): Promise<Partial<SiteData> | null> => {
+      try {
+        const res = await fetch(`/sites/${target}.json`, { cache: "no-store" });
+        return res.ok ? ((await res.json()) as Partial<SiteData>) : null;
+      } catch {
+        return null;
+      }
+    };
 
-    if (key) {
-      void (async () => {
-        const authenticated = await callAuth({ action: "login", key });
-        if (authenticated && !cancelled) {
-          // Strip the secret from the address bar and history immediately.
-          params.delete("key");
-          const query = params.toString();
-          window.history.replaceState(
-            window.history.state,
-            "",
-            `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+    void (async () => {
+      const resolvedSlug = resolveSlug();
+      const [authenticated, remote] = await Promise.all([
+        fetchAuth(),
+        (async () => {
+          if (!resolvedSlug) return null;
+          return (
+            (await fetchSite(resolvedSlug)) ?? (await staticFallback(resolvedSlug))
           );
-        }
-        finish(authenticated);
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }
+        })(),
+      ]);
+      if (cancelled) return;
 
-    let marked = false;
-    try {
-      marked = sessionStorage.getItem(ADMIN_SESSION_MARKER) === "true";
-    } catch {
-      marked = false;
-    }
+      setIsAdmin(authenticated);
+      setAdminReady(true);
+      if (resolvedSlug) {
+        setSlug(resolvedSlug);
+        setData(hydrateSite(remote ?? {}, resolvedSlug, authenticated));
+      } else {
+        setData(hydrateSite({}, null, authenticated));
+      }
+      setRemoteLoaded(true);
+      setMounted(true);
+    })();
 
-    if (marked) {
-      void (async () => {
-        finish(await callAuth({ action: "whoami" }));
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    finish(false);
     return () => {
       cancelled = true;
     };
-  }, [callAuth]);
-
-  // Resolve the business slug from /p/{slug} or ?site={slug} and
-  // dynamically load that business's JSON so each business has a
-  // permanent unique URL and admin edits appear instantly on refresh.
-  useEffect(() => {
-    if (!mounted) return;
-
-    let resolvedSlug: string | null = null;
-    const params = new URLSearchParams(window.location.search);
-    const fromQuery = params.get("site");
-    if (fromQuery && fromQuery.trim()) {
-      resolvedSlug = fromQuery.trim().replace(/[^a-zA-Z0-9_-]/g, "");
-    } else {
-      const match = window.location.pathname.match(/^\/p\/([a-zA-Z0-9_-]+)/);
-      if (match) resolvedSlug = match[1];
-    }
-
-    if (!resolvedSlug) {
-      const isAdminVisit = isAdmin;
-      setData((prev) => hydrateSite(prev, null, isAdminVisit));
-      setRemoteLoaded(true);
-      return;
-    }
-
-    setSlug(resolvedSlug);
-
-    const isSameSlug = fetchedSlugRef.current === resolvedSlug;
-    fetchedSlugRef.current = resolvedSlug;
-    if (isSameSlug) return;
-
-    const isAdminVisit = isAdmin;
-
-    const load = async () => {
-      // 1) Same-origin /sites/{slug}.json — fast Cloudflare CDN copy first
-      // 2) Raw GitHub — fresher saved content when CDN misses, cache-busted
-      // 3) Bundled default data — graceful offline fallback
-      try {
-        const res = await fetch(`/sites/${resolvedSlug}.json`, {
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const remote = (await res.json()) as Partial<SiteData>;
-          setData(hydrateSite(remote, resolvedSlug, isAdminVisit));
-          setRemoteLoaded(true);
-          return;
-        }
-      } catch {
-        /* fall through */
-      }
-      try {
-        const res = await fetch(
-          `${GITHUB_RAW_BASE}/${resolvedSlug}.json?t=${Date.now()}`,
-          { cache: "no-store" },
-        );
-        if (res.ok) {
-          const remote = (await res.json()) as Partial<SiteData>;
-          setData(hydrateSite(remote, resolvedSlug, isAdminVisit));
-          setRemoteLoaded(true);
-          return;
-        }
-      } catch {
-        /* fall through */
-      }
-      // Unknown business: fall back to bundled default data, tagged with the slug.
-      setData((prev) => hydrateSite(prev, resolvedSlug, isAdminVisit));
-      setRemoteLoaded(true);
-    };
-    void load();
-  }, [mounted, isAdmin]);
+  }, [fetchAuth, fetchSite]);
 
   // 0ms persistence: every admin edit/template/colour change is mirrored to
   // localStorage immediately, so a refresh restores the exact same view.
@@ -394,23 +321,19 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
     [isAdmin, data, updateValue],
   );
 
-  /** Exchange an admin key for a server session, then unlock this browser. */
-  const login = useCallback(
-    async (key: string): Promise<boolean> => {
-      if (!(await callAuth({ action: "login", key }))) return false;
-      try {
-        sessionStorage.setItem(ADMIN_SESSION_MARKER, "true");
-        localStorage.setItem(ADMIN_FLAG, "true");
-      } catch {
-        /* storage disabled — the cookie still carries the session */
-      }
-      setIsAdmin(true);
-      setAdminReady(true);
+  /**
+   * Re-check the server session (the login modal POSTs to /api/auth itself),
+   * then unlock the toolbar and re-apply this browser's local content override.
+   */
+  const refreshAuth = useCallback(async (): Promise<boolean> => {
+    const authenticated = await fetchAuth();
+    setIsAdmin(authenticated);
+    setAdminReady(true);
+    if (authenticated) {
       setData((prev) => applyLocalOverride(prev, slug ?? prev.slug ?? "default"));
-      return true;
-    },
-    [callAuth, slug],
-  );
+    }
+    return authenticated;
+  }, [fetchAuth, slug]);
 
   const setTemplate = useCallback((id: TemplateId) => {
     setData((prev) => ({ ...prev, templateId: normalizeTemplate(id) }));
@@ -429,7 +352,7 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
       adminReady,
       isAdmin,
       mounted,
-      login,
+      refreshAuth,
       replaceData,
       editsFor,
       updateValue,
@@ -444,7 +367,7 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
       adminReady,
       isAdmin,
       mounted,
-      login,
+      refreshAuth,
       replaceData,
       editsFor,
       updateValue,

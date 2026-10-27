@@ -7,9 +7,11 @@
  *
  * Rules:
  *  - one alert per IP + slug per 30 minutes (in-memory edge cache)
- *  - no alert for admin previews (?key=… stamps isAdmin on the client)
+ *  - no alert when the request carries a valid admin_jwt session
  *  - no alert when the visitor already received one this session
  */
+
+import { verifyAdminJwt } from "./auth.js";
 
 const COOLDOWN_MS = 30 * 60 * 1000;
 const MAX_ENTRIES = 5000;
@@ -41,11 +43,15 @@ function prune(now) {
   }
 }
 
-/** Keep Discord markdown from being injected through business names. */
+/**
+ * Keep Discord markdown and mentions from being injected through business
+ * names: strip formatting characters, every `@` (so `@everyone` / `@role` can
+ * never be constructed) and collapse whitespace.
+ */
 function clean(value, maxLength = 160) {
   return String(value ?? "")
     .replace(/[\r\n]+/g, " ")
-    .replace(/[*_`~|]/g, "")
+    .replace(/[*_`~|@]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLength);
@@ -64,6 +70,11 @@ function safeUrl(value) {
 
 export async function onRequestPost(context) {
   const { request, env } = context;
+
+  // An admin session (valid admin_jwt cookie) never notifies Discord.
+  if (await verifyAdminJwt(request, env)) {
+    return json({ ok: true, skipped: "admin" });
+  }
 
   let body;
   try {

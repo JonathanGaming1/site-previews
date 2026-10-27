@@ -11,7 +11,6 @@ import { useSite } from "@/components/SiteProvider";
 
 const DEFAULT_POSTHOG_KEY = "phc_AkDuMC253gZyg4HHGWyvGi63zYRSdZEoF5taihDvehV9";
 const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
-const ADMIN_FLAG = "agency_is_admin";
 const LAST_VISIT_PREFIX = "last_visit_";
 const VISIT_WINDOW_MS = 30 * 60 * 1000;
 
@@ -31,19 +30,6 @@ function initPostHog(key: string, host: string): void {
     posthogInitialized = true;
   } catch {
     /* analytics must never break the page */
-  }
-}
-
-/**
- * The admin flag is written by SiteProvider only AFTER the server accepts the
- * key, so this bundle never compares — or stores — a secret itself.
- */
-function adminFlag(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return localStorage.getItem(ADMIN_FLAG) === "true";
-  } catch {
-    return false;
   }
 }
 
@@ -83,8 +69,6 @@ export function ViewTracker() {
     // fallback instead of the visitor's actual demo.
     if (!mounted || !remoteLoaded || isAdmin || sentRef.current) return;
 
-    // Admin previews never notify Discord. The flag persists per browser.
-    if (adminFlag()) return;
 
     const storeSlug = slug ?? data.slug ?? "default";
     const visitKey = LAST_VISIT_PREFIX + storeSlug;
@@ -132,6 +116,7 @@ export function ViewTracker() {
           templateId: data.templateId,
           device: deviceLabel(),
           url: window.location.href,
+          // The server also skips when a valid admin_jwt cookie arrives.
           isAdmin: false,
         }),
       });

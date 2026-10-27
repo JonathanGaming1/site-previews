@@ -8,6 +8,7 @@ import {
   Clock,
   Layers,
   Loader2,
+  Lock,
   Palette,
   RotateCcw,
   Save,
@@ -149,24 +150,146 @@ export function AdminToolbar() {
   const {
     data,
     isAdmin,
+    adminReady,
     mounted,
     slug,
     setTemplate,
     setTheme,
     replaceData,
+    refreshAuth,
   } = useSite();
   const [aiOpen, setAiOpen] = useState(false);
   const [cpOpen, setCpOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [barDown, setBarDown] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loggingIn, setLoggingIn] = useState(false);
 
   const dataRef = useRef(data);
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
-  if (!mounted || !isAdmin) return null;
+  // ?login=1 opens the password prompt directly (the password itself is
+  // never placed in the URL — it is POSTed once to /api/auth).
+  useEffect(() => {
+    if (!mounted || isAdmin) return;
+    const flag = new URLSearchParams(window.location.search).get("login");
+    if (flag === "1") setLoginOpen(true);
+  }, [mounted, isAdmin]);
+
+  /** POST the password to the edge; the HttpOnly JWT cookie does the rest. */
+  const submitLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loggingIn) return;
+    setLoggingIn(true);
+    setLoginError(null);
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        body: JSON.stringify({ password }),
+      });
+      const parsed = (await res.json().catch(() => null)) as {
+        authenticated?: boolean;
+      } | null;
+      if (res.ok && parsed?.authenticated === true) {
+        setPassword("");
+        setLoginOpen(false);
+        await refreshAuth();
+        return;
+      }
+      setLoginError(
+        res.status === 429
+          ? "נסיונות רבים מדי — המתינו כמה דקות ונסו שוב"
+          : res.status === 503
+            ? "השרת לא מוגדר — חסרים משתני סביבה ב-Cloudflare Pages"
+            : "הסיסמה שגויה",
+      );
+    } catch {
+      setLoginError("לא ניתן להגיע לשרת האימות");
+    } finally {
+      setLoggingIn(false);
+    }
+  };
+
+  if (!mounted || !adminReady) return null;
+
+  // Signed out: a discreet lock that opens the server-side password prompt.
+  if (!isAdmin) {
+    return (
+      <div dir="rtl">
+        <button
+          type="button"
+          onClick={() => setLoginOpen(true)}
+          aria-label="כניסת מנהל"
+          title="כניסת מנהל"
+          className="fixed bottom-4 left-4 z-[100002] flex h-9 w-9 items-center justify-center border border-white/15 bg-black/70 text-white/70 backdrop-blur transition hover:border-[#e9c86a]/60 hover:text-[#e9c86a]"
+        >
+          <Lock className="h-4 w-4" aria-hidden="true" />
+        </button>
+
+        {loginOpen && (
+          <div className="fixed inset-0 z-[100003] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+            <form
+              onSubmit={submitLogin}
+              className="w-full max-w-[360px] border border-white/12 bg-[#0a0908] p-5 shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm tracking-[0.2em] text-white/80">
+                  כניסת מנהל
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginOpen(false);
+                    setLoginError(null);
+                  }}
+                  aria-label="סגירה"
+                  className="text-white/50 transition hover:text-white"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <p className="mt-2 text-[11px] leading-relaxed text-white/45">
+                הסיסמה נשלחת לשרת פעם אחת ומחזירה עוגיה מוצפנת ל-12 שעות —
+                היא לא נשמרת בדפדפן ולא מופיעה בכתובת.
+              </p>
+
+              <input
+                type="password"
+                autoFocus
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="סיסמת מנהל"
+                autoComplete="current-password"
+                className="mt-4 w-full border border-white/15 bg-white/[0.05] px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#e9c86a]/70"
+              />
+
+              {loginError && (
+                <p className="mt-2 text-[11px] text-red-300">{loginError}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={loggingIn || !password}
+                className="mt-4 flex w-full items-center justify-center gap-2 border border-[#e9c86a]/50 bg-[#e9c86a]/10 py-2.5 text-xs tracking-[0.2em] text-[#f0d79a] transition disabled:opacity-50"
+              >
+                {loggingIn && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {loggingIn ? "מאמתים…" : "כניסה"}
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   const targetSlug = slug ?? data.slug ?? "default";
   const sending = status.kind === "sending";
@@ -217,6 +340,11 @@ export function AdminToolbar() {
       parsed = (await res.json()) as Record<string, unknown>;
     } catch {
       parsed = null;
+    }
+
+    if (res.status === 401) {
+      setLoginOpen(true);
+      throw new Error("פג תוקף חיבור המנהל — התחברו מחדש");
     }
 
     if (!res.ok || parsed?.ok !== true) {

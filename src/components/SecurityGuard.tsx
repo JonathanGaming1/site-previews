@@ -6,7 +6,8 @@ import { useSite } from "@/components/SiteProvider";
 
 /**
  * Demo experience guard.
- * Active only when siteData.isDemo === true and the visitor has no secret ?key=.
+ * Active only when siteData.isDemo === true and the visitor is not signed in
+ * as admin (decided server-side by the admin_jwt cookie, never by the client).
  * - Renders a single sleek bottom dock bar linking to checkout.
  * - Blocks context menu / selection / F12 / devtools shortcuts.
  * - Tamper watchdog: a lightweight `MutationObserver` scoped to the dock

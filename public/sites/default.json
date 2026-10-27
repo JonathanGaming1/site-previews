@@ -2,9 +2,9 @@
   "businessId": "demo-business-001",
   "templateId": "apple-spatial",
   "isDemo": true,
-  "n8nEditWebhookUrl": "https://n8n.example.com/webhook/site-edit",
+  "n8nEditWebhookUrl": "",
   "checkoutUrl": "/checkout",
-  "trackingWebhookUrl": "https://n8n.example.com/webhook/site-view-tracking",
+  "trackingWebhookUrl": "",
   "theme": {
     "primaryColor": "#090807",
     "accentColor": "#c59b27"
@@ -106,9 +106,9 @@
     "businessId": "demo-business-001",
     "templateId": "luxury-dark",
     "isDemo": true,
-    "n8nEditWebhookUrl": "https://n8n.example.com/webhook/site-edit",
+    "n8nEditWebhookUrl": "",
     "checkoutUrl": "/checkout",
-    "trackingWebhookUrl": "https://n8n.example.com/webhook/site-view-tracking",
+    "trackingWebhookUrl": "",
     "theme": {
       "primaryColor": "#090807",
       "accentColor": "#c59b27"

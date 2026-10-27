@@ -1,30 +1,17 @@
 /**
  * POST /api/admin — server-side GitHub save, AI edit and recall.
  *
- * Runs on Cloudflare Pages Functions. GitHub and Groq credentials live only in
- * `context.env` (GITHUB_TOKEN, GROQ_API_KEY, optional ADMIN_KEY), so no token
- * is ever shipped to the browser. No n8n, no popups, no CORS workarounds.
+ * Runs on Cloudflare Pages Functions against the PRIVATE repository. GitHub and
+ * Groq credentials live only in `context.env` (GITHUB_TOKEN, GROQ_API_KEY), so
+ * no token is ever shipped to the browser. No n8n, no popups, no key in a URL.
  *
- * Authentication is server-side only:
- *   1. Cloudflare Access (OAuth/OIDC) — verified against the team JWKS when
- *      CF_ACCESS_TEAM is set, i.e. Access is the outer gate.
- *   2. An HttpOnly, SameSite=Strict HS256 session cookie minted by
- *      `action: "login"` (secret: SESSION_SECRET, falling back to ADMIN_KEY).
- *   3. An explicit `key` in the body, accepted only for clients that still
- *      send one — verified against ADMIN_KEY and rate-limited per IP.
- * There is no default password anywhere in this file or in the browser bundle.
+ * Authorization: every request must carry a valid `admin_jwt` cookie — the
+ * HS256 token /api/auth signs after checking the password server-side.
+ * Anything else receives 401 immediately.
  */
 
-const SESSION_COOKIE = "admin_session";
-const SESSION_TTL_SECONDS = 12 * 60 * 60;
-const LOGIN_ATTEMPT_LIMIT = 8;
-const LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const ACCESS_JWKS_TTL_MS = 10 * 60 * 1000;
 
-/** Best-effort per-isolate login throttle (mirrors the tracker cooldown). */
-const loginAttempts = new Map();
-const accessJwks = new Map();
-const textEncoder = new TextEncoder();
+import { verifyAdminJwt } from "./auth.js";
 
 const DEFAULT_OWNER = "JonathanGaming1";
 const DEFAULT_REPO = "site-previews";
@@ -82,43 +69,6 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
-/* ------------------------------------------------------------------ */
-/* JWT primitives (Web Crypto only — no dependency, no Node APIs)     */
-/* ------------------------------------------------------------------ */
-
-function b64urlFromBytes(bytes) {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function b64urlFromString(text) {
-  return b64urlFromBytes(textEncoder.encode(text));
-}
-
-function b64urlToBytes(value) {
-  const b64 = String(value).replace(/-/g, "+").replace(/_/g, "/");
-  const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
-  const binary = atob(padded);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-function b64urlToString(value) {
-  return new TextDecoder().decode(b64urlToBytes(value));
-}
-
-/** Constant-time-ish string comparison for secrets. */
-function safeEqual(a, b) {
-  const left = textEncoder.encode(String(a ?? ""));
-  const right = textEncoder.encode(String(b ?? ""));
-  if (left.byteLength !== right.byteLength) return false;
-  let diff = 0;
-  for (let i = 0; i < left.byteLength; i++) diff |= left[i] ^ right[i];
-  return diff === 0;
-}
-
 /** A browser POST to our own origin always carries a matching Origin. */
 function isSameOrigin(request) {
   const origin = request.headers.get("Origin");
@@ -129,209 +79,6 @@ function isSameOrigin(request) {
   } catch {
     return false;
   }
-}
-
-function readCookie(request, name) {
-  const header = request.headers.get("Cookie");
-  if (!header) return null;
-  for (const part of header.split(";")) {
-    const index = part.indexOf("=");
-    if (index === -1) continue;
-    if (part.slice(0, index).trim() === name) {
-      return part.slice(index + 1).trim();
-    }
-  }
-  return null;
-}
-
-function sessionCookie(value, maxAge) {
-  return `${SESSION_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
-}
-
-function sessionSecret(env) {
-  return env.SESSION_SECRET || env.ADMIN_KEY || "";
-}
-
-async function sessionKey(env) {
-  const secret = sessionSecret(env);
-  if (!secret) return null;
-  return crypto.subtle.importKey(
-    "raw",
-    textEncoder.encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign", "verify"],
-  );
-}
-
-/** Mint an HS256 session JWT that only this worker can produce or read. */
-async function signSession(env) {
-  const key = await sessionKey(env);
-  if (!key) return null;
-  const now = Math.floor(Date.now() / 1000);
-  const header = b64urlFromString(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-  const claims = b64urlFromString(
-    JSON.stringify({
-      sub: "admin",
-      iss: "site-previews",
-      iat: now,
-      exp: now + SESSION_TTL_SECONDS,
-    }),
-  );
-  const data = `${header}.${claims}`;
-  const signature = await crypto.subtle.sign("HMAC", key, textEncoder.encode(data));
-  return `${data}.${b64urlFromBytes(new Uint8Array(signature))}`;
-}
-
-async function verifySession(env, token) {
-  try {
-    const parts = String(token || "").split(".");
-    if (parts.length !== 3) return false;
-    const key = await sessionKey(env);
-    if (!key) return false;
-    const valid = await crypto.subtle.verify(
-      "HMAC",
-      key,
-      b64urlToBytes(parts[2]),
-      textEncoder.encode(`${parts[0]}.${parts[1]}`),
-    );
-    if (!valid) return false;
-    const claims = JSON.parse(b64urlToString(parts[1]));
-    if (!claims || claims.iss !== "site-previews" || claims.sub !== "admin") return false;
-    if (typeof claims.exp !== "number" || claims.exp * 1000 <= Date.now()) return false;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/* ------------------------------------------------------------------ */
-/* Cloudflare Access — the OAuth/OIDC outer gate                      */
-/* ------------------------------------------------------------------ */
-
-async function accessKeys(team) {
-  const cached = accessJwks.get(team);
-  if (cached && Date.now() - cached.fetchedAt < ACCESS_JWKS_TTL_MS) return cached.keys;
-  const res = await fetch(`https://${team}/cdn-cgi/access/metadata/jwks`, {
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(`access_jwks_${res.status}`);
-  const payload = await res.json();
-  const keys = Array.isArray(payload?.keys) ? payload.keys : [];
-  accessJwks.set(team, { keys, fetchedAt: Date.now() });
-  return keys;
-}
-
-/** Verify the `Cf-Access-Jwt-Assertion` header against the team's JWKS. */
-async function verifyAccessAssertion(request, env) {
-  const team = String(env.CF_ACCESS_TEAM || "")
-    .trim()
-    .replace(/^https?:\/\//, "")
-    .replace(/\/+$/, "");
-  if (!team) return null;
-  const token = request.headers.get("Cf-Access-Jwt-Assertion");
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const header = JSON.parse(b64urlToString(parts[0]));
-    const claims = JSON.parse(b64urlToString(parts[1]));
-    if (!claims || typeof claims.exp !== "number" || claims.exp * 1000 <= Date.now()) {
-      return null;
-    }
-    if (claims.iss && claims.iss !== `https://${team}` && claims.iss !== `https://${team}/`) {
-      return null;
-    }
-    const audience = Array.isArray(claims.aud)
-      ? claims.aud
-      : claims.aud === undefined
-        ? []
-        : [claims.aud];
-    if (env.CF_ACCESS_AUD && !audience.includes(env.CF_ACCESS_AUD)) return null;
-
-    const keys = await accessKeys(team);
-    const candidates = header.kid ? keys.filter((k) => k.kid === header.kid) : keys;
-    const signature = b64urlToBytes(parts[2]);
-    const data = textEncoder.encode(`${parts[0]}.${parts[1]}`);
-    for (const jwk of candidates) {
-      const alg = jwk.alg || header.alg || "RS256";
-      try {
-        const key =
-          alg === "ES256"
-            ? await crypto.subtle.importKey(
-                "jwk",
-                jwk,
-                { name: "ECDSA", namedCurve: jwk.crv || "P-256" },
-                false,
-                ["verify"],
-              )
-            : await crypto.subtle.importKey(
-                "jwk",
-                jwk,
-                { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-                false,
-                ["verify"],
-              );
-        const ok =
-          alg === "ES256"
-            ? await crypto.subtle.verify(
-                { name: "ECDSA", hash: "SHA-256" },
-                key,
-                signature,
-                data,
-              )
-            : await crypto.subtle.verify(
-                "RSASSA-PKCS1-v1_5",
-                key,
-                signature,
-                data,
-              );
-        if (ok) return claims.sub || claims.email || "access-user";
-      } catch {
-        /* try the next key */
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function attemptAllowed(ip) {
-  const now = Date.now();
-  if (loginAttempts.size > 5000) loginAttempts.clear();
-  const entry = loginAttempts.get(ip);
-  if (!entry || now > entry.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + LOGIN_WINDOW_MS });
-    return true;
-  }
-  if (entry.count >= LOGIN_ATTEMPT_LIMIT) return false;
-  entry.count += 1;
-  return true;
-}
-
-/**
- * Returns { mode, identity } when the request is trusted, { error } when the
- * supplied credential is wrong, or null when no credential was supplied.
- */
-async function authenticate(request, env, body) {
-  const accessIdentity = await verifyAccessAssertion(request, env);
-  if (accessIdentity) return { mode: "access", identity: accessIdentity };
-
-  const token = readCookie(request, SESSION_COOKIE);
-  if (token && (await verifySession(env, token))) {
-    return { mode: "session", identity: "admin" };
-  }
-
-  const key = body && typeof body.key === "string" ? body.key : "";
-  if (key && env.ADMIN_KEY) {
-    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-    if (!attemptAllowed(ip)) return { error: "rate_limited" };
-    if (!safeEqual(key, env.ADMIN_KEY)) return { error: "forbidden" };
-    return { mode: "key", identity: "admin" };
-  }
-
-  return null;
 }
 
 function clone(value) {
@@ -609,59 +356,28 @@ export async function onRequestPost(context) {
     return json({ ok: false, error: "invalid_body" }, 400);
   }
 
-  if (!isSameOrigin(request)) {
-    return json({ ok: false, error: "bad_origin" }, 403);
+  // Strict server-side gate: only a valid admin_jwt cookie (HS256 signed with
+  // ADMIN_KEY by /api/auth) may write to the private repository.
+  if (!(await verifyAdminJwt(request, env))) {
+    return json({ ok: false, error: "unauthorized" }, 401);
   }
 
-  const action = String(body.action || "");
-  const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-
-  if (!env.ADMIN_KEY && !env.SESSION_SECRET && !env.CF_ACCESS_TEAM) {
+  if (!env.ADMIN_KEY) {
     return json(
       {
         ok: false,
         error: "admin_not_configured",
-        hint: "גדירו ADMIN_KEY (או Cloudflare Access) כ-Environment Variable בפרויקט Cloudflare Pages.",
+        hint: "גדירו ADMIN_KEY כ-Environment Variable בפרויקט Cloudflare Pages.",
       },
       503,
     );
   }
 
-  // --- login: exchange the admin key for an HttpOnly session cookie ---
-  if (action === "login") {
-    if (!attemptAllowed(ip)) return json({ ok: false, error: "rate_limited" }, 429);
-    if (!env.ADMIN_KEY || !safeEqual(String(body.key ?? ""), env.ADMIN_KEY)) {
-      return json({ ok: false, error: "forbidden" }, 403);
-    }
-    const token = await signSession(env);
-    if (!token) return json({ ok: false, error: "admin_not_configured" }, 503);
-    const response = json({ ok: true, authenticated: true, mode: "session" });
-    response.headers.append("Set-Cookie", sessionCookie(token, SESSION_TTL_SECONDS));
-    return response;
+  if (!isSameOrigin(request)) {
+    return json({ ok: false, error: "bad_origin" }, 403);
   }
 
-  // --- whoami: is this browser already authenticated? ---
-  if (action === "whoami") {
-    const known = await authenticate(request, env, body);
-    const authenticated = Boolean(known && !known.error);
-    return json({
-      ok: true,
-      authenticated,
-      mode: authenticated ? known.mode : null,
-    });
-  }
-
-  // --- every mutation must be authenticated server-side ---
-  const auth = await authenticate(request, env, body);
-  if (auth && auth.error === "rate_limited") {
-    return json({ ok: false, error: "rate_limited" }, 429);
-  }
-  if (auth && auth.error === "forbidden") {
-    return json({ ok: false, error: "forbidden" }, 403);
-  }
-  if (!auth) {
-    return json({ ok: false, error: "unauthorized" }, 401);
-  }
+  const action = String(body.action || "");
 
   if (!env.GITHUB_TOKEN) {
     return json(

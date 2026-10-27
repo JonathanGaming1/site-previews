@@ -1,8 +1,11 @@
 import { SiteExperience } from "@/components/SiteExperience";
 
 /**
- * Renders the client's full website dynamically from src/data/siteData.json,
- * which n8n pushes to the repository before each deploy.
+ * Renders the client's full website dynamically.
+ *
+ * Content is loaded at runtime through GET /api/site?site={slug} — a Cloudflare
+ * Pages Function that reads the private GitHub repository with GITHUB_TOKEN —
+ * and the admin state comes from GET /api/auth (HttpOnly JWT cookie).
  *
  * Supported templateId values:
  *   forge-automotive · apple-spatial · horology-chrono ·
