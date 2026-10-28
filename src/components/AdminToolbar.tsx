@@ -157,6 +157,7 @@ export function AdminToolbar() {
     setTheme,
     replaceData,
     refreshAuth,
+    logoutAdmin,
   } = useSite();
   const [aiOpen, setAiOpen] = useState(false);
   const [cpOpen, setCpOpen] = useState(false);
@@ -173,12 +174,12 @@ export function AdminToolbar() {
     dataRef.current = data;
   }, [data]);
 
-  // ?login=1 opens the password prompt directly (the password itself is
-  // never placed in the URL — it is POSTed once to /api/auth).
+  // ?login=1 starts the automatic server exchange; open the manual prompt if
+  // that exchange fails and the provider returns to signed-out state.
   useEffect(() => {
     if (!mounted || isAdmin) return;
-    const flag = new URLSearchParams(window.location.search).get("login");
-    if (flag === "1") setLoginOpen(true);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("login") === "1") setLoginOpen(true);
   }, [mounted, isAdmin]);
 
   /** POST the password to the edge; the HttpOnly JWT cookie does the rest. */
@@ -235,7 +236,7 @@ export function AdminToolbar() {
         </button>
 
         {loginOpen && (
-          <div className="fixed inset-0 z-[100003] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label="כניסת מנהל" className="fixed inset-0 z-[100003] flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
             <form
               onSubmit={submitLogin}
               className="w-full max-w-[360px] border border-white/12 bg-[#0a0908] p-5 shadow-2xl"
@@ -293,6 +294,18 @@ export function AdminToolbar() {
 
   const targetSlug = slug ?? data.slug ?? "default";
   const sending = status.kind === "sending";
+
+  const handleExitAdmin = async () => {
+    try {
+      await logoutAdmin();
+    } finally {
+      setAiOpen(false);
+      setCpOpen(false);
+      setBarDown(false);
+      setLoginOpen(false);
+      window.location.assign(`/?site=${encodeURIComponent(targetSlug)}`);
+    }
+  };
 
   /** Persist server truth immediately: drop the stale override, replace the
    * React state, then mirror the fresh snapshot back to localStorage. */
@@ -548,6 +561,14 @@ export function AdminToolbar() {
                 })}
               </span>
             </span>
+
+            <button
+              type="button"
+              onClick={handleExitAdmin}
+              className="border border-red-400/45 bg-red-500/15 px-3.5 py-2 text-[12px] font-semibold text-red-200 transition hover:bg-red-500/25"
+            >
+              יציאה ממצב אדמין
+            </button>
 
             <button
               type="button"

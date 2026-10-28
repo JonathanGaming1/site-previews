@@ -59,85 +59,35 @@ export function SwissEditorialTemplate() {
   const [menu, setMenu] = useState(false);
   const [plateIdx, setPlateIdx] = useState(0);
 
-  const engine = useCameraEngine(SCENES.length, {
-    sensitivity: 0.00018,
-    depthMm: 5400,
-  });
+  const engine = useCameraEngine(SCENES.length, { depthMm: 5400 });
   const rig = useCameraRig({ tiltX: 5, tiltY: 8, lightMin: 16, lightMax: 84 });
   const { progress, active, jump } = engine;
 
-  const s1 = useSceneTrack(progress, {
-    enter: -0.06,
-    peak: 0,
-    exit: 0.3,
-    fromScale: 0.76,
-    zoom: 2,
-    depth: 520,
-    tiltX: 5,
-    blur: 0,
-  });
-  const s2 = useSceneTrack(progress, {
-    enter: 0.16,
-    peak: 0.28,
-    exit: 0.5,
-    fromScale: 0.5,
-    zoom: 2,
-    depth: 680,
-    tiltX: 7,
-    blur: 0,
-  });
-  const s3 = useSceneTrack(progress, {
-    enter: 0.44,
-    peak: 0.56,
-    exit: 0.74,
-    fromScale: 0.55,
-    zoom: 1.9,
-    depth: 620,
-    tiltX: 6,
-    blur: 24,
-  });
-  const s4 = useSceneTrack(progress, {
-    enter: 0.66,
-    peak: 0.78,
-    exit: 0.92,
-    fromScale: 0.6,
-    zoom: 1.85,
-    depth: 580,
-    tiltX: 5,
-    blur: 20,
-  });
-  const s5 = useSceneTrack(progress, {
-    enter: 0.85,
-    peak: 0.96,
-    exit: 1.12,
-    fromScale: 0.64,
-    zoom: 1.6,
-    depth: 540,
-    tiltX: 4,
-    blur: 16,
-    opacityRange: [0.85, 0.96, 1.12],
-    opacityValues: [0, 1, 1],
-  });
+  const s1 = useSceneTrack(progress, { sceneIndex: 0, tiltX: 5 });
+  const s2 = useSceneTrack(progress, { sceneIndex: 1, tiltX: 7 });
+  const s3 = useSceneTrack(progress, { sceneIndex: 2, tiltX: 6 });
+  const s4 = useSceneTrack(progress, { sceneIndex: 3, tiltX: 5 });
+  const s5 = useSceneTrack(progress, { sceneIndex: 4, tiltX: 4 });
 
   /* Sliding architectural curtains part as the camera moves in. */
-  const curtainLeft = useTransform(progress, [0, 0.18], ["0%", "-104%"]);
-  const curtainRight = useTransform(progress, [0, 0.18], ["0%", "104%"]);
+  const curtainLeft = useTransform(progress, [0, 0.72], ["0%", "-104%"]);
+  const curtainRight = useTransform(progress, [0, 0.72], ["0%", "104%"]);
   /* Unfolding museum walls: each plate folds out of the wall plane. */
-  const foldA = useTransform(progress, [0.14, 0.33], [76, 0]);
-  const foldB = useTransform(progress, [0.18, 0.37], [76, 0]);
-  const foldC = useTransform(progress, [0.22, 0.41], [76, 0]);
-  const foldD = useTransform(progress, [0.26, 0.45], [76, 0]);
+  const foldA = useTransform(progress, [0.56, 1.32], [76, 0]);
+  const foldB = useTransform(progress, [0.72, 1.48], [76, 0]);
+  const foldC = useTransform(progress, [0.88, 1.64], [76, 0]);
+  const foldD = useTransform(progress, [1.04, 1.8], [76, 0]);
   const folds = [foldA, foldB, foldC, foldD];
-  const wallTurn = useTransform(progress, [0, 1], [0, -20]);
-  const archiveSlide = useTransform(progress, [0.6, 1], ["8%", "-8%"]);
-  const editorialRule = useTransform(progress, [0, 1], ["0%", "100%"]);
+  const wallTurn = useTransform(progress, [0, 4], [0, -20]);
+  const archiveSlide = useTransform(progress, [2.4, 4], ["8%", "-8%"]);
+  const editorialRule = useTransform(progress, [0, 4], ["0%", "100%"]);
 
   const heroImage = hero.backgroundImage || "";
   const waNumber = String(info.whatsapp || "").replace(/\D/g, "");
   const activePlate = services[plateIdx];
 
   return (
-    <LockedViewport background="#070706" text={PAPER}>
+    <LockedViewport background="#070706" text={PAPER} brandName={info.name}>
       <StageLight
         rig={rig}
         tint="rgba(200,162,122,0.09)"
@@ -197,17 +147,17 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 01 · COVER ---------------- */}
         <motion.section
           style={{ ...s1, ...livePointer(active === 0) }}
-          className="absolute inset-0 flex items-center justify-center px-6 pb-24 pt-20"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex items-center justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible"
         >
           {/* Architectural curtains */}
           <motion.div
             aria-hidden="true"
-            style={{ x: curtainLeft }}
+            style={{ x: curtainLeft, visibility: s1.visibility, pointerEvents: "none" }}
             className="pointer-events-none absolute inset-y-0 right-0 w-1/2 border-l border-white/10 bg-[#0b0a08]"
           />
           <motion.div
             aria-hidden="true"
-            style={{ x: curtainRight }}
+            style={{ x: curtainRight, visibility: s1.visibility, pointerEvents: "none" }}
             className="pointer-events-none absolute inset-y-0 left-0 w-1/2 border-r border-white/10 bg-[#0b0a08]"
           />
 
@@ -275,7 +225,7 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 02 · SPREAD ---------------- */}
         <motion.section
           style={{ ...s2, ...livePointer(active === 1) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible md:px-14"
         >
           <div className="mx-auto w-full max-w-6xl">
             <div className="flex items-end justify-between border-b border-white/12 pb-5">
@@ -357,7 +307,7 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 03 · INDEX ---------------- */}
         <motion.section
           style={{ ...s3, ...livePointer(active === 2) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible md:px-14"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-10 lg:grid-cols-[1.2fr_1fr]">
             <div>
@@ -436,7 +386,7 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 04 · ARCHIVE ---------------- */}
         <motion.section
           style={{ ...s4, ...livePointer(active === 3) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible md:px-14"
         >
           <motion.div style={{ x: archiveSlide }} className="mx-auto w-full max-w-5xl">
             <div className="flex items-end justify-between pb-5">
@@ -467,7 +417,7 @@ export function SwissEditorialTemplate() {
         {/* ---------------- 05 · COLOPHON ---------------- */}
         <motion.section
           style={{ ...s5, ...livePointer(active === 4) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 py-20 pb-24 md:px-14"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 py-20 pb-24 md:inset-y-0 md:max-h-none md:overflow-visible md:px-14"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_1.05fr]">
             <div className={`${WALL} p-7 md:p-9`}>

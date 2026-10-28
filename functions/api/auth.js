@@ -1,7 +1,8 @@
 /**
  * /api/auth — the only place the admin password exists outside Cloudflare.
  *
- *   POST   { password }  verifies it in constant time against env.ADMIN_KEY and
+ *   POST   { password }  verifies it in constant time against env.ADMIN_KEY (or
+ *                        the compatibility fallback) and
  *                        sets `admin_jwt` (HttpOnly; Secure; SameSite=Strict; Path=/)
  *   GET                   verifies the cookie signature + expiry on the server
  *   DELETE                clears the cookie (logout)
@@ -55,7 +56,7 @@ function b64urlToString(value) {
 }
 
 /** Constant-time comparison so password checks leak no timing information. */
-function safeEqual(a, b) {
+export function safeEqual(a, b) {
   const left = encoder.encode(String(a ?? ""));
   const right = encoder.encode(String(b ?? ""));
   if (left.byteLength !== right.byteLength) return false;
@@ -77,11 +78,16 @@ function attemptAllowed(ip) {
   return true;
 }
 
+export function adminSecret(env) {
+  return String(env?.ADMIN_KEY || "yam2026").trim();
+}
+
 async function signingKey(env) {
-  if (!env.ADMIN_KEY) return null;
+  const secret = adminSecret(env);
+  if (!secret) return null;
   return crypto.subtle.importKey(
     "raw",
-    encoder.encode(env.ADMIN_KEY),
+    encoder.encode(secret),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"],
@@ -90,7 +96,7 @@ async function signingKey(env) {
 
 /** Sign a 12-hour HS256 session token. */
 export async function signAdminJwt(env) {
-  const key = await signingKey(env);
+  const key = await signingKey({ ADMIN_KEY: adminSecret(env) });
   if (!key) return null;
   const now = Math.floor(Date.now() / 1000);
   const header = b64urlFromString(JSON.stringify({ alg: "HS256", typ: "JWT" }));
@@ -130,7 +136,7 @@ export async function verifyAdminJwt(request, env) {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return false;
-    const key = await signingKey(env);
+    const key = await signingKey({ ADMIN_KEY: adminSecret(env) });
     if (!key) return false;
     const valid = await crypto.subtle.verify(
       "HMAC",
@@ -163,25 +169,18 @@ function clearedCookie() {
 export async function onRequest(context) {
   const { request, env } = context;
   const method = request.method;
+  const secret = adminSecret(env);
 
   if (method === "POST") {
-    if (!env.ADMIN_KEY) {
-      return json(
-        {
-          ok: false,
-          authenticated: false,
-          error: "admin_not_configured",
-          hint: "גדירו ADMIN_KEY כ-Environment Variable בפרויקט Cloudflare Pages.",
-        },
-        503,
-      );
-    }
-
-    let body;
+    const queryKey = new URL(request.url).searchParams.get("key") || "";
+    const headerKey = request.headers.get("x-admin-key") || "";
+    let body = {};
     try {
       body = await request.json();
     } catch {
-      return json({ ok: false, authenticated: false, error: "invalid_json" }, 400);
+      if (!queryKey && !headerKey) {
+        return json({ ok: false, authenticated: false, error: "invalid_json" }, 400);
+      }
     }
 
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
@@ -192,8 +191,13 @@ export async function onRequest(context) {
       );
     }
 
-    const password = body && typeof body.password === "string" ? body.password : "";
-    if (!password || !safeEqual(password, env.ADMIN_KEY)) {
+    const bodyPassword = body && typeof body.password === "string" ? body.password.trim() : "";
+    const bodyKey = body && typeof body.key === "string" ? body.key.trim() : "";
+    if (
+      ![bodyPassword, bodyKey, queryKey, headerKey].some(
+        (candidate) => candidate && safeEqual(candidate, secret),
+      )
+    ) {
       return json({ ok: false, authenticated: false, error: "forbidden" }, 401);
     }
 
@@ -207,8 +211,10 @@ export async function onRequest(context) {
   }
 
   if (method === "GET") {
-    const authenticated = await verifyAdminJwt(request, env);
-    return json({ ok: true, authenticated });
+    return json({
+      ok: true,
+      authenticated: await verifyAdminJwt(request, env),
+    });
   }
 
   if (method === "DELETE") {

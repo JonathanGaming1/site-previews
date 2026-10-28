@@ -55,17 +55,17 @@ export function HorologyChronoTemplate() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const mood = MOODS[moodIndex];
-  const engine = useCameraEngine(SCENES.length, { sensitivity: 0.00018, depthMm: 7600 });
+  const engine = useCameraEngine(SCENES.length, { depthMm: 7600 });
   const rig = useCameraRig({ tiltX: 7, tiltY: 10, lightMin: 14, lightMax: 86 });
   const { progress, active, jump } = engine;
   const scenes = [
-    useSceneTrack(progress, { enter: -0.06, peak: 0, exit: 0.3, fromScale: 0.76, zoom: 1.85, depth: 540, tiltX: 5, blur: 0 }),
-    useSceneTrack(progress, { enter: 0.16, peak: 0.28, exit: 0.5, fromScale: 0.5, zoom: 1.9, depth: 650, tiltX: 7, blur: 0 }),
-    useSceneTrack(progress, { enter: 0.42, peak: 0.55, exit: 0.73, fromScale: 0.52, zoom: 1.85, depth: 590, tiltX: 6, blur: 20 }),
-    useSceneTrack(progress, { enter: 0.65, peak: 0.77, exit: 0.92, fromScale: 0.56, zoom: 1.75, depth: 540, tiltX: 5, blur: 18 }),
-    useSceneTrack(progress, { enter: 0.84, peak: 0.95, exit: 1.12, fromScale: 0.6, zoom: 1.55, depth: 500, tiltX: 4, blur: 16, opacityRange: [0.84, 0.95, 1.12], opacityValues: [0, 1, 1] }),
+    useSceneTrack(progress, { sceneIndex: 0, tiltX: 9 }),
+    useSceneTrack(progress, { sceneIndex: 1, tiltX: 8 }),
+    useSceneTrack(progress, { sceneIndex: 2, tiltX: 7 }),
+    useSceneTrack(progress, { sceneIndex: 3, tiltX: 6 }),
+    useSceneTrack(progress, { sceneIndex: 4, tiltX: 5 }),
   ];
-  const roomDrift = useTransform(progress, [0, 1], ["0%", "-8%"]);
+  const roomDrift = useTransform(progress, [0, 4], ["0%", "-8%"]);
   const glow = useMotionTemplate`radial-gradient(700px circle at ${rig.lightX}% ${rig.lightY}%, ${mood.wash}, transparent 72%)`;
   const whatsapp = String(info.whatsapp || "").replace(/\D/g, "");
   const chosenService = services[serviceIndex];
@@ -74,7 +74,7 @@ export function HorologyChronoTemplate() {
   const heroImage = hero.backgroundImage || data.projects?.[0]?.afterImage;
 
   return (
-    <LockedViewport background="#040405" text="#F3EEE6" style={{ "--penthouse-light": mood.tint } as React.CSSProperties}>
+    <LockedViewport background="#040405" text="#F3EEE6" brandName={info.name} style={{ "--penthouse-light": mood.tint } as React.CSSProperties}>
       <StageLight rig={rig} tint={mood.wash} accent="rgba(200,169,126,0.045)" size={900} />
       <motion.div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 transition-colors duration-700" style={{ background: glow }} />
 
@@ -109,7 +109,7 @@ export function HorologyChronoTemplate() {
 
       <CameraStage rig={rig} perspective={1600} className="relative h-full w-full">
         {/* 01 — Glass architecture / hero */}
-        <motion.section style={{ ...scenes[0], ...livePointer(active === 0) }} className="absolute inset-0 flex items-center justify-center px-5 pb-24 pt-24 md:px-16">
+        <motion.section style={{ ...scenes[0], ...livePointer(active === 0) }} className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex items-center justify-center overflow-y-auto px-5 pb-24 pt-24 md:inset-y-0 md:max-h-none md:overflow-visible md:px-16">
           <motion.div style={{ y: roomDrift }} className="relative mx-auto grid w-full max-w-7xl items-center gap-8 md:grid-cols-[1fr_1.1fr]">
             <div className="relative z-10 max-w-2xl">
               <span className="font-grotesk text-[9px] uppercase tracking-[0.48em] text-[#C8A97E]/75">A PRIVATE WORLD · 01 / 05</span>
@@ -145,7 +145,7 @@ export function HorologyChronoTemplate() {
         </motion.section>
 
         {/* 02 — Interactive lighting studio */}
-        <motion.section style={{ ...scenes[1], ...livePointer(active === 1) }} className="absolute inset-0 flex items-center px-5 pb-24 pt-24 md:px-16">
+        <motion.section style={{ ...scenes[1], ...livePointer(active === 1) }} className="absolute inset-x-0 top-[9vh] bottom-[9vh] flex max-h-[82vh] items-center overflow-y-auto px-5 pb-24 pt-24 md:inset-y-0 md:max-h-none md:overflow-visible md:px-16">
           <div className="mx-auto grid w-full max-w-6xl gap-8 md:grid-cols-[0.8fr_1.2fr]">
             <div>
               <span className="font-grotesk text-[9px] uppercase tracking-[0.45em] text-[#C8A97E]/70">LIGHTING ATELIER · 02 / 05</span>
@@ -167,7 +167,7 @@ export function HorologyChronoTemplate() {
         </motion.section>
 
         {/* 03 — Tilted architectural bento gallery */}
-        <motion.section style={{ ...scenes[2], ...livePointer(active === 2) }} className="absolute inset-0 flex items-center px-5 pb-24 pt-24 md:px-16">
+        <motion.section style={{ ...scenes[2], ...livePointer(active === 2) }} className="absolute inset-x-0 top-[9vh] bottom-[9vh] flex max-h-[82vh] items-center overflow-y-auto px-5 pb-24 pt-24 md:inset-y-0 md:max-h-none md:overflow-visible md:px-16">
           <div className="mx-auto w-full max-w-6xl">
             <div className="flex flex-wrap items-end justify-between gap-4 border-b border-white/10 pb-4"><div><span className="font-grotesk text-[9px] uppercase tracking-[0.45em] text-[#C8A97E]/70">MATERIAL GALLERY · 03 / 05</span><h2 className="mt-3 font-frank text-3xl font-light leading-[1.2] text-white md:text-5xl">פרטים שנועדו להישאר.</h2></div><span className="text-[10px] tracking-[0.18em] text-white/35">הטו את המבט · גלו את השכבות</span></div>
             <motion.div style={{ rotateX: rig.rotateX, rotateY: rig.rotateY, transformStyle: "preserve-3d" }} className="mt-6 grid h-[48vh] min-h-[310px] grid-cols-2 grid-rows-2 gap-3 md:grid-cols-4 md:gap-4">
@@ -179,7 +179,7 @@ export function HorologyChronoTemplate() {
         </motion.section>
 
         {/* 04 — Concierge booking console */}
-        <motion.section style={{ ...scenes[3], ...livePointer(active === 3) }} data-camera-ui="true" className="absolute inset-0 flex items-center overflow-y-auto px-5 pb-24 pt-24 md:px-16">
+        <motion.section style={{ ...scenes[3], ...livePointer(active === 3) }} data-camera-ui="true" className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex items-center overflow-y-auto px-5 pb-24 pt-24 md:inset-y-0 md:max-h-none md:px-16">
           <div className="mx-auto grid w-full max-w-6xl gap-7 md:grid-cols-[1fr_0.8fr]">
             <div className="py-2"><span className="font-grotesk text-[9px] uppercase tracking-[0.45em] text-[#C8A97E]/70">PRIVATE CONCIERGE · 04 / 05</span><h2 className="mt-5 font-frank text-4xl font-light leading-[1.2] text-white md:text-6xl">הביקור שלכם.<br />בקצב שלכם.</h2><p className="mt-5 max-w-lg text-sm leading-[1.9] text-white/50">הקונסיירז׳ הפרטי יכין עבורכם סיור אוצרות, פגישת חומרים או הצעת פרויקט דיסקרטית.</p><div className="mt-8 grid grid-cols-2 gap-3">{[["01", "סיור פרטי"], ["02", "פגישת חומרים"], ["03", "הצעת פרויקט"], ["04", "אירוח VIP"]].map(([number, title]) => <div key={number} className="border-t border-[#C8A97E]/30 pt-3"><span className="font-grotesk text-[8px] tracking-[0.25em] text-[#C8A97E]">{number}</span><p className="mt-2 text-xs text-white/65">{title}</p></div>)}</div></div>
             <form className={`${GLASS} p-5 md:p-7`} onSubmit={(event) => { event.preventDefault(); if (whatsapp) window.open(waLink(whatsapp, bookingMessage), "_blank", "noopener,noreferrer"); }}>
@@ -195,7 +195,7 @@ export function HorologyChronoTemplate() {
         </motion.section>
 
         {/* 05 — Split material comparison studio */}
-        <motion.section style={{ ...scenes[4], ...livePointer(active === 4) }} className="absolute inset-0 flex items-center px-5 pb-24 pt-24 md:px-16">
+        <motion.section style={{ ...scenes[4], ...livePointer(active === 4) }} className="absolute inset-x-0 top-[9vh] bottom-[9vh] flex max-h-[82vh] items-center overflow-y-auto px-5 pb-24 pt-24 md:inset-y-0 md:max-h-none md:overflow-visible md:px-16">
           <div className="mx-auto w-full max-w-6xl"><div className="flex flex-wrap items-end justify-between gap-4"><div><span className="font-grotesk text-[9px] uppercase tracking-[0.45em] text-[#C8A97E]/70">MATERIAL STUDY · 05 / 05</span><h2 className="mt-3 font-frank text-3xl font-light leading-[1.2] text-white md:text-5xl">בין חומר גלם ליצירה.</h2></div><p className="max-w-sm text-xs leading-[1.8] text-white/45">גררו את המחוון כדי לחשוף את שכבת הגימור והאור.</p></div>
             <div className="relative mt-7 h-[42vh] min-h-[260px] overflow-hidden border border-[#C8A97E]/25 bg-[#15120f]" aria-label="השוואת חומר וגימור">
               <div className="absolute inset-0 bg-[linear-gradient(145deg,#191715_0%,#514536_48%,#0d0d0e_100%)]" />

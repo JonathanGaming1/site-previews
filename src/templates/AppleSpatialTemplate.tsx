@@ -67,72 +67,22 @@ export function AppleSpatialTemplate() {
   );
   const [menu, setMenu] = useState(false);
 
-  const engine = useCameraEngine(SCENES.length, {
-    sensitivity: 0.00018,
-    depthMm: 6200,
-  });
+  const engine = useCameraEngine(SCENES.length, { depthMm: 6200 });
   const rig = useCameraRig({ tiltX: 6, tiltY: 9, lightMin: 12, lightMax: 88 });
   const { progress, active, jump } = engine;
 
-  /* One dolly track per chapter — the camera flies through each in turn. */
-  const s1 = useSceneTrack(progress, {
-    enter: -0.06,
-    peak: 0,
-    exit: 0.3,
-    fromScale: 0.72,
-    zoom: 1.9,
-    depth: 520,
-    tiltX: 6,
-    blur: 0,
-  });
-  const s2 = useSceneTrack(progress, {
-    enter: 0.16,
-    peak: 0.28,
-    exit: 0.5,
-    fromScale: 0.5,
-    zoom: 2,
-    depth: 700,
-    tiltX: 8,
-    blur: 0,
-  });
-  const s3 = useSceneTrack(progress, {
-    enter: 0.44,
-    peak: 0.56,
-    exit: 0.74,
-    fromScale: 0.55,
-    zoom: 1.9,
-    depth: 620,
-    tiltX: 7,
-    blur: 24,
-  });
-  const s4 = useSceneTrack(progress, {
-    enter: 0.66,
-    peak: 0.78,
-    exit: 0.92,
-    fromScale: 0.6,
-    zoom: 1.8,
-    depth: 560,
-    tiltX: 5,
-    blur: 20,
-  });
-  const s5 = useSceneTrack(progress, {
-    enter: 0.84,
-    peak: 0.95,
-    exit: 1.12,
-    fromScale: 0.62,
-    zoom: 1.6,
-    depth: 520,
-    tiltX: 4,
-    blur: 18,
-    opacityRange: [0.84, 0.95, 1.12],
-    opacityValues: [0, 1, 1],
-  });
+  /* Every chapter is centered on its exact integer camera coordinate. */
+  const s1 = useSceneTrack(progress, { sceneIndex: 0, tiltX: 6 });
+  const s2 = useSceneTrack(progress, { sceneIndex: 1, tiltX: 8 });
+  const s3 = useSceneTrack(progress, { sceneIndex: 2, tiltX: 7 });
+  const s4 = useSceneTrack(progress, { sceneIndex: 3, tiltX: 5 });
+  const s5 = useSceneTrack(progress, { sceneIndex: 4, tiltX: 4 });
 
   /* Orbiting island ring — the ring turns in Z-space as the camera advances. */
-  const ringY = useTransform(progress, [0.14, 0.56], [0, 56]);
+  const ringY = useTransform(progress, [0, 2.24], [0, 56]);
   const counterY = useTransform(ringY, (value) => -value);
-  const floorDrift = useTransform(progress, [0, 1], [0, -180]);
-  const glareSweep = useTransform(progress, [0, 1], ["18%", "82%"]);
+  const floorDrift = useTransform(progress, [0, 4], [0, -180]);
+  const glareSweep = useTransform(progress, [0, 4], ["18%", "82%"]);
 
   const scopedService = services[scopeIdx];
   const basePrice = parsePrice(scopedService?.price) ?? 4900;
@@ -158,7 +108,7 @@ export function AppleSpatialTemplate() {
   });
 
   return (
-    <LockedViewport background="#05060A" text="#EDF2FA">
+    <LockedViewport background="#05060A" text="#EDF2FA" brandName={info.name}>
       <StageLight
         rig={rig}
         tint="rgba(143,199,255,0.10)"
@@ -246,7 +196,7 @@ export function AppleSpatialTemplate() {
         {/* ---------------- 01 · SPATIAL ---------------- */}
         <motion.section
           style={{ ...s1, ...livePointer(active === 0) }}
-          className="absolute inset-0 flex flex-col items-center justify-center px-6 pb-24 pt-20"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col items-center justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible"
         >
           <span className="font-grotesk text-[10px] uppercase tracking-[0.5em] text-white/40">
             CHAPTER 01 — SPATIAL FIELD
@@ -335,7 +285,7 @@ export function AppleSpatialTemplate() {
         {/* ---------------- 02 · ARCHITECTURE ---------------- */}
         <motion.section
           style={{ ...s2, ...livePointer(active === 1) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-16"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible md:px-16"
         >
           <div className="mx-auto w-full max-w-6xl">
             <div className="flex items-end justify-between border-b border-white/10 pb-5">
@@ -417,7 +367,7 @@ export function AppleSpatialTemplate() {
         <motion.section
           style={{ ...s3, ...livePointer(active === 2) }}
           data-camera-ui="true"
-          className="absolute inset-0 flex flex-col justify-center overflow-y-auto px-6 py-24 md:px-16"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 py-24 md:inset-y-0 md:max-h-none md:px-16"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.35fr_1fr]">
             <div className={`rounded-[28px] p-7 md:p-9 ${GLASS}`}>
@@ -573,7 +523,7 @@ export function AppleSpatialTemplate() {
         {/* ---------------- 04 · IMMERSION ---------------- */}
         <motion.section
           style={{ ...s4, ...livePointer(active === 3) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-16"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible md:px-16"
         >
           <div className="mx-auto w-full max-w-5xl">
             <div className="flex items-end justify-between pb-5">
@@ -624,7 +574,7 @@ export function AppleSpatialTemplate() {
         {/* ---------------- 05 · CONNECT ---------------- */}
         <motion.section
           style={{ ...s5, ...livePointer(active === 4) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 py-20 pb-24 md:px-16"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 py-20 pb-24 md:inset-y-0 md:max-h-none md:px-16"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_1.1fr]">
             <div className={`rounded-[28px] p-7 md:p-9 ${GLASS}`}>

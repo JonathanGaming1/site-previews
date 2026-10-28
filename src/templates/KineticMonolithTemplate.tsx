@@ -60,73 +60,23 @@ export function KineticMonolithTemplate() {
   );
   const [menu, setMenu] = useState(false);
 
-  const engine = useCameraEngine(SCENES.length, {
-    sensitivity: 0.00018,
-    depthMm: 8800,
-  });
+  const engine = useCameraEngine(SCENES.length, { depthMm: 8800 });
   const rig = useCameraRig({ tiltX: 6, tiltY: 12, lightMin: 12, lightMax: 88 });
   const { progress, active, jump } = engine;
 
-  const s1 = useSceneTrack(progress, {
-    enter: -0.06,
-    peak: 0,
-    exit: 0.3,
-    fromScale: 0.72,
-    zoom: 2.2,
-    depth: 700,
-    tiltX: 6,
-    blur: 0,
-  });
-  const s2 = useSceneTrack(progress, {
-    enter: 0.16,
-    peak: 0.28,
-    exit: 0.5,
-    fromScale: 0.5,
-    zoom: 2.1,
-    depth: 780,
-    tiltX: 8,
-    blur: 0,
-  });
-  const s3 = useSceneTrack(progress, {
-    enter: 0.44,
-    peak: 0.56,
-    exit: 0.74,
-    fromScale: 0.55,
-    zoom: 1.95,
-    depth: 660,
-    tiltX: 7,
-    blur: 26,
-  });
-  const s4 = useSceneTrack(progress, {
-    enter: 0.66,
-    peak: 0.78,
-    exit: 0.92,
-    fromScale: 0.6,
-    zoom: 1.9,
-    depth: 600,
-    tiltX: 5,
-    blur: 22,
-  });
-  const s5 = useSceneTrack(progress, {
-    enter: 0.85,
-    peak: 0.96,
-    exit: 1.12,
-    fromScale: 0.64,
-    zoom: 1.6,
-    depth: 560,
-    tiltX: 4,
-    blur: 18,
-    opacityRange: [0.85, 0.96, 1.12],
-    opacityValues: [0, 1, 1],
-  });
+  const s1 = useSceneTrack(progress, { sceneIndex: 0, tiltX: 6 });
+  const s2 = useSceneTrack(progress, { sceneIndex: 1, tiltX: 8 });
+  const s3 = useSceneTrack(progress, { sceneIndex: 2, tiltX: 7 });
+  const s4 = useSceneTrack(progress, { sceneIndex: 3, tiltX: 5 });
+  const s5 = useSceneTrack(progress, { sceneIndex: 4, tiltX: 4 });
 
   /* Diagonal glide: the whole world slides sideways as the camera advances. */
-  const glide = useTransform(progress, [0, 1], ["16%", "-16%"]);
-  const glideSlow = useTransform(progress, [0, 1], ["6%", "-6%"]);
-  const glideFast = useTransform(progress, [0, 1], ["30%", "-30%"]);
-  const corridorTurn = useTransform(progress, [0, 1], [0, -26]);
-  const sheen = useTransform(progress, [0, 1], ["-40%", "140%"]);
-  const playhead = useTransform(progress, [0, 1], ["0%", "100%"]);
+  const glide = useTransform(progress, [0, 4], ["16%", "-16%"]);
+  const glideSlow = useTransform(progress, [0, 4], ["6%", "-6%"]);
+  const glideFast = useTransform(progress, [0, 4], ["30%", "-30%"]);
+  const corridorTurn = useTransform(progress, [0, 4], [0, -26]);
+  const sheen = useTransform(progress, [0, 4], ["-40%", "140%"]);
+  const playhead = useTransform(progress, [0, 4], ["0%", "100%"]);
 
   const scope = services[scopeIdx];
   const base = parsePrice(scope?.price) ?? 6200;
@@ -155,7 +105,7 @@ export function KineticMonolithTemplate() {
     `• אומדן: ${formatNis(estimate)}`;
 
   return (
-    <LockedViewport background="#040507" text="#EEF4FA">
+    <LockedViewport background="#040507" text="#EEF4FA" brandName={info.name}>
       <StageLight
         rig={rig}
         tint="rgba(205,255,61,0.08)"
@@ -234,7 +184,7 @@ export function KineticMonolithTemplate() {
         {/* ---------------- 01 · ENTRY ---------------- */}
         <motion.section
           style={{ ...s1, ...livePointer(active === 0) }}
-          className="absolute inset-0 flex items-center justify-center px-6 pb-24 pt-20"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex items-center justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible"
         >
           <motion.div style={{ x: glideSlow }} className="max-w-5xl text-center">
             <span className="font-grotesk text-[10px] uppercase tracking-[0.55em] text-white/40">
@@ -269,7 +219,7 @@ export function KineticMonolithTemplate() {
         {/* ---------------- 02 · MODULES ---------------- */}
         <motion.section
           style={{ ...s2, ...livePointer(active === 1) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible md:px-14"
         >
           <motion.div style={{ x: glide }} className="w-full">
             <div className="flex items-end justify-between border-b border-white/10 pb-5">
@@ -327,7 +277,7 @@ export function KineticMonolithTemplate() {
         <motion.section
           style={{ ...s3, ...livePointer(active === 2) }}
           data-camera-ui="true"
-          className="absolute inset-0 flex flex-col justify-center overflow-y-auto px-6 py-24 md:px-14"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 py-24 md:inset-y-0 md:max-h-none md:px-14"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1.35fr_1fr]">
             <div className={`${SLAB} p-7 md:p-9`}>
@@ -470,7 +420,7 @@ export function KineticMonolithTemplate() {
         {/* ---------------- 04 · OUTPUT ---------------- */}
         <motion.section
           style={{ ...s4, ...livePointer(active === 3) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 pt-20 md:px-14"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 pb-24 pt-20 md:inset-y-0 md:max-h-none md:overflow-visible md:px-14"
         >
           <motion.div style={{ x: glideFast }} className="mx-auto w-full max-w-6xl">
             <span className="font-grotesk text-[10px] uppercase tracking-[0.42em] text-white/40">
@@ -534,7 +484,7 @@ export function KineticMonolithTemplate() {
         {/* ---------------- 05 · UPLINK ---------------- */}
         <motion.section
           style={{ ...s5, ...livePointer(active === 4) }}
-          className="absolute inset-0 flex flex-col justify-center px-6 py-20 pb-24 md:px-14"
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] flex flex-col justify-center overflow-y-auto px-6 py-20 pb-24 md:inset-y-0 md:max-h-none md:px-14"
         >
           <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[1fr_1.05fr]">
             <div className={`${SLAB} p-7 md:p-9`}>

@@ -44,6 +44,18 @@ html[data-camera-engine="true"] .camera-cursor-hidden * {
   cursor: none;
 }
 
+/* Keep phone-sized scene panels scrollable without drawing inner scrollbars. */
+html[data-camera-engine="true"] .overflow-y-auto {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+html[data-camera-engine="true"] .overflow-y-auto::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* HUD telemetry rail — thin accent readout used by the wheel scrubber */
 .hud-vertical {
   writing-mode: vertical-rl;

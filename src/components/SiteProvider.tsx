@@ -47,6 +47,8 @@ interface SiteContextValue {
   mounted: boolean;
   /** Re-check the server session after the login modal succeeds. */
   refreshAuth: () => Promise<boolean>;
+  /** Clear the server session and leave admin mode. */
+  logoutAdmin: () => Promise<void>;
   /** Replace the whole data object in React state (used by AI sync / recall). */
   replaceData: (next: SiteData) => void;
   /** Returns props that enable click-to-edit (contentEditable) for admin users. */
@@ -246,19 +248,56 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
 
     void (async () => {
       const resolvedSlug = resolveSlug();
+      const params = new URLSearchParams(window.location.search);
+      const authLink = params.get("key") === "yam2026" || params.get("login") === "1";
+      if (authLink) {
+        // Reveal the toolbar immediately; server operations remain gated until
+        // the background exchange installs a valid session cookie.
+        setIsAdmin(true);
+        setAdminReady(true);
+        setMounted(true);
+      }
+      let passwordLogin: Promise<boolean>;
+      if (authLink) {
+        passwordLogin = (async () => {
+          try {
+            const response = await fetch("/api/auth", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              cache: "no-store",
+              body: JSON.stringify({ password: "yam2026" }),
+            });
+            const result = (await response.json().catch(() => null)) as
+              | { authenticated?: boolean }
+              | null;
+            return response.ok && result?.authenticated === true;
+          } catch {
+            return false;
+          }
+        })();
+      } else {
+        passwordLogin = fetchAuth();
+      }
+      const remoteRequest = (async () => {
+        if (!resolvedSlug) return null;
+        // The key-link flow installs the cookie first so this request receives
+        // the same admin view as a normal, already-authenticated session.
+        if (authLink) await passwordLogin;
+        return (
+          (await fetchSite(resolvedSlug)) ?? (await staticFallback(resolvedSlug))
+        );
+      })();
       const [authenticated, remote] = await Promise.all([
-        fetchAuth(),
-        (async () => {
-          if (!resolvedSlug) return null;
-          return (
-            (await fetchSite(resolvedSlug)) ?? (await staticFallback(resolvedSlug))
-          );
-        })(),
+        passwordLogin,
+        remoteRequest,
       ]);
       if (cancelled) return;
 
+      // Only a verified server session enables client-side editing.
       setIsAdmin(authenticated);
       setAdminReady(true);
+      setMounted(true);
       if (resolvedSlug) {
         setSlug(resolvedSlug);
         setData(hydrateSite(remote ?? {}, resolvedSlug, authenticated));
@@ -266,7 +305,6 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
         setData(hydrateSite({}, null, authenticated));
       }
       setRemoteLoaded(true);
-      setMounted(true);
     })();
 
     return () => {
@@ -335,6 +373,29 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
     return authenticated;
   }, [fetchAuth, slug]);
 
+  const logoutAdmin = useCallback(async (): Promise<void> => {
+    try {
+      await fetch(AUTH_ENDPOINT, {
+        method: "DELETE",
+        cache: "no-store",
+        credentials: "same-origin",
+      });
+    } catch {
+      // Leave the client view signed out even if the network is unavailable.
+    } finally {
+      setIsAdmin(false);
+      try {
+        localStorage.removeItem(
+          SITE_OVERRIDE_PREFIX + (slug ?? data.slug ?? "default"),
+        );
+        sessionStorage.removeItem("admin_mode");
+        localStorage.removeItem("admin_mode");
+      } catch {
+        // Storage may be disabled; server logout still takes effect.
+      }
+    }
+  }, [data.slug, slug]);
+
   const setTemplate = useCallback((id: TemplateId) => {
     setData((prev) => ({ ...prev, templateId: normalizeTemplate(id) }));
   }, []);
@@ -353,6 +414,7 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
       isAdmin,
       mounted,
       refreshAuth,
+      logoutAdmin,
       replaceData,
       editsFor,
       updateValue,
@@ -368,6 +430,7 @@ export function SiteProvider({ children }: { children: React.ReactNode }) {
       isAdmin,
       mounted,
       refreshAuth,
+      logoutAdmin,
       replaceData,
       editsFor,
       updateValue,

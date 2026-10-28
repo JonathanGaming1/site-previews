@@ -226,8 +226,8 @@ export interface PortalCamera {
 
 /**
  * A pinned 3D portal. Scrolling does not move flat divs: the camera dollies
- * *through* `scene` (which scales, recedes and blurs), two foreground panels
- * part ways, and `interior` is revealed from inside the scene.
+ * *through* `scene` as two foreground panels part ways and `interior` is
+ * revealed from inside the scene.
  *
  * Height defaults to 280vh — 180vh of scroll distance drives the transition.
  */
@@ -240,7 +240,6 @@ export function CameraPortal({
   sceneClassName = "absolute inset-0",
   heightVh = 280,
   perspective = 1200,
-  blurOut = 20,
   zoom = 3.4,
   veilColor = "rgba(3,3,4,0.9)",
   children,
@@ -254,7 +253,7 @@ export function CameraPortal({
   sceneClassName?: string;
   heightVh?: number;
   perspective?: number;
-  /** Max blur applied as the scene passes the camera */
+  /** Retained for backwards-compatible callers; scenes stay razor-sharp. */
   blurOut?: number;
   /** Final scene scale at the end of the dolly */
   zoom?: number;
@@ -275,8 +274,6 @@ export function CameraPortal({
   const cameraZ = useTransform(p, [0, 1], [0, 1100]);
   const sceneScale = useTransform(p, [0, 1], [1, zoom]);
   const sceneOpacity = useTransform(p, [0, 0.4, 0.74], [1, 0.72, 0]);
-  const sceneBlur = useTransform(p, [0, 0.85], [0, blurOut]);
-  const sceneFilter = useMotionTemplate`blur(${sceneBlur}px)`;
 
   const paneOut = useTransform(p, [0, 0.55, 1], [0, 58, 96]);
   const paneLeftX = useTransform(paneOut, (v) => `${-v}%`);
@@ -317,7 +314,7 @@ export function CameraPortal({
             scale: sceneScale,
             z: cameraZ,
             opacity: sceneOpacity,
-            filter: sceneFilter,
+            filter: "none",
             transformStyle: "preserve-3d",
           }}
           className={sceneClassName}

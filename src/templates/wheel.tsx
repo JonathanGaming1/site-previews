@@ -5,14 +5,14 @@
  * ========================================
  * The Forge Automotive contract: the viewport is locked (`fixed inset-0`,
  * `overflow-hidden`, no native scrollbar) and the mouse wheel / touch swipe /
- * arrow keys feed a spring-smoothed virtual progress value instead of scrolling
- * the document. That single 0→1 value flies a 3D camera forward through Z-space
- * past a sequence of absolutely-positioned scenes, passing *through* each one.
+ * arrow keys feed a spring-smoothed integer scene index instead of scrolling
+ * the document. That value flies a 3D camera forward through Z-space past a
+ * sequence of absolutely-positioned scenes, centered at indices 0 through N-1.
  *
  * Everything the five templates share lives here:
  *   useCameraEngine      — wheel/touch/keyboard → spring progress + active scene
  *   useCameraRig         — live 3D mouse parallax + moving specular light
- *   useSceneTrack        — per-scene dolly transforms (scale/z/tilt/blur/fade)
+ *   useSceneTrack        — per-scene crisp integer-centered transforms and visibility
  *   LockedViewport       — the fixed, scrollbar-free stage root
  *   CameraStage/StageLight/MagneticCursor/HudScrubber/ChapterBar/SceneMenu/FaqLedger
  *
@@ -50,8 +50,6 @@ export interface CameraScene {
   label: string;
 }
 
-const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
-
 /* ------------------------------------------------------------------ */
 /* Input guards                                                        */
 /* ------------------------------------------------------------------ */
@@ -60,24 +58,31 @@ const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
  * True when the wheel belongs to a panel that scrolls natively instead of to
  * the 3D camera.
  *
- * Outside the camera engine (admin toolbar, admin dialogs, any overlay) a
- * genuinely overflowing container always keeps the native wheel. Inside the
- * engine, scene layers never steal the wheel — only regions explicitly marked
- * `data-camera-ui="true"` (dense implement lists, long forms) may, and only
- * while they actually overflow.
+ * Dialogs, text inputs, and overflowing content keep their native wheel;
+ * camera input only receives gestures its current target does not own.
  */
-function ownsWheel(node: EventTarget | null): boolean {
+export function ownsWheel(
+  node: EventTarget | null,
+  deltaY?: number,
+): boolean {
   let el = node as HTMLElement | null;
+  if (!el) return false;
+  if (
+    el.closest("[data-camera-open='true'],[role='dialog'],[aria-modal='true']") ||
+    isTextTarget(node)
+  ) return true;
+
   while (el && el !== document.body) {
     const style = window.getComputedStyle(el);
     const overflowY = style.overflowY;
+    const maxScroll = el.scrollHeight - el.clientHeight;
     const scrollable =
-      (overflowY === "auto" || overflowY === "scroll") &&
-      el.scrollHeight > el.clientHeight + 2;
+      (overflowY === "auto" || overflowY === "scroll") && maxScroll > 2;
     if (scrollable) {
-      const insideEngine = el.closest("[data-camera-engine='true']") !== null;
-      if (!insideEngine) return true;
-      if (el.dataset && el.dataset.cameraUi === "true") return true;
+      if (deltaY === undefined) return true;
+      const canScrollDown = deltaY > 0 && el.scrollTop < maxScroll - 2;
+      const canScrollUp = deltaY < 0 && el.scrollTop > 2;
+      if (canScrollDown || canScrollUp) return true;
     }
     el = el.parentElement;
   }
@@ -85,7 +90,7 @@ function ownsWheel(node: EventTarget | null): boolean {
 }
 
 /** True when the event came from a text field the admin is editing. */
-function isTextTarget(node: EventTarget | null): boolean {
+export function isTextTarget(node: EventTarget | null): boolean {
   const el = node as HTMLElement | null;
   if (!el) return false;
   if (el.isContentEditable) return true;
@@ -93,11 +98,11 @@ function isTextTarget(node: EventTarget | null): boolean {
 }
 
 /** Keep camera gestures away from controls that own their own pointer input. */
-function isCameraInteractiveTarget(node: EventTarget | null): boolean {
+export function isCameraInteractiveTarget(node: EventTarget | null): boolean {
   const el = node as HTMLElement | null;
   return Boolean(
     el?.closest(
-      "a,button,input,textarea,select,option,[role='slider'],[contenteditable='true'],[data-camera-interactive='true']",
+      "a,button,input,textarea,select,option,[role='slider'],[contenteditable='true'],[data-camera-interactive='true'],[data-camera-open='true'],[role='dialog'],[aria-modal='true']",
     ),
   );
 }
@@ -131,22 +136,86 @@ export function LockedViewport({
   text = "#F5F5F3",
   className = "",
   style,
+  brandName,
 }: {
   children: ReactNode;
   background?: string;
   text?: string;
   className?: string;
   style?: CSSProperties;
+  brandName?: string;
 }) {
   useLockedViewport();
   return (
     <div
       dir="rtl"
       data-camera-engine="true"
-      className={`camera-cursor-hidden fixed inset-0 h-screen w-screen select-none overflow-hidden ${className}`}
+      className={`camera-cursor-hidden fixed inset-0 h-[100dvh] w-screen select-none overflow-hidden ${className}`}
       style={{ background, color: text, ...style }}
     >
       {children}
+      <LuxuryEntranceCurtain brandName={brandName} />
+    </div>
+  );
+}
+
+/** One bespoke curtain per browser session, opening in 800ms. */
+export function LuxuryEntranceCurtain({ brandName }: { brandName?: string }) {
+  const [visible, setVisible] = useState(true);
+  const [parting, setParting] = useState(false);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("luxury_entrance_seen") === "1") {
+        setVisible(false);
+        return;
+      }
+    } catch {
+      // Storage can be disabled; still play the entrance once for this mount.
+    }
+    const partTimer = setTimeout(() => setParting(true), 460);
+    const finishTimer = setTimeout(() => {
+      try {
+        sessionStorage.setItem("luxury_entrance_seen", "1");
+      } catch {
+        // Storage can be disabled; the curtain still completes normally.
+      }
+      setVisible(false);
+    }, 800);
+    return () => {
+      clearTimeout(partTimer);
+      clearTimeout(finishTimer);
+    };
+  }, []);
+
+  if (!visible) return null;
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-[100010]">
+      <motion.div
+        animate={{ x: parting ? "-100%" : "0%" }}
+        transition={{ duration: 0.34, ease: [0.76, 0, 0.24, 1] }}
+        className="absolute inset-y-0 left-0 w-1/2 bg-[#030303]"
+      />
+      <motion.div
+        animate={{ x: parting ? "100%" : "0%" }}
+        transition={{ duration: 0.34, ease: [0.76, 0, 0.24, 1] }}
+        className="absolute inset-y-0 right-0 w-1/2 bg-[#030303]"
+      />
+      <motion.div
+        animate={{ opacity: parting ? 0 : 1 }}
+        transition={{ duration: 0.18 }}
+        className="absolute inset-0 flex flex-col items-center justify-center"
+      >
+        <span className="max-w-[80vw] text-center font-frank text-2xl font-light tracking-[0.12em] text-white/90 sm:text-4xl">
+          {brandName || "PRIVATE RESIDENCE"}
+        </span>
+        <motion.span
+          initial={{ scaleX: 0.04 }}
+          animate={{ scaleX: 1 }}
+          transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+          className="mt-6 block h-px w-28 origin-center bg-[#C8A97E] shadow-[0_0_18px_rgba(200,169,126,0.55)] sm:w-40"
+        />
+      </motion.div>
     </div>
   );
 }
@@ -156,9 +225,9 @@ export function LockedViewport({
 /* ------------------------------------------------------------------ */
 
 export interface CameraEngine {
-  /** Unsprung 0→1 camera progress */
+  /** Unsprung integer scene coordinate (0→last scene). */
   raw: MotionValue<number>;
-  /** Spring-smoothed 0→1 camera progress that drives every scene */
+  /** Spring-smoothed integer scene coordinate that drives every scene. */
   progress: MotionValue<number>;
   /** Index of the chapter currently framed by the camera */
   active: number;
@@ -176,17 +245,16 @@ export interface CameraEngine {
 
 export function useCameraEngine(
   sceneCount: number,
-  options: { sensitivity?: number; depthMm?: number } = {},
+  options: { depthMm?: number } = {},
 ): CameraEngine {
-  const sensitivity = options.sensitivity ?? 0.00018;
   const depthMm = options.depthMm ?? 4800;
   const last = Math.max(1, sceneCount - 1);
 
   const raw = useMotionValue(0);
   const progress = useSpring(raw, {
-    stiffness: 48,
-    damping: 19,
-    mass: 0.95,
+    stiffness: 75,
+    damping: 22,
+    mass: 0.75,
   });
   const [active, setActive] = useState(0);
   const suppressed = useRef(false);
@@ -202,20 +270,20 @@ export function useCameraEngine(
     clearSnapTimeout();
     snapTimeoutRef.current = setTimeout(() => {
       snapTimeoutRef.current = null;
-      const nearestScene = Math.round(raw.get() * last);
-      raw.set(nearestScene / last);
-    }, 220);
+      const targetIndex = Math.round(raw.get());
+      raw.set(Math.max(0, Math.min(last, targetIndex)));
+    }, 160);
   }, [clearSnapTimeout, last, raw]);
 
   useMotionValueEvent(progress, "change", (value) => {
-    const index = Math.max(0, Math.min(last, Math.round(value * last)));
+    const index = Math.max(0, Math.min(last, Math.round(value)));
     setActive((previous) => (previous === index ? previous : index));
   });
 
   const jump = useCallback(
     (index: number) => {
       clearSnapTimeout();
-      raw.set(clamp01(index / last));
+      raw.set(Math.max(0, Math.min(last, Math.round(index))));
     },
     [clearSnapTimeout, raw, last],
   );
@@ -225,9 +293,9 @@ export function useCameraEngine(
       clearSnapTimeout();
       const index = Math.max(
         0,
-        Math.min(last, Math.round(raw.get() * last) + direction),
+        Math.min(last, Math.round(raw.get()) + direction),
       );
-      raw.set(index / last);
+      raw.set(index);
     },
     [clearSnapTimeout, raw, last],
   );
@@ -244,20 +312,17 @@ export function useCameraEngine(
   const zDepth = useTransform(
     progress,
     (value) =>
-      `Z // -${String(Math.round(value * depthMm)).padStart(4, "0")}MM`,
+      `Z // -${String(Math.round((value / last) * depthMm)).padStart(4, "0")}MM`,
   );
 
   useEffect(() => {
     const onWheel = (event: WheelEvent) => {
-      if (
-        suppressed.current ||
-        ownsWheel(event.target) ||
-        isCameraInteractiveTarget(event.target)
-      ) return;
+      if (suppressed.current || ownsWheel(event.target, event.deltaY)) return;
+      const step =
+        Math.sign(event.deltaY) * Math.min(Math.abs(event.deltaY) * 0.0032, 0.35);
+      if (step === 0) return;
       event.preventDefault();
-      const unit =
-        event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1;
-      raw.set(clamp01(raw.get() + event.deltaY * unit * sensitivity));
+      raw.set(Math.max(0, Math.min(last, raw.get() + step)));
       scheduleSnap();
     };
 
@@ -266,17 +331,13 @@ export function useCameraEngine(
     };
 
     const onTouchMove = (event: TouchEvent) => {
-      if (
-        suppressed.current ||
-        ownsWheel(event.target) ||
-        isCameraInteractiveTarget(event.target)
-      ) return;
+      if (suppressed.current) return;
       const currentY = event.touches[0]?.clientY ?? 0;
-      const node = event.target as HTMLElement | null;
-      if (node?.closest("[data-camera-open='true']")) return;
       const delta = touchY.current - currentY;
       touchY.current = currentY;
-      raw.set(clamp01(raw.get() + delta * 0.0016));
+      if (ownsWheel(event.target, delta)) return;
+      const step = Math.sign(delta) * Math.min(Math.abs(delta) * 0.0032, 0.35);
+      raw.set(Math.max(0, Math.min(last, raw.get() + step)));
       scheduleSnap();
     };
 
@@ -311,7 +372,7 @@ export function useCameraEngine(
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [clearSnapTimeout, jump, last, raw, scheduleSnap, sensitivity, step]);
+  }, [clearSnapTimeout, jump, last, raw, scheduleSnap, step]);
 
   return useMemo(
     () => ({
@@ -416,69 +477,56 @@ export interface SceneTrack {
   rotateX: MotionValue<number>;
   rotateY: MotionValue<number>;
   y: MotionValue<number>;
-  /** Omitted entirely when `blur` is 0 — any non-`none` filter flattens a
-   * nested `preserve-3d` stage, so 3D-heavy scenes opt out. */
-  filter?: MotionValue<string>;
+  visibility: MotionValue<"hidden" | "visible">;
+  filter: "none";
 }
 
-/**
- * Dolly track for one scene. The camera approaches from behind `enter`,
- * frames the scene at `peak` and flies *through* it by `exit` — the scene
- * grows past the lens (`zoom`) and Z (`depth`) instead of blinking away.
- */
+/** Exact integer-centered, crystal-clear camera track for one scene. */
 export function useSceneTrack(
   progress: MotionValue<number>,
   options: {
-    enter: number;
-    peak: number;
-    exit: number;
-    fromScale?: number;
-    zoom?: number;
-    depth?: number;
+    sceneIndex: number;
     tiltX?: number;
     tiltY?: number;
-    blur?: number;
     rise?: number;
-    opacityRange?: [number, number, number];
-    opacityValues?: [number, number, number];
   },
 ): SceneTrack {
-  const {
-    enter,
-    peak,
-    exit,
-    fromScale = 0.55,
-    zoom = 1.9,
-    depth = 620,
-    tiltX = 8,
-    tiltY = 0,
-    blur = 22,
-    rise = 0,
-  } = options;
-
-  const range: [number, number, number] = [enter, peak, exit];
-  const scale = useTransform(progress, range, [fromScale, 1, zoom]);
+  const { sceneIndex, tiltX = 0, tiltY = 0, rise = 0 } = options;
   const opacity = useTransform(
     progress,
-    options.opacityRange ?? range,
-    options.opacityValues ?? [0, 1, 0],
+    [sceneIndex - 0.65, sceneIndex - 0.18, sceneIndex, sceneIndex + 0.18, sceneIndex + 0.65],
+    [0, 1, 1, 1, 0],
   );
-  const z = useTransform(progress, range, [-depth, 0, depth]);
-  const rotateX = useTransform(progress, range, [tiltX, 0, -tiltX]);
-  const rotateY = useTransform(progress, range, [-tiltY, 0, tiltY]);
-  const y = useTransform(progress, range, [rise, 0, -rise]);
-  const blurValue = useTransform(progress, range, [blur, 0, blur]);
-  const blurFilter = useMotionTemplate`blur(${blurValue}px)`;
+  const scale = useTransform(
+    progress,
+    [sceneIndex - 0.8, sceneIndex - 0.15, sceneIndex, sceneIndex + 0.15, sceneIndex + 0.8],
+    [0.75, 1, 1, 1, 1.85],
+  );
+  const z = useTransform(
+    progress,
+    [sceneIndex - 0.8, sceneIndex, sceneIndex + 0.8],
+    [-350, 0, 450],
+  );
+  const rotateX = useTransform(
+    progress,
+    [sceneIndex - 0.8, sceneIndex, sceneIndex + 0.8],
+    [tiltX, 0, -tiltX],
+  );
+  const rotateY = useTransform(
+    progress,
+    [sceneIndex - 0.8, sceneIndex, sceneIndex + 0.8],
+    [-tiltY, 0, tiltY],
+  );
+  const y = useTransform(
+    progress,
+    [sceneIndex - 0.8, sceneIndex, sceneIndex + 0.8],
+    [rise, 0, -rise],
+  );
+  const visibility = useTransform(progress, (value) =>
+    Math.abs(value - sceneIndex) > 0.65 ? "hidden" : "visible",
+  );
 
-  return {
-    scale,
-    opacity,
-    z,
-    rotateX,
-    rotateY,
-    y,
-    filter: blur > 0 ? blurFilter : undefined,
-  };
+  return { scale, opacity, z, rotateX, rotateY, y, visibility, filter: "none" };
 }
 
 /** Keeps a scene layer from eating pointer events while it is off-camera. */
@@ -615,7 +663,8 @@ export function HudScrubber({
   accent?: string;
   className?: string;
 }) {
-  const { progress, zDepth, active, jump } = engine;
+  const { progress, zDepth, active, jump, last } = engine;
+  const fill = useTransform(progress, [0, last], [0, 1]);
   return (
     <aside
       className={`fixed left-5 top-1/2 z-40 hidden -translate-y-1/2 flex-col items-center gap-4 sm:flex md:left-9 ${className}`}
@@ -648,7 +697,7 @@ export function HudScrubber({
         {/* Depth rail with live camera fill */}
         <div className="relative h-44 w-px overflow-hidden bg-white/15">
           <motion.div
-            style={{ scaleY: progress, transformOrigin: "top" }}
+            style={{ scaleY: fill, transformOrigin: "top" }}
             className="h-full w-full"
             // eslint-disable-next-line react/forbid-dom-props
           >

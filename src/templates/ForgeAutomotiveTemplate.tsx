@@ -24,7 +24,13 @@ import {
 } from "framer-motion";
 import { useSite } from "@/components/SiteProvider";
 import { waLink } from "@/templates/shared";
-import { useLockedViewport } from "@/templates/wheel";
+import {
+  isTextTarget,
+  LuxuryEntranceCurtain,
+  ownsWheel,
+  useLockedViewport,
+  useSceneTrack,
+} from "@/templates/wheel";
 
 const FORGE_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=1900&q=85";
@@ -90,15 +96,15 @@ export function ForgeAutomotiveTemplate() {
   // =========================================================================
   // 1. VIRTUAL 3D CAMERA WHEEL ENGINE (NO NATIVE SCROLLBAR - LIKE FORGE)
   // =========================================================================
-  const rawProgress = useMotionValue(0); // 0 to 1 across 5 3D scenes
+  const rawProgress = useMotionValue(0); // exact integer scene index: 0 through 4
   const smoothProgress = useSpring(rawProgress, {
-    stiffness: 48,
-    damping: 19,
-    mass: 0.95,
+    stiffness: 75,
+    damping: 22,
+    mass: 0.75,
   });
 
   const touchStartY = useRef(0);
-  const snapTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const snapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearSnapTimeout = () => {
     if (snapTimeoutRef.current) clearTimeout(snapTimeoutRef.current);
@@ -109,14 +115,14 @@ export function ForgeAutomotiveTemplate() {
     clearSnapTimeout();
     snapTimeoutRef.current = setTimeout(() => {
       snapTimeoutRef.current = null;
-      const nearestScene = Math.round(rawProgress.get() * 4);
-      rawProgress.set(nearestScene / 4);
-    }, 220);
+      const targetIndex = Math.round(rawProgress.get());
+      rawProgress.set(Math.max(0, Math.min(4, targetIndex)));
+    }, 160);
   };
 
   useEffect(() => {
     const unsub = smoothProgress.on("change", (v) => {
-      const idx = Math.min(4, Math.max(0, Math.round(v * 4)));
+      const idx = Math.min(4, Math.max(0, Math.round(v)));
       setActiveScene(idx);
     });
     return () => unsub();
@@ -124,16 +130,11 @@ export function ForgeAutomotiveTemplate() {
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        menuOpen ||
-        target?.closest(
-          "a,button,input,textarea,select,option,[role='slider'],[contenteditable='true'],[data-camera-interactive='true']",
-        )
-      ) return;
+      if (menuOpen || ownsWheel(e.target, e.deltaY)) return;
+      const step = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY) * 0.0032, 0.35);
+      if (step === 0) return;
       e.preventDefault();
-      const delta = e.deltaY * 0.00018;
-      const next = Math.min(1, Math.max(0, rawProgress.get() + delta));
+      const next = Math.min(4, Math.max(0, rawProgress.get() + step));
       rawProgress.set(next);
       scheduleSnap();
     };
@@ -143,35 +144,26 @@ export function ForgeAutomotiveTemplate() {
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (
-        menuOpen ||
-        target?.closest(
-          "a,button,input,textarea,select,option,[role='slider'],[contenteditable='true'],[data-camera-interactive='true']",
-        )
-      ) return;
+      if (menuOpen) return;
       const currentY = e.touches[0]?.clientY || 0;
-      const diff = (touchStartY.current - currentY) * 0.0012;
+      const diff = touchStartY.current - currentY;
       touchStartY.current = currentY;
-      const next = Math.min(1, Math.max(0, rawProgress.get() + diff));
+      if (ownsWheel(e.target, diff)) return;
+      const step = Math.sign(diff) * Math.min(Math.abs(diff) * 0.0032, 0.35);
+      const next = Math.min(4, Math.max(0, rawProgress.get() + step));
       rawProgress.set(next);
       scheduleSnap();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (menuOpen) return;
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.isContentEditable ||
-          /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
-      ) {
-        return;
-      }
+      if (isTextTarget(e.target)) return;
       if (e.key === "ArrowDown" || e.key === "PageDown") {
-        rawProgress.set(Math.min(1, rawProgress.get() + 0.25));
+        clearSnapTimeout();
+        rawProgress.set(Math.min(4, Math.round(rawProgress.get()) + 1));
       } else if (e.key === "ArrowUp" || e.key === "PageUp") {
-        rawProgress.set(Math.max(0, rawProgress.get() - 0.25));
+        clearSnapTimeout();
+        rawProgress.set(Math.max(0, Math.round(rawProgress.get()) - 1));
       }
     };
 
@@ -190,7 +182,8 @@ export function ForgeAutomotiveTemplate() {
   }, [menuOpen, rawProgress]);
 
   function jumpToScene(sceneIndex: number) {
-    rawProgress.set(sceneIndex / 4);
+    clearSnapTimeout();
+    rawProgress.set(Math.max(0, Math.min(4, Math.round(sceneIndex))));
   }
 
   // =========================================================================
@@ -230,36 +223,22 @@ export function ForgeAutomotiveTemplate() {
   }, [mouseX, mouseY, cursorX, cursorY]);
 
   // =========================================================================
-  // 3. 3D Z-SPACE SCENE TRANSFORMS (CAMERA FLIES THROUGH EACH SCENE)
+  // 3. INTEGER-CENTERED SCENE TRANSFORMS
   // =========================================================================
-  // SCENE 01: FORGE HERO STAGE (0.00 -> 0.25)
-  const s1Scale = useTransform(smoothProgress, [0, 0.22, 0.3], [1, 2.6, 4.2]);
-  const s1Opacity = useTransform(smoothProgress, [0, 0.18, 0.26], [1, 0.7, 0]);
-  const s1Z = useTransform(smoothProgress, [0, 0.28], [0, 700]);
+  const depthFill = useTransform(smoothProgress, [0, 4], [0, 1]);
+  const s1 = useSceneTrack(smoothProgress, { sceneIndex: 0 });
+  const s2 = useSceneTrack(smoothProgress, { sceneIndex: 1 });
+  const s3 = useSceneTrack(smoothProgress, { sceneIndex: 2 });
+  const s4 = useSceneTrack(smoothProgress, { sceneIndex: 3 });
+  const s5 = useSceneTrack(smoothProgress, { sceneIndex: 4 });
   const s1Pointer = activeScene === 0 ? "auto" : "none";
-
-  // SCENE 02: 3D MONOLITH SHOWROOM (0.20 -> 0.50)
-  const s2Scale = useTransform(smoothProgress, [0.14, 0.25, 0.42, 0.52], [0.45, 1, 1, 2.4]);
-  const s2Opacity = useTransform(smoothProgress, [0.16, 0.24, 0.42, 0.5], [0, 1, 1, 0]);
   const s2Pointer = activeScene === 1 ? "auto" : "none";
-
-  // SCENE 03: BESPOKE 3-STAGE CONFIGURATOR (0.45 -> 0.75)
-  const s3Scale = useTransform(smoothProgress, [0.4, 0.5, 0.67, 0.77], [0.5, 1, 1, 2.3]);
-  const s3Opacity = useTransform(smoothProgress, [0.42, 0.5, 0.67, 0.75], [0, 1, 1, 0]);
   const s3Pointer = activeScene === 2 ? "auto" : "none";
-
-  // SCENE 04: PRECISION SPLIT STUDIO SLIDER (0.70 -> 0.92)
-  const s4Scale = useTransform(smoothProgress, [0.65, 0.75, 0.88, 0.96], [0.5, 1, 1, 2.2]);
-  const s4Opacity = useTransform(smoothProgress, [0.67, 0.75, 0.88, 0.95], [0, 1, 1, 0]);
   const s4Pointer = activeScene === 3 ? "auto" : "none";
-
-  // SCENE 05: PRIVATE VAULT & DIRECT DISPATCH (0.88 -> 1.00)
-  const s5Scale = useTransform(smoothProgress, [0.84, 0.94, 1], [0.55, 1, 1]);
-  const s5Opacity = useTransform(smoothProgress, [0.86, 0.94, 1], [0, 1, 1]);
   const s5Pointer = activeScene === 4 ? "auto" : "none";
 
   const zDepthReadout = useTransform(smoothProgress, (v) =>
-    `Z // -${String(Math.round(v * 4800)).padStart(4, "0")}MM`,
+    `Z // -${String(Math.round((v / 4) * 4800)).padStart(4, "0")}MM`,
   );
 
   const specMessage =
@@ -280,7 +259,7 @@ export function ForgeAutomotiveTemplate() {
     <div
       dir="rtl"
       data-camera-engine="true"
-      className="camera-cursor-hidden fixed inset-0 h-screen w-screen select-none overflow-hidden bg-[#030303] font-heebo text-[#F5F5F3]"
+      className="camera-cursor-hidden fixed inset-0 h-[100dvh] w-screen select-none overflow-hidden bg-[#030303] font-heebo text-[#F5F5F3]"
     >
       {/* סמן עכבר מגנטי תלת-ממדי */}
       <motion.div
@@ -427,7 +406,7 @@ export function ForgeAutomotiveTemplate() {
 
           <div className="relative h-44 w-[1px] bg-white/15 overflow-hidden">
             <motion.div
-              style={{ scaleY: smoothProgress, transformOrigin: "top" }}
+              style={{ scaleY: depthFill, transformOrigin: "top" }}
               className="w-full h-full bg-[#C59B27]"
             />
           </div>
@@ -492,13 +471,8 @@ export function ForgeAutomotiveTemplate() {
             SCENE 01: FORGE HERO SHOWROOM (כמו בצילום המסך של FORGE AUTOMOTIVE)
            ----------------------------------------------------------------- */}
         <motion.section
-          style={{
-            scale: s1Scale,
-            opacity: s1Opacity,
-            z: s1Z,
-            pointerEvents: s1Pointer as any,
-          }}
-          className="absolute inset-0 flex flex-col items-center justify-center px-6 pb-24"
+          style={{ ...s1, pointerEvents: s1Pointer as any }}
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] overflow-y-auto flex flex-col items-center justify-center px-6 pb-24 md:inset-y-0 md:max-h-none md:overflow-visible"
         >
           <div className="text-center mb-3 md:mb-5 max-w-3xl mx-auto">
             <h1
@@ -558,12 +532,8 @@ export function ForgeAutomotiveTemplate() {
             SCENE 02: 3D MONOLITH SPECIFICATIONS
            ----------------------------------------------------------------- */}
         <motion.section
-          style={{
-            scale: s2Scale,
-            opacity: s2Opacity,
-            pointerEvents: s2Pointer as any,
-          }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 md:px-20 max-w-7xl mx-auto"
+          style={{ ...s2, pointerEvents: s2Pointer as any }}
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] overflow-y-auto flex flex-col justify-center px-6 pb-24 md:inset-y-0 md:max-h-none md:overflow-visible md:px-20 max-w-7xl mx-auto"
         >
           <div className="flex items-end justify-between border-b border-white/10 pb-5 mb-8">
             <div>
@@ -621,12 +591,8 @@ export function ForgeAutomotiveTemplate() {
             SCENE 03: INTERACTIVE 3-STAGE AUTOMOTIVE CONFIGURATOR
            ----------------------------------------------------------------- */}
         <motion.section
-          style={{
-            scale: s3Scale,
-            opacity: s3Opacity,
-            pointerEvents: s3Pointer as any,
-          }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 md:px-20 max-w-7xl mx-auto"
+          style={{ ...s3, pointerEvents: s3Pointer as any }}
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] overflow-y-auto flex flex-col justify-center px-6 pb-24 md:inset-y-0 md:max-h-none md:overflow-visible md:px-20 max-w-7xl mx-auto"
         >
           <div className="mb-6">
             <span className="text-[10px] font-mono tracking-[0.35em] text-[#C59B27] uppercase block mb-2">
@@ -755,12 +721,8 @@ export function ForgeAutomotiveTemplate() {
             SCENE 04: BEFORE / AFTER STUDIO SPLIT COMPARISON
            ----------------------------------------------------------------- */}
         <motion.section
-          style={{
-            scale: s4Scale,
-            opacity: s4Opacity,
-            pointerEvents: s4Pointer as any,
-          }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 md:px-20 max-w-6xl mx-auto"
+          style={{ ...s4, pointerEvents: s4Pointer as any }}
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] overflow-y-auto flex flex-col justify-center px-6 pb-24 md:inset-y-0 md:max-h-none md:overflow-visible md:px-20 max-w-6xl mx-auto"
         >
           <div className="flex items-end justify-between mb-6">
             <div>
@@ -817,12 +779,8 @@ export function ForgeAutomotiveTemplate() {
             SCENE 05: PRIVATE COMMISSION VAULT (CONTACT & REVIEWS)
            ----------------------------------------------------------------- */}
         <motion.section
-          style={{
-            scale: s5Scale,
-            opacity: s5Opacity,
-            pointerEvents: s5Pointer as any,
-          }}
-          className="absolute inset-0 flex flex-col justify-center px-6 pb-24 md:px-20 max-w-6xl mx-auto"
+          style={{ ...s5, pointerEvents: s5Pointer as any }}
+          className="absolute inset-x-0 top-[9vh] bottom-[9vh] max-h-[82vh] overflow-y-auto px-6 pb-24 md:inset-y-0 md:max-h-none md:overflow-visible md:px-20 max-w-6xl mx-auto"
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center bg-[#060608]/90 border border-white/15 p-8 md:p-14">
             <div>
@@ -882,6 +840,7 @@ export function ForgeAutomotiveTemplate() {
           </div>
         </motion.section>
       </motion.main>
+      <LuxuryEntranceCurtain brandName={info.name || "FORGE"} />
     </div>
   );
 }

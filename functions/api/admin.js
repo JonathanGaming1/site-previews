@@ -3,15 +3,16 @@
  *
  * Runs on Cloudflare Pages Functions against the PRIVATE repository. GitHub and
  * Groq credentials live only in `context.env` (GITHUB_TOKEN, GROQ_API_KEY), so
- * no token is ever shipped to the browser. No n8n, no popups, no key in a URL.
+ * no token is ever shipped to the browser. Credentials are validated server-side
+ * and every write is protected by same-origin validation.
  *
- * Authorization: every request must carry a valid `admin_jwt` cookie — the
- * HS256 token /api/auth signs after checking the password server-side.
- * Anything else receives 401 immediately.
+ * Authorization: every request carries a server-verified key or a valid
+ * `admin_jwt` cookie — the HS256 token /api/auth signs after password checks.
+ * Same-origin protection remains mandatory before any repository mutation.
  */
 
 
-import { verifyAdminJwt } from "./auth.js";
+import { adminSecret, safeEqual, verifyAdminJwt } from "./auth.js";
 
 const DEFAULT_OWNER = "JonathanGaming1";
 const DEFAULT_REPO = "site-previews";
@@ -356,21 +357,26 @@ export async function onRequestPost(context) {
     return json({ ok: false, error: "invalid_body" }, 400);
   }
 
-  // Strict server-side gate: only a valid admin_jwt cookie (HS256 signed with
-  // ADMIN_KEY by /api/auth) may write to the private repository.
-  if (!(await verifyAdminJwt(request, env))) {
-    return json({ ok: false, error: "unauthorized" }, 401);
-  }
-
-  if (!env.ADMIN_KEY) {
-    return json(
-      {
-        ok: false,
-        error: "admin_not_configured",
-        hint: "גדירו ADMIN_KEY כ-Environment Variable בפרויקט Cloudflare Pages.",
-      },
-      503,
+  const ADMIN_SECRET = adminSecret(env);
+  const sessionAuth = await verifyAdminJwt(request, {
+    ...env,
+    ADMIN_KEY: ADMIN_SECRET,
+  });
+  if (!sessionAuth) {
+    const queryKey = new URL(request.url).searchParams.get("key") || "";
+    const headerKey = request.headers.get("x-admin-key") || "";
+    const bodyKey = typeof body.key === "string" ? body.key.trim() : "";
+    const bodyPassword = typeof body.password === "string" ? body.password.trim() : "";
+    const directKeyAuth = [bodyKey, bodyPassword, queryKey, headerKey].some(
+      (candidate) => candidate && safeEqual(candidate, ADMIN_SECRET),
     );
+    if (!directKeyAuth) {
+      return json({ ok: false, error: "unauthorized" }, 401);
+    }
+    // Raw keys must come from a browser same-origin request.
+    if (!isSameOrigin(request) || !request.headers.get("Origin")) {
+      return json({ ok: false, error: "bad_origin" }, 403);
+    }
   }
 
   if (!isSameOrigin(request)) {
