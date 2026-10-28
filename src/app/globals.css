@@ -10,16 +10,11 @@
 html {
   font-family: var(--font-heebo);
   scroll-behavior: smooth;
-  /* Zero-Scrollbar camera engine: the browser chrome scrollbar never shows. */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  scrollbar-gutter: stable;
 }
 
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
 }
 
 body {
@@ -28,32 +23,47 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Locked-viewport 3D camera templates (all five art directions).
-   The viewport is owned by the virtual wheel engine: the document itself
-   never scrolls, natively or otherwise. */
-html[data-camera-engine="true"],
-html[data-camera-engine="true"] body {
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+/* Commercial template palette is scoped to each rendered showcase. */
+.commercial-site {
+  background: var(--shop-bg);
+  color: var(--shop-text);
+  transition: background-color 240ms ease, color 240ms ease;
 }
+.commerce-header { background: color-mix(in srgb, var(--shop-bg) 88%, transparent); border-color: var(--shop-border); }
+.commerce-card { background: var(--shop-surface); border-color: var(--shop-border); }
+.commerce-muted { color: var(--shop-muted); }
+.commerce-accent-text { color: var(--shop-accent); }
+.commerce-button { color: var(--shop-bg); background: var(--shop-accent); }
+.commerce-secondary-button { color: var(--shop-text); border-color: var(--shop-border); }
+.commerce-theme-toggle { color: var(--shop-text); border-color: var(--shop-border); background: var(--shop-surface); }
+.commerce-hero-note, .commerce-estimate dl, .commerce-service-card > div { border-color: var(--shop-border); }
+.commerce-trust-item { background: var(--shop-surface); }
+.commerce-google-mark { display: grid; place-items: center; width: 2.35rem; height: 2.35rem; border: 1px solid var(--shop-border); border-radius: 9999px; color: #4285f4; font-weight: 700; background: var(--shop-bg); }
+.commerce-trust-icon { display: grid; place-items: center; width: 2.35rem; height: 2.35rem; border: 1px solid var(--shop-border); border-radius: 9999px; color: var(--shop-accent); }
+.commerce-status-dot { width: .65rem; height: .65rem; border-radius: 9999px; background: #38b477; box-shadow: 0 0 0 5px color-mix(in srgb, #38b477 15%, transparent); margin-inline: .85rem; }
+.commerce-service-card.is-selected, .commerce-package.is-selected { border-color: var(--shop-accent); background: var(--shop-raised); }
+.commerce-service-card, .commerce-quote, .commerce-comparison, .commerce-reviews, .commerce-faq { background: var(--shop-surface); }
+.commerce-input { background: var(--shop-bg); color: var(--shop-text); border-color: var(--shop-border); }
+.commerce-package { color: var(--shop-muted); border-color: var(--shop-border); }
+.commerce-estimate { background: var(--shop-raised); }
+.commerce-project { border-color: var(--shop-border); }
+.commerce-image-shade { background: linear-gradient(180deg, rgba(0,0,0,.12), transparent 38%, rgba(0,0,0,.76)); }
+.commerce-footer { border-color: var(--shop-border); }
 
-/* The custom magnetic cursor replaces the native one on pointer devices. */
-html[data-camera-engine="true"] .camera-cursor-hidden,
-html[data-camera-engine="true"] .camera-cursor-hidden * {
-  cursor: none;
-}
+[data-design="apple"] .commerce-hero-art { border-radius: 2rem; box-shadow: 0 24px 90px -42px color-mix(in srgb, var(--shop-accent) 50%, transparent); }
+[data-design="apple"] .commerce-trust { border-radius: 1.5rem; }
+[data-design="forge"] .commerce-hero-art { border-radius: .6rem; }
+[data-design="forge"] .commerce-service-card { border-radius: .6rem; }
+[data-design="horology"] .commerce-hero-art { border-radius: 1rem; box-shadow: inset 0 0 0 8px color-mix(in srgb, var(--shop-accent) 12%, transparent); }
+[data-design="kinetic"] .commerce-hero-art { border-radius: .25rem; clip-path: polygon(0 0, 96% 0, 100% 9%, 100% 100%, 4% 100%, 0 91%); }
+[data-design="kinetic"] .commerce-kicker { font-family: var(--font-heebo); letter-spacing: .16em; }
+[data-design="swiss"] .commerce-hero-art { border-radius: 0; }
+[data-design="swiss"] .commerce-project { border-radius: 0; }
+[data-design="swiss"] .commerce-section { border-top: 1px solid var(--shop-border); }
+.commerce-review-card { background: var(--shop-raised); border-color: var(--shop-border); }
 
-/* Keep phone-sized scene panels scrollable without drawing inner scrollbars. */
-html[data-camera-engine="true"] .overflow-y-auto {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-html[data-camera-engine="true"] .overflow-y-auto::-webkit-scrollbar {
-  display: none;
-  width: 0;
-  height: 0;
+@media (prefers-reduced-motion: reduce) {
+  .commercial-site *, .commercial-site *::before, .commercial-site *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
 
 /* HUD telemetry rail — thin accent readout used by the wheel scrubber */
